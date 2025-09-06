@@ -3,7 +3,8 @@ import { View, User } from '../types';
 
 interface LoginProps {
   onLogin: (credentials: { email: string; password: string; }) => { success: boolean, reason: string };
-  onRegister: (credentials: Omit<User, 'role' | 'status'>) => { success: boolean, reason: string };
+  // FIX: Changed type of onRegister to not expect createdAt, as it's generated in App.tsx.
+  onRegister: (credentials: Omit<User, 'role' | 'status' | 'createdAt'>) => { success: boolean, reason: string };
   onNavigate: (view: View) => void;
   onForgotPassword: () => void;
 }

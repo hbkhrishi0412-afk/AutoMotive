@@ -11,10 +11,10 @@ interface UserManagementProps {
     onNavigate: (view: View) => void;
 }
 
-// FIX: Correct 'dealer' to 'seller' to match the User type.
 type RoleFilter = 'all' | 'customer' | 'seller';
 
-const initialFormState: Omit<User, 'status'> = {
+// FIX: Changed type to not require createdAt, which will be generated on submission.
+const initialFormState: Omit<User, 'status' | 'createdAt'> = {
     name: '',
     email: '',
     password: '',
@@ -47,7 +47,7 @@ const CreateUserModal: React.FC<{
             setError('Password must be at least 6 characters long.');
             return;
         }
-        const result = onCreateUser(formData);
+        const result = onCreateUser({ ...formData, createdAt: new Date().toISOString() });
         if (result.success) {
             onClose();
         } else {
@@ -85,7 +85,6 @@ const CreateUserModal: React.FC<{
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
                                 <select name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full p-2 border rounded-md">
                                     <option value="customer">Customer</option>
-                                    {/* FIX: Correct 'dealer' to 'seller' to match the User type. */}
                                     <option value="seller">Seller</option>
                                 </select>
                             </div>
@@ -108,7 +107,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, currentUser, onT
 
     const filteredUsers = useMemo(() => {
         if (roleFilter === 'all') return users;
-        // FIX: The comparison below now works correctly after aligning RoleFilter and User['role'] types.
         return users.filter(user => user.role === roleFilter);
     }, [users, roleFilter]);
 
@@ -116,7 +114,6 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, currentUser, onT
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)} className="p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200">
             <option value="all">All Users</option>
             <option value="customer">Customers</option>
-            {/* FIX: Correct 'dealer' to 'seller' to match the User type. */}
             <option value="seller">Sellers</option>
         </select>
     );

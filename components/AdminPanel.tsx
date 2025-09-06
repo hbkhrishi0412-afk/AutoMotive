@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { Vehicle, User, Conversation } from '../types';
+import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
 
@@ -15,6 +15,11 @@ interface AdminPanelProps {
     onDeleteVehicle: (vehicleId: number) => void;
     onToggleVehicleStatus: (vehicleId: number) => void;
     onToggleVehicleFeature: (vehicleId: number) => void;
+    onResolveFlag: (type: 'vehicle' | 'conversation', id: number | string) => void;
+    platformSettings: PlatformSettings;
+    onUpdateSettings: (settings: PlatformSettings) => void;
+    onSendBroadcast: (message: string) => void;
+    auditLog: AuditLogEntry[];
 }
 
 type AdminView = 'analytics' | 'users' | 'listings';
@@ -98,7 +103,7 @@ const BarChart: React.FC<{ title: string; data: { label: string; value: number }
 
 // --- Main Admin Panel Component ---
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog }) => {
     const [activeView, setActiveView] = useState<AdminView>('analytics');
     
     // State for User Management

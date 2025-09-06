@@ -1,24 +1,31 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Vehicle, User, Conversation, ChatMessage } from '../types';
+import type { Vehicle, User, Conversation } from '../types';
 import { generateVehicleDescription, getVehicleSpecs } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController);
+import { Bar, Line } from 'react-chartjs-2';
+
 
 interface DashboardProps {
+  seller: User;
   sellerVehicles: Vehicle[];
   onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (vehicleId: number) => void;
+  onMarkAsSold: (vehicleId: number) => void;
   conversations: Conversation[];
   onSellerSendMessage: (conversationId: string, messageText: string) => void;
   onMarkConversationAsReadBySeller: (conversationId: string) => void;
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
+  onUpdateSellerProfile: (details: { dealershipName: string; bio: string; logoUrl: string; }) => void;
 }
 
-type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries';
+type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile';
 
-// Helper & Sub-components
 const HelpTooltip: React.FC<{ text: string }> = ({ text }) => (
     <span className="group relative ml-1">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -26,15 +33,13 @@ const HelpTooltip: React.FC<{ text: string }> = ({ text }) => (
     </span>
 );
 
-const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onBlur: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; }> = 
+const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; }> = 
   ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false }) => (
   <div>
-    {/* FIX: Cast `name` to string for `htmlFor` attribute */}
     <label htmlFor={String(name)} className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         {tooltip && <HelpTooltip text={tooltip} />}
     </label>
-    {/* FIX: Cast `name` to string for `id` and `name` attributes */}
     <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
   </div>
@@ -50,14 +55,11 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
   </div>
 );
 
-// Form Component (extracted for clarity)
-// FIX: Added missing status and isFeatured properties to satisfy the Vehicle type.
 const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
   make: '', model: '', year: new Date().getFullYear(), price: 0, mileage: 0,
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Electric', mpg: '',
   exteriorColor: '', interiorColor: '', features: [], images: [],
   sellerEmail: '',
-  // FIX: Added missing status and isFeatured properties
   status: 'published',
   isFeatured: false,
 };
@@ -191,7 +193,6 @@ const VehicleForm: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      // Final validation check omitted for brevity...
       if (editingVehicle) {
         onUpdateVehicle({ ...editingVehicle, ...formData });
       } else {
@@ -226,7 +227,6 @@ const VehicleForm: React.FC<{
                     <FormInput label="Exterior Color" name="exteriorColor" value={formData.exteriorColor} onChange={handleChange} onBlur={handleBlur} />
                 </div>
             </fieldset>
-            {/* Media & Features, Description and Submit button sections would go here, identical to original component */}
             <fieldset>
                 <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Media & Features</legend>
                 <div className="space-y-4">
@@ -270,7 +270,6 @@ const VehicleForm: React.FC<{
             </div>
           </form>
 
-          {/* Preview Column */}
           <div className="hidden lg:block">
               <div className="sticky top-24 self-start space-y-6">
                   <div>
@@ -331,7 +330,6 @@ const VehicleForm: React.FC<{
     );
 }
 
-// Inquiries Component
 const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
     isRead ? (
         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-blue-400" viewBox="0 0 24 24" fill="none">
@@ -483,9 +481,8 @@ const InquiriesView: React.FC<{
     );
 }
 
-
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
+const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
@@ -505,33 +502,77 @@ const Dashboard: React.FC<DashboardProps> = ({ sellerVehicles, onAddVehicle, onU
   }
 
   const unreadCount = useMemo(() => conversations.filter(c => !c.isReadBySeller).length, [conversations]);
+  const activeListings = useMemo(() => sellerVehicles.filter(v => v.status !== 'sold'), [sellerVehicles]);
+  const soldListings = useMemo(() => sellerVehicles.filter(v => v.status === 'sold'), [sellerVehicles]);
+  
+  const analyticsData = useMemo(() => {
+    const totalViews = activeListings.reduce((sum, v) => sum + (v.views || 0), 0);
+    const totalInquiries = activeListings.reduce((sum, v) => sum + (v.inquiriesCount || 0), 0);
+    const chartLabels = activeListings.map(v => `${v.year} ${v.model}`);
+    const chartData = {
+      labels: chartLabels,
+      datasets: [
+        {
+          label: 'Views',
+          data: activeListings.map(v => v.views || 0),
+          backgroundColor: 'rgba(59, 130, 246, 0.5)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 1,
+        },
+        {
+          label: 'Inquiries',
+          data: activeListings.map(v => v.inquiriesCount || 0),
+          backgroundColor: 'rgba(34, 197, 94, 0.5)',
+          borderColor: 'rgba(34, 197, 94, 1)',
+          borderWidth: 1,
+        },
+      ],
+    };
+    return { totalViews, totalInquiries, chartData };
+  }, [activeListings]);
 
   const renderContent = () => {
     switch(activeView) {
       case 'overview':
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <StatCard title="Active Listings" value={sellerVehicles.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+            <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
             <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
+            <StatCard title="Total Views" value={analyticsData.totalViews} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>} />
+            <StatCard title="Total Inquiries" value={analyticsData.totalInquiries} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
           </div>
         );
+      case 'analytics':
+        return (
+            <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Performance Analytics</h2>
+                {activeListings.length > 0 ? (
+                    <Bar data={analyticsData.chartData} options={{ responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Listing Views vs. Inquiries' } } }} />
+                ) : (
+                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">No active listings to analyze. Add a vehicle to see performance data.</p>
+                )}
+            </div>
+        );
+      case 'profile':
+          return <SellerProfileForm seller={seller} onUpdateProfile={onUpdateSellerProfile} />;
       case 'listings':
         return (
           <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Your Listings</h2>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Active Listings</h2>
               <button onClick={handleAddNewClick} className="bg-brand-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-brand-blue-dark">List New Vehicle</button>
             </div>
-            {sellerVehicles.length > 0 ? (
+            {activeListings.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-800"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th><th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th><th className="relative px-6 py-3"></th></tr></thead>
                   <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
-                    {sellerVehicles.map((v) => (
+                    {activeListings.map((v) => (
                       <tr key={v.id}>
                         <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
                         <td className="px-6 py-4">${v.price.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <button onClick={() => onMarkAsSold(v.id)} className="text-green-600 hover:text-green-800 mr-4">Mark as Sold</button>
                           <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark mr-4">Edit</button>
                           <button onClick={() => onDeleteVehicle(v.id)} className="text-red-600 hover:text-red-800">Delete</button>
                         </td>
@@ -559,6 +600,29 @@ const Dashboard: React.FC<DashboardProps> = ({ sellerVehicles, onAddVehicle, onU
             )}
           </div>
         );
+      case 'salesHistory':
+        return (
+          <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Sales History</h2>
+            {soldListings.length > 0 ? (
+                <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th><th className="px-6 py-3 text-left text-xs font-medium uppercase">Sold Price</th></tr></thead>
+                  <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
+                    {soldListings.map((v) => (
+                      <tr key={v.id}>
+                        <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
+                        <td className="px-6 py-4">${v.price.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+                <p className="text-center text-gray-500 dark:text-gray-400 py-8">You have not sold any vehicles yet.</p>
+            )}
+          </div>
+        );
       case 'form':
         return <VehicleForm editingVehicle={editingVehicle} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} />;
       case 'inquiries':
@@ -578,9 +642,12 @@ const Dashboard: React.FC<DashboardProps> = ({ sellerVehicles, onAddVehicle, onU
         <aside>
           <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md space-y-2">
             <NavItem view="overview">Overview</NavItem>
+            <NavItem view="analytics">Analytics</NavItem>
             <NavItem view="listings">My Listings</NavItem>
+            <NavItem view="salesHistory">Sales History</NavItem>
             <NavItem view="form">Add Vehicle</NavItem>
             <NavItem view="inquiries" count={unreadCount}>Inquiries</NavItem>
+            <NavItem view="profile">My Profile</NavItem>
           </div>
         </aside>
         <main>
@@ -588,6 +655,64 @@ const Dashboard: React.FC<DashboardProps> = ({ sellerVehicles, onAddVehicle, onU
         </main>
     </div>
   );
+};
+
+const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any) => void; }> = ({ seller, onUpdateProfile }) => {
+    const [formData, setFormData] = useState({
+        dealershipName: seller.dealershipName || '',
+        bio: seller.bio || '',
+        logoUrl: seller.logoUrl || '',
+    });
+    
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if(event.target?.result) {
+                    setFormData(prev => ({ ...prev, logoUrl: event.target.result as string }));
+                }
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onUpdateProfile(formData);
+    };
+
+    return (
+        <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Seller Profile</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="flex items-center gap-6">
+                    <img src={formData.logoUrl || 'https://via.placeholder.com/100'} alt="Logo" className="w-24 h-24 rounded-full object-cover bg-gray-200" />
+                    <div>
+                        <label htmlFor="logo-upload" className="cursor-pointer font-medium text-brand-blue hover:text-brand-blue-dark">
+                            <span>Upload New Logo</span>
+                            <input id="logo-upload" name="logo-upload" type="file" className="sr-only" accept="image/*" onChange={handleLogoUpload} />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 2MB.</p>
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="dealershipName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dealership Name</label>
+                    <input type="text" name="dealershipName" id="dealershipName" value={formData.dealershipName} onChange={handleChange} className="mt-1 block w-full p-3 border rounded-lg" />
+                </div>
+                 <div>
+                    <label htmlFor="bio" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Public Bio / About</label>
+                    <textarea name="bio" id="bio" rows={4} value={formData.bio} onChange={handleChange} className="mt-1 block w-full p-3 border rounded-lg" placeholder="Tell customers about your dealership..."></textarea>
+                </div>
+                <div>
+                    <button type="submit" className="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-brand-blue-dark">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    );
 };
 
 export default Dashboard;

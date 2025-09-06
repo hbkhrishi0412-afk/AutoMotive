@@ -1,10 +1,20 @@
 
 import type { Vehicle, User } from './types';
 
+// Helper to generate past dates
+const daysAgo = (days: number): string => {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    return date.toISOString();
+};
+
 export const MOCK_USERS: User[] = [
-    { name: 'Mock Seller', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active' },
-    { name: 'Mock Customer', email: 'customer@test.com', password: 'password', mobile: '555-987-6543', role: 'customer', status: 'active' },
-    { name: 'Mock Admin', email: 'admin@test.com', password: 'password', mobile: '111-222-3333', role: 'admin', status: 'active' }
+    { name: 'Mock Seller', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active', createdAt: daysAgo(30), dealershipName: 'Prestige Motors', bio: 'Specializing in luxury and performance electric vehicles since 2020.', logoUrl: 'https://i.pravatar.cc/100?u=seller' },
+    { name: 'Mock Customer', email: 'customer@test.com', password: 'password', mobile: '555-987-6543', role: 'customer', status: 'active', createdAt: daysAgo(15) },
+    { name: 'Mock Admin', email: 'admin@test.com', password: 'password', mobile: '111-222-3333', role: 'admin', status: 'active', createdAt: daysAgo(100) },
+    { name: 'Jane Doe', email: 'jane.doe@customer.com', password: 'password', mobile: '555-111-2222', role: 'customer', status: 'active', createdAt: daysAgo(5) },
+    { name: 'John Smith', email: 'john.smith@seller.com', password: 'password', mobile: '555-333-4444', role: 'seller', status: 'inactive', createdAt: daysAgo(60) },
+
 ];
 
 export const MOCK_VEHICLES: Vehicle[] = [
@@ -32,6 +42,9 @@ export const MOCK_VEHICLES: Vehicle[] = [
     interiorColor: 'Black',
     status: 'published',
     isFeatured: true,
+    views: 1250,
+    inquiriesCount: 15,
+    isFlagged: false,
   },
   {
     id: 2,
@@ -57,6 +70,9 @@ export const MOCK_VEHICLES: Vehicle[] = [
     interiorColor: 'Black Onyx',
     status: 'published',
     isFeatured: false,
+    views: 800,
+    inquiriesCount: 8,
+    isFlagged: false,
   },
   {
     id: 3,
@@ -82,6 +98,9 @@ export const MOCK_VEHICLES: Vehicle[] = [
     interiorColor: 'Forest Edge',
     status: 'published',
     isFeatured: false,
+    views: 2100,
+    inquiriesCount: 25,
+    isFlagged: true,
   },
   {
     id: 4,
@@ -98,7 +117,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Performance Battery Plus', 'Sport Chrono Package', 'Bose Surround Sound', 'Adaptive Air Suspension'],
     description: 'Unmistakable Porsche performance, electrified. A true sports car soul.',
-    sellerEmail: 'seller@test.com',
+    sellerEmail: 'john.smith@seller.com',
     engine: 'Permanent Magnet Synchronous Motors',
     transmission: '2-Speed Automatic',
     fuelType: 'Electric',
@@ -107,6 +126,9 @@ export const MOCK_VEHICLES: Vehicle[] = [
     interiorColor: 'Bordeaux Red',
     status: 'published',
     isFeatured: false,
+    views: 950,
+    inquiriesCount: 12,
+    isFlagged: false,
   },
   {
     id: 5,
@@ -123,7 +145,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Ultra-fast charging', 'Spacious Interior', 'Distinctive retro-futuristic design', 'Heads-Up Display'],
     description: 'A groundbreaking EV that combines innovative design with practical features.',
-    sellerEmail: 'seller@test.com',
+    sellerEmail: 'john.smith@seller.com',
     engine: 'Electric Motor',
     transmission: '1-Speed Automatic',
     fuelType: 'Electric',
@@ -132,6 +154,9 @@ export const MOCK_VEHICLES: Vehicle[] = [
     interiorColor: 'Gray 2-Tone',
     status: 'published',
     isFeatured: false,
+    views: 650,
+    inquiriesCount: 5,
+    isFlagged: false,
   },
   {
     id: 6,
@@ -155,7 +180,10 @@ export const MOCK_VEHICLES: Vehicle[] = [
     mpg: '109 MPGe combined',
     exteriorColor: 'Alpine White',
     interiorColor: 'Tacora Red',
-    status: 'published',
+    status: 'sold',
     isFeatured: false,
+    views: 1500,
+    inquiriesCount: 20,
+    isFlagged: false,
   }
 ];

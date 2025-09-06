@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -8,7 +9,7 @@ import Login from './components/Login';
 import AdminLogin from './components/AdminLogin';
 import Comparison from './components/Comparison';
 import { MOCK_VEHICLES, MOCK_USERS } from './constants';
-import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType } from './types';
+import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry } from './types';
 import { View } from './types';
 import { getRatings, addRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
@@ -21,6 +22,9 @@ import ToastContainer from './components/ToastContainer';
 import Profile from './components/Profile';
 import ForgotPassword from './components/ForgotPassword';
 import CustomerInbox from './components/CustomerInbox';
+import { getSettings, saveSettings } from './services/settingsService';
+import { getAuditLog, logAction, saveAuditLog } from './services/auditLogService';
+
 
 type Theme = 'light' | 'dark';
 
@@ -31,11 +35,13 @@ const App: React.FC = () => {
     const savedVehicles = getVehicles();
     const initialVehicles = savedVehicles || MOCK_VEHICLES;
     
-    // Data migration for vehicles from older versions without new properties
     return initialVehicles.map(v => ({
       ...v,
       status: v.status || 'published',
       isFeatured: v.isFeatured || false,
+      views: v.views || 0,
+      inquiriesCount: v.inquiriesCount || 0,
+      isFlagged: v.isFlagged || false,
     }));
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -52,12 +58,20 @@ const App: React.FC = () => {
 
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = getUsers();
-    // migration for users who dont have a status
     return (savedUsers || MOCK_USERS).map(u => ({...u, status: u.status || 'active'}));
   });
+  
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => getSettings());
+  const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(() => getAuditLog());
 
   const addToast = (message: string, type: ToastType['type']) => {
     setToasts(prev => [...prev, { id: Date.now(), message, type }]);
+  };
+
+  const addLogEntry = (action: string, target: string, details?: string) => {
+    if (currentUser?.role !== 'admin') return;
+    const newLog = logAction(currentUser.email, action, target, details);
+    setAuditLog(prev => [newLog, ...prev]);
   };
   
   const removeToast = (id: number) => {
@@ -65,7 +79,6 @@ const App: React.FC = () => {
   };
   
   useEffect(() => {
-    // Restore session
     const sessionUserJson = sessionStorage.getItem('currentUser');
     if (sessionUserJson) {
         setCurrentUser(JSON.parse(sessionUserJson));
@@ -76,17 +89,16 @@ const App: React.FC = () => {
     const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
     setTheme(initialTheme);
     
-    // Load wishlist & conversations from localStorage on initial load
     const savedWishlist = localStorage.getItem('wishlist');
     if (savedWishlist) {
       setWishlist(JSON.parse(savedWishlist));
     }
     const loadedConversations = getConversations();
-    // Data migration for conversations and messages without new properties
     setConversations(loadedConversations.map(c => ({
       ...c,
-      isReadByCustomer: c.isReadByCustomer ?? true, // Default old conversations to 'read'
-      messages: c.messages.map(m => ({ ...m, isRead: m.isRead ?? true })) // Default old messages to 'read'
+      isReadByCustomer: c.isReadByCustomer ?? true,
+      messages: c.messages.map(m => ({ ...m, isRead: m.isRead ?? true })),
+      isFlagged: c.isFlagged || false,
     })));
   }, []);
 
@@ -99,7 +111,6 @@ const App: React.FC = () => {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Sync currentUser with the main users state, useful for profile updates or admin actions
   useEffect(() => {
     if (currentUser) {
         const updatedUserInState = users.find(u => u.email === currentUser.email);
@@ -107,7 +118,6 @@ const App: React.FC = () => {
             setCurrentUser(updatedUserInState);
             sessionStorage.setItem('currentUser', JSON.stringify(updatedUserInState));
         }
-        // If user was deactivated or deleted, log them out
         if (!updatedUserInState || updatedUserInState.status === 'inactive') {
             handleLogout();
             if (updatedUserInState?.status === 'inactive') {
@@ -136,6 +146,14 @@ const App: React.FC = () => {
   useEffect(() => {
     saveConversations(conversations);
   }, [conversations]);
+
+  useEffect(() => {
+    saveSettings(platformSettings);
+  }, [platformSettings]);
+
+  useEffect(() => {
+    saveAuditLog(auditLog);
+  }, [auditLog]);
 
   const handleAddRating = (vehicleId: number, rating: number) => {
     addRating(vehicleId, rating);
@@ -166,7 +184,7 @@ const App: React.FC = () => {
     setTypingStatus({ conversationId, userRole });
     typingTimeoutRef.current = window.setTimeout(() => {
         setTypingStatus(null);
-    }, 2000); // User stops typing after 2 seconds
+    }, 2000);
   };
 
   const handleMarkMessagesAsRead = (conversationId: string, readerRole: 'customer' | 'seller') => {
@@ -175,7 +193,6 @@ const App: React.FC = () => {
             if (conv.id === conversationId) {
                 const updatedMessages = conv.messages.map(msg => {
                     const readerSenderType = readerRole === 'customer' ? 'user' : 'seller';
-                    // Mark messages sent by the OTHER party as read
                     if (msg.sender !== readerSenderType && msg.sender !== 'system' && !msg.isRead) {
                         return { ...msg, isRead: true };
                     }
@@ -196,6 +213,8 @@ const App: React.FC = () => {
         addToast("Could not find vehicle details.", "error");
         return;
     }
+    
+    setVehicles(prev => prev.map(v => v.id === vehicleId ? {...v, inquiriesCount: (v.inquiriesCount || 0) + 1} : v));
 
     const conversationId = `${currentUser.email}-${vehicle.id}`;
     
@@ -256,7 +275,7 @@ const App: React.FC = () => {
             ...conversation,
             messages: [...conversation.messages, sellerMessage],
             lastMessageAt: new Date().toISOString(),
-            isReadByCustomer: false, // Mark as unread for the customer
+            isReadByCustomer: false,
           };
         }
         return conversation;
@@ -308,6 +327,8 @@ const App: React.FC = () => {
       sellerEmail: currentUser?.email || 'seller@test.com',
       status: 'published',
       isFeatured: false,
+      views: 0,
+      inquiriesCount: 0,
     };
     setVehicles(prevVehicles => [newVehicle, ...prevVehicles]);
     addToast('Vehicle listed successfully!', 'success');
@@ -319,39 +340,53 @@ const App: React.FC = () => {
         vehicle.id === updatedVehicle.id ? updatedVehicle : vehicle
       )
     );
+    addLogEntry('Updated Vehicle', String(updatedVehicle.id), `${updatedVehicle.year} ${updatedVehicle.make} ${updatedVehicle.model}`);
     addToast('Vehicle updated successfully!', 'success');
   };
 
   const handleDeleteVehicle = (vehicleId: number) => {
     if(window.confirm('Are you sure you want to delete this vehicle listing? This action cannot be undone.')){
+        const vehicle = vehicles.find(v => v.id === vehicleId);
+        if (vehicle) addLogEntry('Deleted Vehicle', String(vehicleId), `${vehicle.year} ${vehicle.make} ${vehicle.model}`);
         setVehicles(prevVehicles => prevVehicles.filter(v => v.id !== vehicleId));
         addToast('Vehicle listing has been deleted.', 'info');
     }
   };
 
+  const handleMarkAsSold = (vehicleId: number) => {
+    setVehicles(prev => prev.map(v => v.id === vehicleId ? { ...v, status: 'sold' } : v));
+    addToast('Vehicle marked as sold!', 'success');
+  };
+
   const handleToggleVehicleStatus = (vehicleId: number) => {
     let statusChange = '';
+    let action = '';
     setVehicles(prev => prev.map(v => {
       if (v.id === vehicleId) {
         const newStatus = v.status === 'published' ? 'unpublished' : 'published';
+        action = newStatus === 'published' ? 'Published Vehicle' : 'Unpublished Vehicle';
         statusChange = `Vehicle listing has been ${newStatus}.`;
         return { ...v, status: newStatus };
       }
       return v;
     }));
+    addLogEntry(action, String(vehicleId));
     addToast(statusChange, 'info');
   };
 
   const handleToggleVehicleFeature = (vehicleId: number) => {
     let featureChange = '';
+    let action = '';
     setVehicles(prev => prev.map(v => {
       if (v.id === vehicleId) {
         const newIsFeatured = !v.isFeatured;
+        action = newIsFeatured ? 'Featured Vehicle' : 'Un-featured Vehicle';
         featureChange = `Vehicle has been ${newIsFeatured ? 'featured' : 'un-featured'}.`;
         return { ...v, isFeatured: newIsFeatured };
       }
       return v;
     }));
+    addLogEntry(action, String(vehicleId));
     addToast(featureChange, 'info');
   };
 
@@ -379,6 +414,7 @@ const App: React.FC = () => {
   const handleSelectVehicle = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
     setCurrentView(View.DETAIL);
+    setVehicles(prev => prev.map(v => v.id === vehicle.id ? {...v, views: (v.views || 0) + 1} : v));
   };
 
   const handleBackToUsedCars = () => {
@@ -424,7 +460,7 @@ const App: React.FC = () => {
 
   const handleAdminLogin = (credentials: { email: string; password: string; }) => {
     const user = users.find(u => u.email === credentials.email && u.password === credentials.password && u.role === 'admin');
-    if (user) { // Admins can log in even if inactive, for recovery purposes
+    if (user) {
       loginUser(user);
       setCurrentView(View.ADMIN_PANEL);
       return true;
@@ -433,13 +469,13 @@ const App: React.FC = () => {
     return false;
   };
 
-  const handleSellerRegister = (credentials: Omit<User, 'role' | 'status'>): { success: boolean, reason: string } => {
+  const handleSellerRegister = (credentials: Omit<User, 'role' | 'status' | 'createdAt'>): { success: boolean, reason: string } => {
     if (users.some(u => u.email === credentials.email)) {
       const reason = 'A seller account with this email already exists.';
       addToast(reason, 'error');
       return { success: false, reason };
     }
-    const newUser: User = {...credentials, role: 'seller', status: 'active'};
+    const newUser: User = {...credentials, role: 'seller', status: 'active', createdAt: new Date().toISOString()};
     setUsers(prev => [...prev, newUser]);
     loginUser(newUser);
     setCurrentView(View.SELLER_DASHBOARD);
@@ -447,13 +483,13 @@ const App: React.FC = () => {
     return { success: true, reason: ''};
   };
 
-  const handleCustomerRegister = (credentials: Omit<User, 'role' | 'status'>): { success: boolean, reason: string } => {
+  const handleCustomerRegister = (credentials: Omit<User, 'role' | 'status' | 'createdAt'>): { success: boolean, reason: string } => {
     if (users.some(u => u.email === credentials.email)) {
       const reason = 'An account with this email already exists. Please log in.';
       addToast(reason, 'error');
       return { success: false, reason };
     }
-    const newUser: User = { ...credentials, role: 'customer', status: 'active' };
+    const newUser: User = { ...credentials, role: 'customer', status: 'active', createdAt: new Date().toISOString() };
     setUsers(prev => [...prev, newUser]);
     loginUser(newUser);
     setCurrentView(View.USED_CARS);
@@ -470,21 +506,24 @@ const App: React.FC = () => {
   
   const handleToggleUserStatus = (userEmail: string) => {
     let statusChange = '';
+    let action = '';
     setUsers(prevUsers => prevUsers.map(user => {
       if (user.email === userEmail) {
         const newStatus = user.status === 'active' ? 'inactive' : 'active';
+        action = newStatus === 'active' ? 'Reactivated User' : 'Deactivated User';
         statusChange = `User has been ${newStatus === 'active' ? 'reactivated' : 'deactivated'}.`;
         return { ...user, status: newStatus };
       }
       return user;
     }));
+    addLogEntry(action, userEmail);
     addToast(statusChange, 'success');
   };
   
   const handleDeleteUser = (userEmail: string) => {
     if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
+        addLogEntry('Deleted User', userEmail);
         setUsers(prevUsers => prevUsers.filter(user => user.email !== userEmail));
-        // Also consider deleting their listings and conversations
         setVehicles(prev => prev.filter(v => v.sellerEmail !== userEmail));
         setConversations(prev => prev.filter(c => c.customerId !== userEmail && c.sellerId !== userEmail));
         addToast('User has been permanently deleted.', 'info');
@@ -492,6 +531,7 @@ const App: React.FC = () => {
   };
 
   const handleAdminUpdateUser = (email: string, details: { name: string; mobile: string; role: User['role'] }) => {
+    addLogEntry('Updated User Profile', email);
     setUsers(prev => prev.map(u => u.email === email ? { ...u, ...details } : u));
     addToast("User details have been updated successfully.", "success");
   };
@@ -502,6 +542,14 @@ const App: React.FC = () => {
       u.email === currentUser.email ? { ...u, name: updatedDetails.name, mobile: updatedDetails.mobile } : u
     ));
     addToast('Profile updated successfully!', 'success');
+  };
+  
+  const handleUpdateSellerProfile = (updatedDetails: { dealershipName: string; bio: string; logoUrl: string; }) => {
+     if (!currentUser) return;
+     setUsers(prev => prev.map(u => 
+       u.email === currentUser.email ? { ...u, ...updatedDetails } : u
+     ));
+     addToast('Seller profile updated successfully!', 'success');
   };
 
   const handleUpdateUserPassword = (passwords: { current: string; new: string; }): boolean => {
@@ -519,12 +567,56 @@ const App: React.FC = () => {
   };
 
   const handleForgotPasswordRequest = (email: string) => {
-    // In a real app, this would trigger a secure email sending process.
-    // For security, we don't confirm if the user exists.
-    // This console log is for demonstration purposes to simulate the backend logic.
     const userExists = users.some(u => u.email === email && u.role === forgotPasswordRole);
     console.log(`Password reset for ${email} as a ${forgotPasswordRole}. User exists: ${userExists}`);
-    // The UI feedback is handled within the ForgotPassword component itself.
+  };
+
+  const handleFlagContent = (type: 'vehicle' | 'conversation', id: number | string) => {
+    if (type === 'vehicle') {
+        setVehicles(prev => prev.map(v => v.id === id ? { ...v, isFlagged: true } : v));
+    } else {
+        setConversations(prev => prev.map(c => c.id === id ? { ...c, isFlagged: true } : c));
+    }
+    addToast('Content has been reported for review. Thank you.', 'info');
+  };
+
+  const handleResolveFlag = (type: 'vehicle' | 'conversation', id: number | string) => {
+      if (type === 'vehicle') {
+          addLogEntry('Resolved Flag (Vehicle)', String(id));
+          setVehicles(prev => prev.map(v => v.id === id ? { ...v, isFlagged: false } : v));
+      } else {
+          addLogEntry('Resolved Flag (Conversation)', String(id));
+          setConversations(prev => prev.map(c => c.id === id ? { ...c, isFlagged: false } : c));
+      }
+      addToast('Flag has been resolved.', 'success');
+  };
+
+  const handleAdminUpdateSettings = (newSettings: PlatformSettings) => {
+      setPlatformSettings(newSettings);
+      addLogEntry('Updated Platform Settings', 'platform-settings', JSON.stringify(newSettings));
+      addToast('Platform settings updated.', 'success');
+  };
+
+  const handleAdminSendBroadcast = (message: string) => {
+    if (!message.trim()) return;
+    const broadcastMessage: ChatMessage = {
+        id: Date.now(),
+        sender: 'system',
+        text: `Announcement: ${message}`,
+        timestamp: new Date().toISOString(),
+        isRead: false,
+    };
+
+    setConversations(prev => prev.map(c => ({
+        ...c,
+        messages: [...c.messages, broadcastMessage],
+        lastMessageAt: broadcastMessage.timestamp,
+        isReadByCustomer: false,
+        isReadBySeller: false,
+    })));
+
+    addLogEntry('Sent Broadcast Message', 'all_users', `Message: "${message}"`);
+    addToast('Broadcast message sent to all users.', 'success');
   };
   
   const navigate = (view: View) => {
@@ -566,19 +658,22 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentView) {
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToUsedCars} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddRating={handleAddRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onSendMessage={handleCustomerSendMessage} conversations={conversations} onUserTyping={handleUserTyping} typingStatus={typingStatus} onMarkMessagesAsRead={handleMarkMessagesAsRead} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToUsedCars} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddRating={handleAddRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onSendMessage={handleCustomerSendMessage} conversations={conversations} onUserTyping={handleUserTyping} typingStatus={typingStatus} onMarkMessagesAsRead={handleMarkMessagesAsRead} onFlagContent={handleFlagContent} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
+                  seller={currentUser}
                   sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
                   onAddVehicle={handleAddVehicle} 
                   onUpdateVehicle={handleUpdateVehicle} 
                   onDeleteVehicle={handleDeleteVehicle}
+                  onMarkAsSold={handleMarkAsSold}
                   conversations={conversations.filter(c => c.sellerId === currentUser.email)}
                   onSellerSendMessage={handleSellerSendMessage}
                   onMarkConversationAsReadBySeller={handleMarkConversationAsReadBySeller}
                   onUserTyping={handleUserTyping}
                   typingStatus={typingStatus}
                   onMarkMessagesAsRead={handleMarkMessagesAsRead}
+                  onUpdateSellerProfile={handleUpdateSellerProfile}
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.ADMIN_PANEL:
         return currentUser?.role === 'admin' ? <AdminPanel 
@@ -593,6 +688,11 @@ const App: React.FC = () => {
                   onDeleteVehicle={handleDeleteVehicle}
                   onToggleVehicleStatus={handleToggleVehicleStatus}
                   onToggleVehicleFeature={handleToggleVehicleFeature}
+                  onResolveFlag={handleResolveFlag}
+                  platformSettings={platformSettings}
+                  onUpdateSettings={handleAdminUpdateSettings}
+                  onSendBroadcast={handleAdminSendBroadcast}
+                  auditLog={auditLog}
                 /> : <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
       case View.PROFILE:
         return currentUser ? <Profile 
@@ -609,6 +709,7 @@ const App: React.FC = () => {
                   onUserTyping={handleUserTyping}
                   typingStatus={typingStatus}
                   onMarkMessagesAsRead={handleMarkMessagesAsRead}
+                  onFlagContent={handleFlagContent}
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.LOGIN_PORTAL:
         return <LoginPortal onNavigate={navigate} />;

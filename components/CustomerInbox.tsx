@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Conversation, User, ChatMessage } from '../types';
+import type { Conversation, User } from '../types';
 
 interface CustomerInboxProps {
   conversations: Conversation[];
@@ -9,6 +9,7 @@ interface CustomerInboxProps {
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
+  onFlagContent: (type: 'vehicle' | 'conversation', id: number | string) => void;
 }
 
 const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
@@ -36,7 +37,7 @@ const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
 );
 
 
-const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMessage, onMarkAsRead, users, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
+const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMessage, onMarkAsRead, users, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent }) => {
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [replyText, setReplyText] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -91,6 +92,16 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
       setReplyText("");
     }
   };
+  
+  const handleFlagClick = () => {
+    if (selectedConv && !selectedConv.isFlagged) {
+        if(window.confirm('Are you sure you want to report this conversation for review?')) {
+            onFlagContent('conversation', selectedConv.id);
+            // Optimistically update UI
+            setSelectedConv(prev => prev ? {...prev, isFlagged: true} : null);
+        }
+    }
+  };
 
   const getSellerName = (sellerId: string) => {
     return users.find(u => u.email === sellerId)?.name || 'Seller';
@@ -127,7 +138,7 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                                                     <span><span className="font-semibold">You: </span>{lastMessage.text}</span>
                                                 ) : lastMessage.sender === 'seller' ? (
                                                     <span><span className="font-semibold">{getSellerName(conv.sellerId)}: </span>{lastMessage.text}</span>
-                                                ) : ( // system message
+                                                ) : (
                                                     <em>{lastMessage.text}</em>
                                                 )
                                             )}
@@ -147,9 +158,24 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
         <main className="flex flex-col">
             {selectedConv ? (
                  <>
-                    <div className="p-4 border-b dark:border-gray-700">
-                        <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100">{selectedConv.vehicleName}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Conversation with {getSellerName(selectedConv.sellerId)}</p>
+                    <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                        <div>
+                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100">{selectedConv.vehicleName}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Conversation with {getSellerName(selectedConv.sellerId)}</p>
+                        </div>
+                         <button onClick={handleFlagClick} disabled={selectedConv.isFlagged} className="disabled:opacity-50 flex items-center gap-1 text-xs text-gray-500 hover:text-red-500" title={selectedConv.isFlagged ? "This conversation has been reported" : "Report conversation"}>
+                            {selectedConv.isFlagged ? (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 01-1-1V6z" clipRule="evenodd" /></svg>
+                                    Reported
+                                </>
+                            ) : (
+                                <>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 01-1-1V6z" clipRule="evenodd" /></svg>
+                                    Report
+                                </>
+                            )}
+                        </button>
                     </div>
                     <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-light dark:bg-brand-gray-darker space-y-4">
                         {selectedConv.messages.map(msg => (

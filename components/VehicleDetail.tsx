@@ -18,6 +18,7 @@ interface VehicleDetailProps {
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
+  onFlagContent: (type: 'vehicle' | 'conversation', id: number | string) => void;
 }
 
 const KeySpec: React.FC<{ label: string; value: string; }> = ({ label, value }) => (
@@ -29,7 +30,7 @@ const KeySpec: React.FC<{ label: string; value: string; }> = ({ label, value }) 
 
 type Tab = 'overview' | 'features';
 
-const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparisonList, onToggleCompare, onAddRating, wishlist, onToggleWishlist, currentUser, onSendMessage, conversations, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
+const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparisonList, onToggleCompare, onAddRating, wishlist, onToggleWishlist, currentUser, onSendMessage, conversations, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent }) => {
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [mainImage, setMainImage] = useState(vehicle.images[0]);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -49,6 +50,12 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
     setShowRatingSuccess(true);
     setTimeout(() => setShowRatingSuccess(false), 3000); // Hide message after 3 seconds
   };
+  
+  const handleFlagClick = () => {
+      if(window.confirm('Are you sure you want to report this listing for review by an administrator?')) {
+        onFlagContent('vehicle', vehicle.id);
+      }
+  }
 
   const isComparing = comparisonList.includes(vehicle.id);
   const isInWishlist = wishlist.includes(vehicle.id);
@@ -124,7 +131,6 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">AI-Generated Pros &amp; Cons</h3>
                                     {isGeneratingProsCons ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {/* Skeleton loader */}
                                             <div className="space-y-3">
                                                 <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/3 animate-pulse"></div>
                                                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse"></div>
@@ -246,6 +252,15 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                                 {isComparing ? 'Remove from Compare' : 'Add to Compare'}
                             </button>
                         </div>
+                         <div className="mt-4 text-center">
+                            <button
+                                onClick={handleFlagClick}
+                                disabled={vehicle.isFlagged}
+                                className="text-xs text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {vehicle.isFlagged ? 'Reported for review' : 'Report this listing'}
+                            </button>
+                        </div>
                     </div>
                     <div className="bg-white dark:bg-brand-gray-dark rounded-lg shadow-lg p-6 text-center">
                         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Rate This Vehicle</h3>
@@ -265,7 +280,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                 </div>
             </div>
         </div>
-        {isChatOpen && <ChatModal conversation={currentConversation} vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} onClose={() => setIsChatOpen(false)} onSendMessage={handleSendMessage} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} />}
+        {isChatOpen && <ChatModal conversation={currentConversation} vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} onClose={() => setIsChatOpen(false)} onSendMessage={handleSendMessage} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} onFlagContent={onFlagContent} />}
     </div>
   );
 };

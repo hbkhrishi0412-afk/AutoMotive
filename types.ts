@@ -1,3 +1,5 @@
+import { ChartData } from 'chart.js';
+
 export interface Vehicle {
   id: number;
   make: string;
@@ -15,8 +17,11 @@ export interface Vehicle {
   mpg: string;
   exteriorColor: string;
   interiorColor: string;
-  status: 'published' | 'unpublished';
+  status: 'published' | 'unpublished' | 'sold';
   isFeatured: boolean;
+  views?: number;
+  inquiriesCount?: number;
+  isFlagged?: boolean;
   averageRating?: number;
   ratingCount?: number;
 }
@@ -28,6 +33,11 @@ export interface User {
   mobile: string;
   role: 'seller' | 'customer' | 'admin';
   status: 'active' | 'inactive';
+  createdAt: string; // ISO String
+  // Seller-specific profile info
+  dealershipName?: string;
+  bio?: string;
+  logoUrl?: string;
 }
 
 export interface ChatMessage {
@@ -49,6 +59,7 @@ export interface Conversation {
   lastMessageAt: string;
   isReadBySeller: boolean;
   isReadByCustomer: boolean;
+  isFlagged?: boolean;
 }
 
 export interface Toast {
@@ -84,4 +95,18 @@ export interface SearchFilters {
     minPrice?: number;
     maxPrice?: number;
     features?: string[];
+}
+
+export interface PlatformSettings {
+    listingFee: number;
+    siteAnnouncement: string;
+}
+
+export interface AuditLogEntry {
+    id: number;
+    timestamp: string; // ISO String
+    actor: string; // email of the admin
+    action: string;
+    target: string; // e.g., user email or vehicle ID
+    details?: string;
 }

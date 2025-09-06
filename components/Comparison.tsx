@@ -10,7 +10,7 @@ interface ComparisonProps {
 }
 
 const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'mpg', 'exteriorColor', 'interiorColor'];
-// FIX: Added missing `status` and `isFeatured` properties to satisfy Record<keyof Vehicle, string> type.
+// FIX: Added missing properties to satisfy Record<keyof Vehicle, string> type.
 const specLabels: Record<keyof Vehicle, string> = {
     price: 'Price',
     year: 'Year',
@@ -31,9 +31,11 @@ const specLabels: Record<keyof Vehicle, string> = {
     sellerEmail: 'Seller Email',
     averageRating: 'Average Rating',
     ratingCount: 'Rating Count',
-    // FIX: Add missing status and isFeatured properties
     status: 'Status',
     isFeatured: 'Featured',
+    views: 'Views',
+    inquiriesCount: 'Inquiries',
+    isFlagged: 'Flagged',
 };
 
 const CheckIcon: React.FC = () => (
@@ -106,14 +108,12 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack, onToggleCompa
 
           {/* Specifications Section */}
           {specFields.map((key, index) => (
-            // FIX: Use String(key) for React key prop as `keyof Vehicle` can be a symbol.
             <React.Fragment key={String(key)}>
               <div className={`font-semibold text-gray-600 dark:text-gray-300 py-3 px-2 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''}`}>{specLabels[key]}</div>
               {vehicles.map(vehicle => {
                 const value = vehicle[key];
                 const isBest = typeof value === 'number' && isBestValue(key, value);
                 return (
-                  // FIX: Use String(key) for React key prop as `keyof Vehicle` can be a symbol.
                   <div key={`${vehicle.id}-${String(key)}`} className={`py-3 px-2 flex items-center gap-2 dark:text-gray-200 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''} ${isBest ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 font-bold' : ''}`}>
                      <span>
                         {typeof value === 'number' ? (key === 'price' ? `$${value.toLocaleString()}`: value.toLocaleString()) : String(value)}

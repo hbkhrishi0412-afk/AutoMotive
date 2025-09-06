@@ -9,6 +9,7 @@ interface ChatModalProps {
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
+  onFlagContent: (type: 'vehicle' | 'conversation', id: number | string) => void;
 }
 
 const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
@@ -35,11 +36,12 @@ const TypingIndicator: React.FC = () => (
 );
 
 
-const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClose, onSendMessage, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
+const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClose, onSendMessage, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent }) => {
   const [userInput, setUserInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const messages = conversation?.messages || [];
+  const isFlagged = conversation?.isFlagged || false;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,9 +55,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClos
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserInput(e.target.value);
-    // Even if conversation doesn't exist yet, we need an ID to signal typing.
-    // The App component will create one for the first message. We can simulate that.
-    const convId = conversation?.id || `temp-${Date.now()}`; // This won't work perfectly for first message but is a safe fallback
+    const convId = conversation?.id || `temp-${Date.now()}`;
     if(conversation){
       onUserTyping(conversation.id, 'customer');
     }
@@ -68,11 +68,28 @@ const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClos
     setUserInput('');
   };
 
+  const handleFlagClick = () => {
+    if (conversation && !isFlagged) {
+        if(window.confirm('Are you sure you want to report this conversation for review?')) {
+            onFlagContent('conversation', conversation.id);
+        }
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in">
       <div className="bg-white dark:bg-brand-gray-dark rounded-lg shadow-2xl w-full max-w-lg h-[80vh] flex flex-col">
         <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center bg-brand-gray-darker text-white rounded-t-lg">
-          <h2 className="text-lg font-bold">Chat about {vehicleName}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold">Chat about {vehicleName}</h2>
+            <button onClick={handleFlagClick} disabled={isFlagged} className="disabled:opacity-50" title={isFlagged ? "This conversation has been reported" : "Report conversation"}>
+                {isFlagged ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 01-1-1V6z" clipRule="evenodd" /></svg>
+                ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 hover:text-white" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 01-1-1V6z" clipRule="evenodd" /></svg>
+                )}
+            </button>
+          </div>
           <button onClick={onClose} className="text-white text-2xl hover:text-gray-300">&times;</button>
         </div>
 
