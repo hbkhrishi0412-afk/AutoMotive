@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { Vehicle, ProsAndCons, User, Conversation } from '../types';
 import { generateProsAndCons } from '../services/geminiService';
@@ -19,6 +20,7 @@ interface VehicleDetailProps {
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onFlagContent: (type: 'vehicle' | 'conversation', id: number | string) => void;
+  users: User[];
 }
 
 const KeySpec: React.FC<{ label: string; value: string; }> = ({ label, value }) => (
@@ -30,7 +32,7 @@ const KeySpec: React.FC<{ label: string; value: string; }> = ({ label, value }) 
 
 type Tab = 'overview' | 'features';
 
-const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparisonList, onToggleCompare, onAddRating, wishlist, onToggleWishlist, currentUser, onSendMessage, conversations, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent }) => {
+const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparisonList, onToggleCompare, onAddRating, wishlist, onToggleWishlist, currentUser, onSendMessage, conversations, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent, users }) => {
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [mainImage, setMainImage] = useState(vehicle.images[0]);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -66,6 +68,10 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
     const conversationId = `${currentUser.email}-${vehicle.id}`;
     return conversations.find(c => c.id === conversationId);
   }, [conversations, currentUser, vehicle.id]);
+
+  const sellerName = useMemo(() => {
+    return users.find(u => u.email === vehicle.sellerEmail)?.name || 'Seller';
+  }, [users, vehicle.sellerEmail]);
   
   const handleSendMessage = (messageText: string) => {
     onSendMessage(vehicle.id, messageText);
@@ -75,7 +81,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
     <div className="bg-white dark:bg-brand-gray-darker animate-fade-in rounded-lg shadow-lg">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <button onClick={onBack} className="mb-6 bg-brand-gray dark:bg-gray-700 text-brand-gray-darker dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-              &larr; Back to Used Cars
+              &larr; Back to Listings
             </button>
             
             <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-100 mb-2">{vehicle.year} {vehicle.make} {vehicle.model}</h1>
@@ -279,7 +285,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                 </div>
             </div>
         </div>
-        {isChatOpen && <ChatModal conversation={currentConversation} vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} onClose={() => setIsChatOpen(false)} onSendMessage={handleSendMessage} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} onFlagContent={onFlagContent} />}
+        {isChatOpen && <ChatModal conversation={currentConversation} vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} onClose={() => setIsChatOpen(false)} onSendMessage={handleSendMessage} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} onFlagContent={onFlagContent} sellerName={sellerName} />}
     </div>
   );
 };

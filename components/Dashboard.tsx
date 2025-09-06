@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Vehicle, User, Conversation } from '../types';
+import { VehicleCategory } from '../types';
 import { generateVehicleDescription, getVehicleSpecs } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
@@ -68,6 +69,7 @@ const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = 
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Petrol', fuelEfficiency: '',
   exteriorColor: '', interiorColor: '', features: [], images: [],
   sellerEmail: '',
+  category: VehicleCategory.FOUR_WHEELER,
   status: 'published',
   isFeatured: false,
 };
@@ -229,6 +231,11 @@ const VehicleForm: React.FC<{
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     <FormInput label="Make" name="make" value={formData.make} onChange={handleChange} onBlur={handleBlur} error={errors.make as string} required />
                     <FormInput label="Model" name="model" value={formData.model} onChange={handleChange} onBlur={handleBlur} error={errors.model as string} required />
+                    <FormInput label="Category" name="category" type="select" value={formData.category} onChange={handleChange} required>
+                        {Object.values(VehicleCategory).map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </FormInput>
                     <FormInput label="Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year as string} required />
                     <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price as string} tooltip="Enter the listing price without commas or symbols." required />
                     <FormInput label="Mileage (kms)" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage as string} />

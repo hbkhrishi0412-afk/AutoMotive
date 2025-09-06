@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import type { View, User } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import type { View, User, VehicleCategory } from '../types';
 import { View as ViewEnum } from '../types';
+import { VehicleCategory as VehicleCategoryEnum } from '../types';
+
 
 interface HeaderProps {
     onNavigate: (view: View) => void;
@@ -11,16 +13,20 @@ interface HeaderProps {
     inboxCount: number;
     theme: 'light' | 'dark';
     onToggleTheme: () => void;
+    selectedCategory: VehicleCategory;
+    onSelectCategory: (category: VehicleCategory) => void;
 }
 
-const NavLink: React.FC<{ children: React.ReactNode; onClick: () => void; isMobile?: boolean; isButton?: boolean }> = ({ children, onClick, isMobile = false, isButton = false }) => (
-    <button onClick={onClick} className={`transition-colors relative ${isMobile ? 'block text-left w-full px-3 py-2 rounded-md text-base font-medium' : 'px-3 py-2 rounded-md text-sm font-medium'} ${isButton ? 'bg-brand-blue hover:bg-brand-blue-light text-white font-bold' : 'text-white hover:bg-brand-blue-dark'}`}>
+const NavLink: React.FC<{ children: React.ReactNode; onClick: () => void; isMobile?: boolean; isButton?: boolean; isActive?: boolean }> = ({ children, onClick, isMobile = false, isButton = false, isActive = false }) => (
+    <button onClick={onClick} className={`transition-colors relative ${isMobile ? 'block text-left w-full px-3 py-2 rounded-md text-base font-medium' : 'px-3 py-2 rounded-md text-sm font-medium'} ${isButton ? 'bg-brand-blue hover:bg-brand-blue-light text-white font-bold' : 'text-white hover:bg-brand-blue-dark'} ${isActive ? 'bg-brand-blue-dark' : ''}`}>
         {children}
     </button>
 );
 
-const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, compareCount, wishlistCount, inboxCount, theme, onToggleTheme }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, compareCount, wishlistCount, inboxCount, theme, onToggleTheme, selectedCategory, onSelectCategory }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isVehicleMenuOpen, setIsVehicleMenuOpen] = useState(false);
+  const vehicleMenuRef = useRef<HTMLDivElement>(null);
   
   const handleNavClick = (view: View) => {
     onNavigate(view);
@@ -31,6 +37,22 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, comp
     onLogout();
     setIsMobileMenuOpen(false);
   }
+
+  const handleCategoryClick = (category: VehicleCategory) => {
+    onSelectCategory(category);
+    setIsVehicleMenuOpen(false);
+    setIsMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (vehicleMenuRef.current && !vehicleMenuRef.current.contains(event.target as Node)) {
+            setIsVehicleMenuOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [vehicleMenuRef]);
   
   const renderNavLinks = (isMobile: boolean) => {
     const role = currentUser?.role;
@@ -53,10 +75,49 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, comp
 
     const showInboxBadge = inboxCount > 0;
 
-    // Default for customers and guests
+    if (isMobile) {
+        return (
+            <>
+                <h3 className="px-3 pt-4 pb-2 text-xs font-semibold text-blue-200 uppercase tracking-wider">Vehicle Categories</h3>
+                {Object.values(VehicleCategoryEnum).map(cat => (
+                     <NavLink key={cat} onClick={() => handleCategoryClick(cat)} isMobile={true} isActive={selectedCategory === cat}>
+                        {cat}
+                     </NavLink>
+                ))}
+                <div className="border-t border-blue-500 my-2"></div>
+                {currentUser?.role === 'customer' && (
+                  <NavLink onClick={() => handleNavClick(ViewEnum.INBOX)} isMobile={true}>
+                    Inbox {showInboxBadge && <span className="static ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">{inboxCount}</span>}
+                  </NavLink>
+                )}
+                <NavLink onClick={() => handleNavClick(ViewEnum.WISHLIST)} isMobile={true}>
+                    Wishlist {wishlistCount > 0 && <span className="static ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">{wishlistCount}</span>}
+                </NavLink>
+                <NavLink onClick={() => handleNavClick(ViewEnum.COMPARISON)} isMobile={true}>
+                    Compare {compareCount > 0 && <span className="static ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">{compareCount}</span>}
+                </NavLink>
+            </>
+        )
+    }
+
+    // Default for customers and guests (Desktop)
     return (
         <>
-          <NavLink onClick={() => handleNavClick(ViewEnum.USED_CARS)} isMobile={isMobile}>Used Cars</NavLink>
+          <div className="relative" ref={vehicleMenuRef}>
+            <button onClick={() => setIsVehicleMenuOpen(prev => !prev)} className="px-3 py-2 rounded-md text-sm font-medium text-white hover:bg-brand-blue-dark flex items-center gap-1">
+                Vehicles
+                <svg className={`w-4 h-4 transition-transform ${isVehicleMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            {isVehicleMenuOpen && (
+                <div className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-brand-gray-dark ring-1 ring-black ring-opacity-5 z-20 py-1">
+                    {Object.values(VehicleCategoryEnum).map(cat => (
+                        <a key={cat} onClick={() => handleCategoryClick(cat)} className={`block px-4 py-2 text-sm cursor-pointer ${selectedCategory === cat ? 'bg-brand-blue-light text-white' : 'text-gray-700 dark:text-gray-200 hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
+                            {cat}
+                        </a>
+                    ))}
+                </div>
+            )}
+          </div>
           {currentUser?.role === 'customer' && (
             <NavLink onClick={() => handleNavClick(ViewEnum.INBOX)} isMobile={isMobile}>
                 Inbox

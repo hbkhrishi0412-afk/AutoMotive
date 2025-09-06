@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import type { ChatMessage, Conversation } from '../types';
 
@@ -10,6 +11,7 @@ interface ChatModalProps {
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onFlagContent: (type: 'vehicle' | 'conversation', id: number | string) => void;
+  sellerName: string;
 }
 
 const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
@@ -25,18 +27,19 @@ const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
     )
 );
 
-const TypingIndicator: React.FC = () => (
+const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
     <div className="flex items-start">
-        <div className="rounded-xl px-4 py-3 max-w-xs lg:max-w-md bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200 flex items-center space-x-1.5">
-            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+        <div className="rounded-xl px-4 py-3 max-w-xs lg:max-w-md bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200 flex items-center space-x-2">
+            <span className="text-sm font-medium">{name} is typing</span>
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></div>
         </div>
     </div>
 );
 
 
-const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClose, onSendMessage, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent }) => {
+const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClose, onSendMessage, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent, sellerName }) => {
   const [userInput, setUserInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -118,7 +121,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ conversation, vehicleName, onClos
                 </div>
             )
           })}
-          {typingStatus?.conversationId === conversation?.id && typingStatus?.userRole === 'seller' && <TypingIndicator />}
+          {typingStatus?.conversationId === conversation?.id && typingStatus?.userRole === 'seller' && <TypingIndicator name={sellerName} />}
           <div ref={chatEndRef} />
         </div>
 

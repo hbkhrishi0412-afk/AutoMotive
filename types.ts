@@ -1,7 +1,17 @@
 import { ChartData } from 'chart.js';
 
+export enum VehicleCategory {
+  FOUR_WHEELER = 'Four Wheeler',
+  TWO_WHEELER = 'Two Wheeler',
+  THREE_WHEELER = 'Three Wheeler',
+  FARM = 'Farm Vehicle',
+  COMMERCIAL = 'Commercial Vehicle',
+  CONSTRUCTION = 'Construction Vehicle',
+}
+
 export interface Vehicle {
   id: number;
+  category: VehicleCategory;
   make: string;
   model: string;
   year: number;

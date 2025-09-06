@@ -12,6 +12,7 @@ interface VehicleListProps {
   onClearCompare: () => void;
   wishlist: number[];
   onToggleWishlist: (id: number) => void;
+  categoryTitle: string;
   isWishlistMode?: boolean;
 }
 
@@ -35,10 +36,10 @@ const sortOptions = {
   MILEAGE_ASC: 'Mileage: Low to High',
 };
 
-const MIN_PRICE = 500000;
+const MIN_PRICE = 50000;
 const MAX_PRICE = 5000000;
 
-const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, isLoading, comparisonList, onToggleCompare, onClearCompare, wishlist, onToggleWishlist, isWishlistMode = false }) => {
+const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, isLoading, comparisonList, onToggleCompare, onClearCompare, wishlist, onToggleWishlist, categoryTitle, isWishlistMode = false }) => {
   // AI Search State
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isAiSearching, setIsAiSearching] = useState(false);
@@ -134,9 +135,11 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   };
 
   const processedVehicles = useMemo(() => {
-    if (isWishlistMode) return vehicles;
+    const sourceVehicles = isWishlistMode 
+      ? vehicles.filter(v => wishlist.includes(v.id)) 
+      : vehicles;
 
-    const filtered = vehicles.filter(vehicle => {
+    const filtered = sourceVehicles.filter(vehicle => {
         const matchesMake = !makeFilter || vehicle.make === makeFilter;
         const matchesModel = !modelFilter || vehicle.model === modelFilter;
         const matchesPrice = vehicle.price >= priceRange.min && vehicle.price <= priceRange.max;
@@ -157,12 +160,12 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             default: return b.year - a.year;
         }
     });
-  }, [vehicles, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode]);
+  }, [vehicles, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist]);
   
   if (isWishlistMode) {
      return (
       <div className="animate-fade-in">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6 border-b dark:border-gray-700 pb-4">Your Wishlist</h1>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-6 border-b dark:border-gray-700 pb-4">{categoryTitle}</h1>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {isLoading ? (
             Array.from({ length: 3 }).map((_, index) => <VehicleCardSkeleton key={index} />)
@@ -245,6 +248,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
       </aside>
 
       <main className="space-y-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">{categoryTitle}</h1>
         <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md">
             <label htmlFor="ai-search" className="text-lg font-bold text-gray-800 dark:text-gray-100">✨ Intelligent Search</label>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Describe what you're looking for, e.g., "a white Tata Nexon under ₹15 lakhs with a sunroof"</p>

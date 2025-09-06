@@ -1,5 +1,6 @@
 
 import type { Vehicle, User } from './types';
+import { VehicleCategory } from './types';
 
 // Helper to generate past dates
 const daysAgo = (days: number): string => {
@@ -18,18 +19,16 @@ export const MOCK_USERS: User[] = [
 ];
 
 export const MOCK_VEHICLES: Vehicle[] = [
+  // Four Wheelers
   {
     id: 1,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Tata',
     model: 'Nexon EV',
     year: 2023,
     price: 1650000,
     mileage: 15000,
-    images: [
-        'https://picsum.photos/seed/nexon1/800/600',
-        'https://picsum.photos/seed/nexon2/800/600',
-        'https://picsum.photos/seed/nexon3/800/600',
-    ],
+    images: ['https://picsum.photos/seed/nexon1/800/600', 'https://picsum.photos/seed/nexon2/800/600'],
     features: ['Sunroof', 'Touchscreen Infotainment', 'Automatic Climate Control', 'Ziptron Technology'],
     description: 'A stylish and powerful compact electric SUV, perfect for city driving and weekend getaways.',
     sellerEmail: 'seller@test.com',
@@ -47,16 +46,13 @@ export const MOCK_VEHICLES: Vehicle[] = [
   },
   {
     id: 2,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Hyundai',
     model: 'Creta',
     year: 2022,
     price: 1400000,
     mileage: 28000,
-    images: [
-        'https://picsum.photos/seed/creta1/800/600',
-        'https://picsum.photos/seed/creta2/800/600',
-        'https://picsum.photos/seed/creta3/800/600',
-    ],
+    images: ['https://picsum.photos/seed/creta1/800/600', 'https://picsum.photos/seed/creta2/800/600'],
     features: ['Panoramic Sunroof', 'Bose Premium Sound System', 'Ventilated Front Seats', 'BlueLink Connectivity'],
     description: 'The undisputed king of SUVs, offering a premium experience with robust performance.',
     sellerEmail: 'seller@test.com',
@@ -74,15 +70,13 @@ export const MOCK_VEHICLES: Vehicle[] = [
   },
   {
     id: 3,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Maruti Suzuki',
     model: 'Swift',
     year: 2023,
     price: 850000,
     mileage: 9000,
-    images: [
-        'https://picsum.photos/seed/swift1/800/600',
-        'https://picsum.photos/seed/swift2/800/600',
-    ],
+    images: ['https://picsum.photos/seed/swift1/800/600', 'https://picsum.photos/seed/swift2/800/600'],
     features: ['Cruise Control', 'SmartPlay Studio', 'Push Start-Stop Button', 'Sporty Alloy Wheels'],
     description: 'India\'s favorite hatchback, known for its peppy performance and excellent fuel efficiency.',
     sellerEmail: 'seller@test.com',
@@ -100,16 +94,13 @@ export const MOCK_VEHICLES: Vehicle[] = [
   },
   {
     id: 4,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Mahindra',
     model: 'XUV700',
     year: 2022,
     price: 2200000,
     mileage: 21000,
-    images: [
-        'https://picsum.photos/seed/xuv1/800/600',
-        'https://picsum.photos/seed/xuv2/800/600',
-        'https://picsum.photos/seed/xuv3/800/600',
-    ],
+    images: ['https://picsum.photos/seed/xuv1/800/600', 'https://picsum.photos/seed/xuv2/800/600'],
     features: ['ADAS', 'Dual HD Superscreen', 'Skyroof', 'Sony 3D Sound System'],
     description: 'A technologically advanced and powerful SUV built to thrill.',
     sellerEmail: 'john.smith@seller.com',
@@ -127,15 +118,13 @@ export const MOCK_VEHICLES: Vehicle[] = [
   },
   {
     id: 5,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Kia',
     model: 'Seltos',
     year: 2023,
     price: 1550000,
     mileage: 12000,
-    images: [
-        'https://picsum.photos/seed/seltos1/800/600',
-        'https://picsum.photos/seed/seltos2/800/600',
-    ],
+    images: ['https://picsum.photos/seed/seltos1/800/600', 'https://picsum.photos/seed/seltos2/800/600'],
     features: ['10.25-inch Touchscreen', 'Air Purifier', 'Heads-Up Display', 'Ambient Lighting'],
     description: 'A feature-packed SUV with a bold design that turns heads.',
     sellerEmail: 'john.smith@seller.com',
@@ -153,16 +142,13 @@ export const MOCK_VEHICLES: Vehicle[] = [
   },
   {
     id: 6,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Honda',
     model: 'City',
     year: 2024,
     price: 1300000,
     mileage: 5000,
-    images: [
-        'https://picsum.photos/seed/city1/800/600',
-        'https://picsum.photos/seed/city2/800/600',
-        'https://picsum.photos/seed/city3/800/600',
-    ],
+    images: ['https://picsum.photos/seed/city1/800/600', 'https://picsum.photos/seed/city2/800/600'],
     features: ['LaneWatch Camera', 'Full LED Headlamps', 'Electric Sunroof', '8-speaker sound system'],
     description: 'The quintessential sedan that combines luxury, comfort, and a refined driving experience.',
     sellerEmail: 'seller@test.com',
@@ -178,17 +164,15 @@ export const MOCK_VEHICLES: Vehicle[] = [
     inquiriesCount: 9,
     isFlagged: false,
   },
-   {
+  {
     id: 7,
+    category: VehicleCategory.FOUR_WHEELER,
     make: 'Toyota',
     model: 'Fortuner',
     year: 2021,
     price: 3500000,
     mileage: 45000,
-    images: [
-        'https://picsum.photos/seed/fortuner1/800/600',
-        'https://picsum.photos/seed/fortuner2/800/600',
-    ],
+    images: ['https://picsum.photos/seed/fortuner1/800/600', 'https://picsum.photos/seed/fortuner2/800/600'],
     features: ['4x4 Capability', 'Leather Seats', 'JBL Speakers', 'Ventilated Seats'],
     description: 'The legendary SUV known for its commanding road presence and unbeatable reliability.',
     sellerEmail: 'seller@test.com',
@@ -203,5 +187,200 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 3500,
     inquiriesCount: 40,
     isFlagged: false,
-  }
+  },
+
+  // Two Wheelers
+  ...Array.from({ length: 10 }, (_, i) => {
+    const bikes = [
+        { make: 'Hero', model: 'Splendor Plus', price: 75000, mileage: 8000, fuel: '65 KMPL', features: ['i3S Technology', 'Alloy Wheels'] },
+        { make: 'Honda', model: 'Activa 6G', price: 80000, mileage: 12000, fuel: '50 KMPL', features: ['Silent Start', 'Telescopic Suspension'] },
+        { make: 'Royal Enfield', model: 'Classic 350', price: 210000, mileage: 5000, fuel: '35 KMPL', features: ['ABS', 'Tripper Navigation'] },
+        { make: 'TVS', model: 'Jupiter 125', price: 90000, mileage: 7000, fuel: '55 KMPL', features: ['External Fuel Fill', 'Large Underseat Storage'] },
+        { make: 'Bajaj', model: 'Pulsar NS200', price: 140000, mileage: 15000, fuel: '40 KMPL', features: ['Liquid Cooling', 'Perimeter Frame'] },
+        { make: 'Yamaha', model: 'MT-15', price: 165000, mileage: 9000, fuel: '45 KMPL', features: ['Bi-Functional LED', 'Assist & Slipper Clutch'] },
+        { make: 'Ola', model: 'S1 Pro', price: 130000, mileage: 6000, fuel: '180 km range', features: ['Hypermode', 'Large Touchscreen'] },
+        { make: 'Ather', model: '450X', price: 150000, mileage: 11000, fuel: '146 km range', features: ['Warp Mode', 'Google Maps'] },
+        { make: 'Suzuki', model: 'Access 125', price: 85000, mileage: 18000, fuel: '52 KMPL', features: ['Bluetooth Console', 'Eco Assist'] },
+        { make: 'KTM', model: 'Duke 200', price: 190000, mileage: 13000, fuel: '33 KMPL', features: ['USD Forks', 'Supermoto ABS'] },
+    ];
+    const bike = bikes[i];
+    return {
+        id: 100 + i,
+        category: VehicleCategory.TWO_WHEELER,
+        make: bike.make,
+        model: bike.model,
+        year: 2022,
+        price: bike.price,
+        mileage: bike.mileage,
+        images: [`https://picsum.photos/seed/bike${i+1}/800/600`],
+        features: bike.features,
+        description: `A reliable and efficient ${bike.model} for daily commutes and city rides.`,
+        sellerEmail: 'seller@test.com',
+        engine: '100-350cc',
+        transmission: 'Manual/Automatic',
+        fuelType: bike.fuel.includes('km') ? 'Electric' : 'Petrol',
+        fuelEfficiency: bike.fuel,
+        exteriorColor: 'Various',
+        interiorColor: 'N/A',
+        // FIX: Cast 'status' to its literal type to prevent type widening to 'string'.
+        status: 'published' as 'published',
+        isFeatured: i < 2,
+    };
+  }),
+
+  // Three Wheelers
+  ...Array.from({ length: 10 }, (_, i) => {
+    const autos = [
+      { make: 'Bajaj', model: 'RE Compact', fuel: 'CNG', use: 'Passenger' },
+      { make: 'Piaggio', model: 'Ape City', fuel: 'LPG', use: 'Passenger' },
+      { make: 'Mahindra', model: 'Alfa DX', fuel: 'Diesel', use: 'Passenger' },
+      { make: 'TVS', model: 'King Duramax', fuel: 'Petrol', use: 'Passenger' },
+      { make: 'Bajaj', model: 'Maxima Z', fuel: 'Diesel', use: 'Cargo' },
+      { make: 'Piaggio', model: 'Ape Xtra LDX', fuel: 'Diesel', use: 'Cargo' },
+      { make: 'Mahindra', model: 'Treo Zor', fuel: 'Electric', use: 'Cargo' },
+      { make: 'Euler', model: 'HiLoad EV', fuel: 'Electric', use: 'Cargo' },
+      { make: 'Atul', model: 'Gem Paxx', fuel: 'Diesel', use: 'Passenger' },
+      { make: 'Kinetic Green', model: 'Safar Smart', fuel: 'Electric', use: 'Passenger' },
+    ];
+    const auto = autos[i];
+    return {
+        id: 200 + i,
+        category: VehicleCategory.THREE_WHEELER,
+        make: auto.make,
+        model: auto.model,
+        year: 2021,
+        price: 250000 + i * 10000,
+        mileage: 30000 + i * 2000,
+        images: [`https://picsum.photos/seed/auto${i+1}/800/600`],
+        features: ['Robust Build', 'High Load Capacity', 'Low Maintenance'],
+        description: `Durable and efficient ${auto.make} ${auto.model} for ${auto.use.toLowerCase()} transport.`,
+        sellerEmail: 'john.smith@seller.com',
+        engine: '400-600cc',
+        transmission: 'Manual',
+        fuelType: auto.fuel as any,
+        fuelEfficiency: auto.fuel === 'Electric' ? '80-100 km range' : '25-30 KMPL',
+        exteriorColor: 'Yellow/Green',
+        interiorColor: 'Black Vinyl',
+        // FIX: Cast 'status' to its literal type to prevent type widening to 'string'.
+        status: 'published' as 'published',
+        isFeatured: false,
+    };
+  }),
+
+  // Farm Vehicles
+  ...Array.from({ length: 10 }, (_, i) => {
+    const tractors = [
+        { make: 'Mahindra', model: 'Yuvo 575 DI', hp: 45 },
+        { make: 'John Deere', model: '5050 D', hp: 50 },
+        { make: 'Sonalika', model: 'DI 745 III', hp: 50 },
+        { make: 'Massey Ferguson', model: '241 DI', hp: 42 },
+        { make: 'New Holland', model: '3630 TX', hp: 55 },
+        { make: 'Escorts', model: 'Farmtrac 60', hp: 50 },
+        { make: 'Swaraj', model: '744 FE', hp: 48 },
+        { make: 'Eicher', model: '380 Super DI', hp: 40 },
+        { make: 'Kubota', model: 'MU4501', hp: 45 },
+        { make: 'Powertrac', model: 'Euro 50', hp: 50 },
+    ];
+    const tractor = tractors[i];
+    return {
+        id: 300 + i,
+        category: VehicleCategory.FARM,
+        make: tractor.make,
+        model: tractor.model,
+        year: 2020,
+        price: 600000 + i * 25000,
+        mileage: 1500 + i * 100, // Hours of operation
+        images: [`https://picsum.photos/seed/tractor${i+1}/800/600`],
+        features: ['Power Steering', 'Heavy Duty Axle', 'Oil Immersed Brakes', 'High Lift Capacity'],
+        description: `A powerful ${tractor.hp} HP ${tractor.make} tractor, built for all farming needs.`,
+        sellerEmail: 'seller@test.com',
+        engine: `${tractor.hp} HP Diesel`,
+        transmission: 'Manual with High/Low',
+        fuelType: 'Diesel',
+        fuelEfficiency: '5-7 Ltrs/Hr',
+        exteriorColor: 'Red/Blue/Green',
+        interiorColor: 'Black',
+        // FIX: Cast 'status' to its literal type to prevent type widening to 'string'.
+        status: 'published' as 'published',
+        isFeatured: i === 0,
+    };
+  }),
+
+  // Commercial Vehicles
+  ...Array.from({ length: 10 }, (_, i) => {
+    const trucks = [
+        { make: 'Tata', model: 'Ace Gold', payload: '750 Kg' },
+        { make: 'Ashok Leyland', model: 'Dost+', payload: '1.5 Tonne' },
+        { make: 'Mahindra', model: 'Bolero Pik-Up', payload: '1.7 Tonne' },
+        { make: 'Maruti Suzuki', model: 'Super Carry', payload: '740 Kg' },
+        { make: 'Eicher', model: 'Pro 2049', payload: '2.5 Tonne' },
+        { make: 'BharatBenz', model: '1015R', payload: '6 Tonne' },
+        { make: 'Tata', model: '407 Gold SFC', payload: '2.25 Tonne' },
+        { make: 'Force', model: 'Traveller 3050', payload: '12-Seater' },
+        { make: 'Isuzu', model: 'D-Max', payload: '1.2 Tonne' },
+        { make: 'Tata', model: 'Winger', payload: '15-Seater' },
+    ];
+    const truck = trucks[i];
+    return {
+        id: 400 + i,
+        category: VehicleCategory.COMMERCIAL,
+        make: truck.make,
+        model: truck.model,
+        year: 2022,
+        price: 800000 + i * 50000,
+        mileage: 50000 + i * 5000,
+        images: [`https://picsum.photos/seed/truck${i+1}/800/600`],
+        features: ['Power Steering', 'High Ground Clearance', 'Spacious Cabin'],
+        description: `Reliable ${truck.make} ${truck.model} with a payload of ${truck.payload}. Ideal for business.`,
+        sellerEmail: 'john.smith@seller.com',
+        engine: '2.5L Diesel',
+        transmission: 'Manual',
+        fuelType: 'Diesel',
+        fuelEfficiency: '12-15 KMPL',
+        exteriorColor: 'White',
+        interiorColor: 'Grey Fabric',
+        // FIX: Cast 'status' to its literal type to prevent type widening to 'string'.
+        status: 'published' as 'published',
+        isFeatured: false,
+    };
+  }),
+
+  // Construction Vehicles
+  ...Array.from({ length: 10 }, (_, i) => {
+    const machines = [
+        { make: 'JCB', model: '3DX Backhoe Loader' },
+        { make: 'CAT', model: '320D2 Excavator' },
+        { make: 'L&T', model: '9020 Wheel Loader' },
+        { make: 'Tata Hitachi', model: 'EX 200LC Excavator' },
+        { make: 'CASE', model: '770 EX Magnum Backhoe' },
+        { make: 'Komatsu', model: 'PC210-10M0 Excavator' },
+        { make: 'Volvo', model: 'EC210D Excavator' },
+        { make: 'Mahindra', model: 'EarthMaster SX Backhoe' },
+        { make: 'ACE', model: 'AX 124 Backhoe' },
+        { make: 'Hyundai', model: 'R215LC-7 Excavator' },
+    ];
+    const machine = machines[i];
+    return {
+        id: 500 + i,
+        category: VehicleCategory.CONSTRUCTION,
+        make: machine.make,
+        model: machine.model,
+        year: 2019,
+        price: 2500000 + i * 100000,
+        mileage: 4000 + i * 200, // Hours of operation
+        images: [`https://picsum.photos/seed/jcb${i+1}/800/600`],
+        features: ['AC Cabin', 'GPS Enabled', 'LiveLink Technology', 'Heavy Duty Buckets'],
+        description: `Well-maintained ${machine.make} ${machine.model} ready for heavy-duty work.`,
+        sellerEmail: 'seller@test.com',
+        engine: '76 HP Diesel Engine',
+        transmission: 'Powershift',
+        fuelType: 'Diesel',
+        fuelEfficiency: '8-12 Ltrs/Hr',
+        exteriorColor: 'Yellow',
+        interiorColor: 'Black',
+        // FIX: Cast 'status' to its literal type to prevent type widening to 'string'.
+        status: 'published' as 'published',
+        isFeatured: i === 0,
+    };
+  }),
 ];

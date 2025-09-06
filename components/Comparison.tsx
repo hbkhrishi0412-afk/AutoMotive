@@ -21,6 +21,7 @@ const specLabels: Record<keyof Vehicle, string> = {
     exteriorColor: 'Exterior Color',
     interiorColor: 'Interior Color',
     id: 'ID',
+    category: 'Category',
     make: 'Make',
     model: 'Model',
     images: 'Images',
@@ -53,7 +54,7 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack, onToggleCompa
         <p className="mt-4 text-gray-600 dark:text-gray-300">You haven't selected any vehicles to compare yet.</p>
         <p className="text-gray-500 dark:text-gray-400">Go to the listings to add up to 4 vehicles.</p>
         <button onClick={onBack} className="mt-6 bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark transition-colors">
-          &larr; Back to Used Cars
+          &larr; Back to Listings
         </button>
       </div>
     );
@@ -84,7 +85,7 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack, onToggleCompa
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">Compare Vehicles</h1>
         <button onClick={onBack} className="bg-brand-gray dark:bg-gray-700 text-brand-gray-darker dark:text-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
-          &larr; Back to Used Cars
+          &larr; Back to Listings
         </button>
       </div>
       

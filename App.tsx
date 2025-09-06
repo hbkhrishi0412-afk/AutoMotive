@@ -10,7 +10,7 @@ import AdminLogin from './components/AdminLogin';
 import Comparison from './components/Comparison';
 import { MOCK_VEHICLES, MOCK_USERS } from './constants';
 import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry } from './types';
-import { View } from './types';
+import { View, VehicleCategory } from './types';
 import { getRatings, addRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
 import { getVehicles, saveVehicles } from './services/vehicleService';
@@ -38,6 +38,7 @@ const App: React.FC = () => {
     
     return initialVehicles.map(v => ({
       ...v,
+      category: v.category || VehicleCategory.FOUR_WHEELER,
       status: v.status || 'published',
       isFeatured: v.isFeatured || false,
       views: v.views || 0,
@@ -56,6 +57,7 @@ const App: React.FC = () => {
   const [forgotPasswordRole, setForgotPasswordRole] = useState<'customer' | 'seller' | null>(null);
   const [typingStatus, setTypingStatus] = useState<{ conversationId: string; userRole: 'customer' | 'seller' } | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<VehicleCategory>(VehicleCategory.FOUR_WHEELER);
 
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = getUsers();
@@ -674,6 +676,9 @@ const App: React.FC = () => {
 
   const navigate = (view: View) => {
     setSelectedVehicle(null);
+    if (view === View.USED_CARS) {
+        setSelectedCategory(VehicleCategory.FOUR_WHEELER);
+    }
     if (view === View.SELLER_DASHBOARD && currentUser?.role !== 'seller') {
         setCurrentView(View.LOGIN_PORTAL);
     } else if (view === View.ADMIN_PANEL && currentUser?.role !== 'admin') {
@@ -685,6 +690,12 @@ const App: React.FC = () => {
         setCurrentView(view);
     }
   }
+  
+  const handleSelectCategory = (category: VehicleCategory) => {
+    setSelectedCategory(category);
+    setCurrentView(View.USED_CARS);
+    setSelectedVehicle(null);
+  };
 
   const vehiclesToCompare = useMemo(() => {
     return vehiclesWithRatings.filter(v => comparisonList.includes(v.id));
@@ -700,8 +711,8 @@ const App: React.FC = () => {
   }, [selectedVehicle, vehiclesWithRatings])
 
   const publishedVehicles = useMemo(() => {
-    return vehiclesWithRatings.filter(v => v.status === 'published');
-  }, [vehiclesWithRatings]);
+    return vehiclesWithRatings.filter(v => v.status === 'published' && v.category === selectedCategory);
+  }, [vehiclesWithRatings, selectedCategory]);
 
   const inboxUnreadCount = useMemo(() => {
     if (!currentUser || currentUser.role !== 'customer') return 0;
@@ -711,7 +722,7 @@ const App: React.FC = () => {
   const renderContent = () => {
     switch (currentView) {
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToUsedCars} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddRating={handleAddRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onSendMessage={handleCustomerSendMessage} conversations={conversations} onUserTyping={handleUserTyping} typingStatus={typingStatus} onMarkMessagesAsRead={handleMarkMessagesAsRead} onFlagContent={handleFlagContent} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToUsedCars} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddRating={handleAddRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onSendMessage={handleCustomerSendMessage} conversations={conversations} onUserTyping={handleUserTyping} typingStatus={typingStatus} onMarkMessagesAsRead={handleMarkMessagesAsRead} onFlagContent={handleFlagContent} users={users} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={currentUser}
@@ -799,16 +810,16 @@ const App: React.FC = () => {
       case View.COMPARISON:
         return <Comparison vehicles={vehiclesToCompare} onBack={handleBackToUsedCars} onToggleCompare={handleToggleCompare} />;
       case View.WISHLIST:
-        return <VehicleList vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} />;
+        return <VehicleList categoryTitle="Your Wishlist" vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} />;
       case View.USED_CARS:
       default:
-        return <VehicleList vehicles={publishedVehicles} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} />;
+        return <VehicleList categoryTitle={selectedCategory} vehicles={publishedVehicles} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} />;
     }
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-brand-gray-light dark:bg-brand-gray-darker font-sans transition-colors duration-300">
-      <Header onNavigate={navigate} currentUser={currentUser} onLogout={handleLogout} compareCount={comparisonList.length} wishlistCount={wishlist.length} inboxCount={inboxUnreadCount} theme={theme} onToggleTheme={handleToggleTheme} />
+      <Header onNavigate={navigate} currentUser={currentUser} onLogout={handleLogout} compareCount={comparisonList.length} wishlistCount={wishlist.length} inboxCount={inboxUnreadCount} theme={theme} onToggleTheme={handleToggleTheme} selectedCategory={selectedCategory} onSelectCategory={handleSelectCategory} />
       <main className="flex-grow container mx-auto px-4 py-8">
         {renderContent()}
       </main>
