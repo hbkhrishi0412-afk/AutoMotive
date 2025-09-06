@@ -18,7 +18,7 @@ interface AdminPanelProps {
 }
 
 type AdminView = 'analytics' | 'users' | 'listings';
-type RoleFilter = 'all' | 'customer' | 'dealer' | 'admin';
+type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
 type SortConfig = {
     key: keyof User;
     direction: 'ascending' | 'descending';
@@ -224,7 +224,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                     <div className="flex flex-col sm:flex-row gap-2 w-full">
                         <input type="text" placeholder="Search by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-grow p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200 focus:ring-2 focus:ring-brand-blue-light focus:outline-none transition" />
                         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)} className="p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200 focus:ring-2 focus:ring-brand-blue-light focus:outline-none transition">
-                            <option value="all">All Roles</option><option value="customer">Customers</option><option value="dealer">Dealers</option><option value="admin">Admins</option>
+                            <option value="all">All Roles</option><option value="customer">Customers</option><option value="seller">Sellers</option><option value="admin">Admins</option>
                         </select>
                     </div>
                 );
@@ -268,19 +268,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Dealer</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Seller</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
                             </tr></thead>
                             <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                                 {vehicles.map(v => (
                                     <tr key={v.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.variant}</td>
+                                        {/* FIX: Corrected property from v.variant to v.model */}
+                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model}</td>
                                         <td className="px-6 py-4">${v.price.toLocaleString()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${v.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{v.status}</span>
                                             {v.isFeatured && <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">Featured</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{v.dealerEmail}</td>
+                                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{v.sellerEmail}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <button onClick={() => setEditingVehicle(v)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
                                             <button onClick={() => onToggleVehicleStatus(v.id)} className="ml-3 text-yellow-600 hover:text-yellow-900">{v.status === 'published' ? 'Un-publish' : 'Publish'}</button>

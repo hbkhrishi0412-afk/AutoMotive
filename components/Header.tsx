@@ -8,6 +8,7 @@ interface HeaderProps {
     onLogout: () => void;
     compareCount: number;
     wishlistCount: number;
+    inboxCount: number;
     theme: 'light' | 'dark';
     onToggleTheme: () => void;
 }
@@ -18,7 +19,7 @@ const NavLink: React.FC<{ children: React.ReactNode; onClick: () => void; isMobi
     </button>
 );
 
-const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, compareCount, wishlistCount, theme, onToggleTheme }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, compareCount, wishlistCount, inboxCount, theme, onToggleTheme }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const handleNavClick = (view: View) => {
@@ -42,18 +43,30 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, comp
       );
     }
     
-    if (role === 'dealer') {
+    if (role === 'seller') {
         return (
           <>
-            <NavLink onClick={() => handleNavClick(ViewEnum.DEALER_DASHBOARD)} isMobile={isMobile}>My Dashboard</NavLink>
+            <NavLink onClick={() => handleNavClick(ViewEnum.SELLER_DASHBOARD)} isMobile={isMobile}>My Dashboard</NavLink>
           </>
         );
     }
+
+    const showInboxBadge = inboxCount > 0;
 
     // Default for customers and guests
     return (
         <>
           <NavLink onClick={() => handleNavClick(ViewEnum.USED_CARS)} isMobile={isMobile}>Used Cars</NavLink>
+          {currentUser?.role === 'customer' && (
+            <NavLink onClick={() => handleNavClick(ViewEnum.INBOX)} isMobile={isMobile}>
+                Inbox
+                {showInboxBadge && (
+                    <span className={`absolute inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full ${isMobile ? 'static ml-2' : '-top-2 -right-2'}`}>
+                        {inboxCount}
+                    </span>
+                )}
+            </NavLink>
+          )}
           <NavLink onClick={() => handleNavClick(ViewEnum.WISHLIST)} isMobile={isMobile}>
             Wishlist
             {wishlistCount > 0 && (

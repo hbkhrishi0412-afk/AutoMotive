@@ -13,9 +13,11 @@ interface VehicleDetailProps {
   wishlist: number[];
   onToggleWishlist: (id: number) => void;
   currentUser: User | null;
-  onSendMessage: (vehicle: Vehicle, messageText: string) => void;
+  onSendMessage: (vehicleId: number, messageText: string) => void;
   conversations: Conversation[];
-  onCheckAvailability: (vehicleId: number) => void;
+  typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
+  onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
+  onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
 }
 
 const KeySpec: React.FC<{ label: string; value: string; }> = ({ label, value }) => (
@@ -27,7 +29,7 @@ const KeySpec: React.FC<{ label: string; value: string; }> = ({ label, value }) 
 
 type Tab = 'overview' | 'features';
 
-const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparisonList, onToggleCompare, onAddRating, wishlist, onToggleWishlist, currentUser, onSendMessage, conversations, onCheckAvailability }) => {
+const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparisonList, onToggleCompare, onAddRating, wishlist, onToggleWishlist, currentUser, onSendMessage, conversations, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [mainImage, setMainImage] = useState(vehicle.images[0]);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -54,11 +56,12 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
   
   const currentConversation = useMemo(() => {
     if (!currentUser) return undefined;
-    return conversations.find(c => c.customerId === currentUser.email && c.vehicleId === vehicle.id);
+    const conversationId = `${currentUser.email}-${vehicle.id}`;
+    return conversations.find(c => c.id === conversationId);
   }, [conversations, currentUser, vehicle.id]);
   
   const handleSendMessage = (messageText: string) => {
-    onSendMessage(vehicle, messageText);
+    onSendMessage(vehicle.id, messageText);
   }
 
   return (
@@ -68,7 +71,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
               &larr; Back to Used Cars
             </button>
             
-            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-100 mb-2">{vehicle.year} {vehicle.make} {vehicle.variant}</h1>
+            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-100 mb-2">{vehicle.year} {vehicle.make} {vehicle.model}</h1>
             <div className="flex items-center gap-2 mb-6">
                 <StarRating rating={vehicle.averageRating || 0} readOnly />
                 <span className="text-gray-600 dark:text-gray-400">
@@ -79,13 +82,13 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Image Gallery and Details */}
                 <div className="lg:col-span-2">
-                    <img className="w-full h-auto object-cover rounded-lg shadow-md mb-4" src={mainImage} alt={`${vehicle.make} ${vehicle.variant}`} />
+                    <img className="w-full h-auto object-cover rounded-lg shadow-md mb-4" src={mainImage} alt={`${vehicle.make} ${vehicle.model}`} />
                     <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                         {vehicle.images.map((img, index) => (
                             <img 
                                 key={index} 
                                 src={img}
-                                alt={`Thumbnail ${index + 1}`}
+                                alt={`Thumbnail ${index + 1} of ${vehicle.year} ${vehicle.make} ${vehicle.model}`}
                                 className={`cursor-pointer rounded-md border-2 ${mainImage === img ? 'border-brand-blue' : 'border-transparent'} hover:border-brand-blue-light transition`}
                                 onClick={() => setMainImage(img)}
                             />
@@ -176,13 +179,15 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                             <div className="space-y-8">
                                 <div>
                                     <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Key Features</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                         {vehicle.features.map((feature, index) => (
-                                            <div key={index} className="flex items-center">
-                                                <svg className="w-5 h-5 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                </svg>
-                                                <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                                            <div key={index} className="bg-brand-gray-light dark:bg-brand-gray-dark p-3 rounded-lg flex items-center gap-3 shadow-sm border border-brand-gray dark:border-gray-700">
+                                                <div className="flex-shrink-0 bg-green-100 dark:bg-green-900/50 p-1 rounded-full">
+                                                     <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                    </svg>
+                                                </div>
+                                                <span className="text-gray-800 dark:text-gray-200 font-medium text-sm">{feature}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -215,7 +220,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                               disabled={!currentUser || currentUser.role !== 'customer'}
                               title={!currentUser || currentUser.role !== 'customer' ? "Log in as a customer to chat" : ""}
                             >
-                              Contact Seller & AI
+                              Contact Seller
                             </button>
                              <button
                                 onClick={() => onToggleWishlist(vehicle.id)}
@@ -240,12 +245,6 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                                 >
                                 {isComparing ? 'Remove from Compare' : 'Add to Compare'}
                             </button>
-                            <button
-                              onClick={() => onCheckAvailability(vehicle.id)}
-                              className="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-green-600 transition-transform transform hover:scale-105"
-                            >
-                              Check Availability
-                            </button>
                         </div>
                     </div>
                     <div className="bg-white dark:bg-brand-gray-dark rounded-lg shadow-lg p-6 text-center">
@@ -266,7 +265,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                 </div>
             </div>
         </div>
-        {isChatOpen && <ChatModal conversation={currentConversation} vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.variant}`} onClose={() => setIsChatOpen(false)} onSendMessage={handleSendMessage} />}
+        {isChatOpen && <ChatModal conversation={currentConversation} vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} onClose={() => setIsChatOpen(false)} onSendMessage={handleSendMessage} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} />}
     </div>
   );
 };

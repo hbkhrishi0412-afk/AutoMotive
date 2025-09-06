@@ -1,6 +1,4 @@
-
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import VehicleList from './components/VehicleList';
@@ -16,12 +14,13 @@ import { getRatings, addRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
 import { getVehicles, saveVehicles } from './services/vehicleService';
 import { getUsers, saveUsers } from './services/userService';
-import { getAIResponse } from './services/geminiService';
 import LoginPortal from './components/LoginPortal';
 import CustomerLogin from './components/CustomerLogin';
 import AdminPanel from './components/AdminPanel';
 import ToastContainer from './components/ToastContainer';
 import Profile from './components/Profile';
+import ForgotPassword from './components/ForgotPassword';
+import CustomerInbox from './components/CustomerInbox';
 
 type Theme = 'light' | 'dark';
 
@@ -47,7 +46,10 @@ const App: React.FC = () => {
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [toasts, setToasts] = useState<ToastType[]>([]);
-  
+  const [forgotPasswordRole, setForgotPasswordRole] = useState<'customer' | 'seller' | null>(null);
+  const [typingStatus, setTypingStatus] = useState<{ conversationId: string; userRole: 'customer' | 'seller' } | null>(null);
+  const typingTimeoutRef = useRef<number | null>(null);
+
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = getUsers();
     // migration for users who dont have a status
@@ -79,7 +81,13 @@ const App: React.FC = () => {
     if (savedWishlist) {
       setWishlist(JSON.parse(savedWishlist));
     }
-    setConversations(getConversations());
+    const loadedConversations = getConversations();
+    // Data migration for conversations and messages without new properties
+    setConversations(loadedConversations.map(c => ({
+      ...c,
+      isReadByCustomer: c.isReadByCustomer ?? true, // Default old conversations to 'read'
+      messages: c.messages.map(m => ({ ...m, isRead: m.isRead ?? true })) // Default old messages to 'read'
+    })));
   }, []);
 
   useEffect(() => {
@@ -151,95 +159,132 @@ const App: React.FC = () => {
     });
   };
 
-  const handleCustomerSendMessage = async (vehicle: Vehicle, messageText: string) => {
+  const handleUserTyping = (conversationId: string, userRole: 'customer' | 'seller') => {
+    if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+    }
+    setTypingStatus({ conversationId, userRole });
+    typingTimeoutRef.current = window.setTimeout(() => {
+        setTypingStatus(null);
+    }, 2000); // User stops typing after 2 seconds
+  };
+
+  const handleMarkMessagesAsRead = (conversationId: string, readerRole: 'customer' | 'seller') => {
+    setConversations(prev =>
+        prev.map(conv => {
+            if (conv.id === conversationId) {
+                const updatedMessages = conv.messages.map(msg => {
+                    const readerSenderType = readerRole === 'customer' ? 'user' : 'seller';
+                    // Mark messages sent by the OTHER party as read
+                    if (msg.sender !== readerSenderType && msg.sender !== 'system' && !msg.isRead) {
+                        return { ...msg, isRead: true };
+                    }
+                    return msg;
+                });
+                return { ...conv, messages: updatedMessages };
+            }
+            return conv;
+        })
+    );
+  };
+
+  const handleCustomerSendMessage = (vehicleId: number, messageText: string) => {
     if (!currentUser || currentUser.role !== 'customer') return;
 
-    const conversationId = `${currentUser.email}-${vehicle.id}`;
-    let updatedConversations = [...conversations];
-    let targetConversation = updatedConversations.find(c => c.id === conversationId);
-    const currentTime = new Date().toISOString();
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (!vehicle) {
+        addToast("Could not find vehicle details.", "error");
+        return;
+    }
 
+    const conversationId = `${currentUser.email}-${vehicle.id}`;
+    
     const userMessage: ChatMessage = {
       id: Date.now(),
       sender: 'user',
       text: messageText,
-      timestamp: currentTime,
+      timestamp: new Date().toISOString(),
+      isRead: false,
     };
 
-    if (targetConversation) {
-      targetConversation.messages.push(userMessage);
-      targetConversation.lastMessageAt = currentTime;
-      targetConversation.isReadByDealer = false;
-    } else {
-      targetConversation = {
-        id: conversationId,
-        customerId: currentUser.email,
-        customerName: currentUser.name,
-        dealerId: vehicle.dealerEmail,
-        vehicleId: vehicle.id,
-        vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.variant}`,
-        messages: [
-          { id: Date.now() -1, sender: 'ai', text: `Hi! I'm an AI assistant. How can I help you with the ${vehicle.year} ${vehicle.make} ${vehicle.variant}?`, timestamp: new Date(Date.now() - 1000).toISOString() },
-          userMessage
-        ],
-        lastMessageAt: currentTime,
-        isReadByDealer: false,
-      };
-      updatedConversations.push(targetConversation);
-    }
-    
-    setConversations(updatedConversations);
-
-    // AI follows up
-    const chatHistoryForAI = targetConversation.messages.map(msg => ({
-        role: msg.sender === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-    }));
-    const aiResponseText = await getAIResponse(vehicle, chatHistoryForAI);
-    const aiMessage: ChatMessage = { id: Date.now() + 1, sender: 'ai', text: aiResponseText, timestamp: new Date().toISOString() };
-    
-    // Add AI message to the same conversation
     setConversations(prev => {
-        const convs = [...prev];
-        const conv = convs.find(c => c.id === conversationId);
-        if (conv) {
-            conv.messages.push(aiMessage);
-            conv.lastMessageAt = new Date().toISOString();
+        const existingConversationIndex = prev.findIndex(c => c.id === conversationId);
+
+        if (existingConversationIndex > -1) {
+            const updatedConversations = [...prev];
+            const updatedConversation = {
+                ...updatedConversations[existingConversationIndex],
+                messages: [...updatedConversations[existingConversationIndex].messages, userMessage],
+                lastMessageAt: userMessage.timestamp,
+                isReadBySeller: false,
+                isReadByCustomer: true,
+            };
+            updatedConversations[existingConversationIndex] = updatedConversation;
+            return updatedConversations;
+        } else {
+            const newConversation: Conversation = {
+                id: conversationId,
+                customerId: currentUser.email,
+                customerName: currentUser.name,
+                sellerId: vehicle.sellerEmail,
+                vehicleId: vehicle.id,
+                vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+                messages: [userMessage],
+                lastMessageAt: userMessage.timestamp,
+                isReadBySeller: false,
+                isReadByCustomer: true,
+            };
+            return [...prev, newConversation];
         }
-        return convs;
     });
   };
   
-  const handleDealerSendMessage = (conversationId: string, messageText: string) => {
-    if (!currentUser || currentUser.role !== 'dealer') return;
+  const handleSellerSendMessage = (conversationId: string, messageText: string) => {
+    if (!currentUser || currentUser.role !== 'seller') return;
 
     setConversations(prev => {
-      const updatedConversations = [...prev];
-      const conversation = updatedConversations.find(c => c.id === conversationId);
-      if (conversation) {
-        const dealerMessage: ChatMessage = {
-          id: Date.now(),
-          sender: 'dealer',
-          text: messageText,
-          timestamp: new Date().toISOString(),
-        };
-        conversation.messages.push(dealerMessage);
-        conversation.lastMessageAt = new Date().toISOString();
-      }
-      return updatedConversations;
+      return prev.map(conversation => {
+        if (conversation.id === conversationId) {
+          const sellerMessage: ChatMessage = {
+            id: Date.now(),
+            sender: 'seller',
+            text: messageText,
+            timestamp: new Date().toISOString(),
+            isRead: false,
+          };
+          return {
+            ...conversation,
+            messages: [...conversation.messages, sellerMessage],
+            lastMessageAt: new Date().toISOString(),
+            isReadByCustomer: false, // Mark as unread for the customer
+          };
+        }
+        return conversation;
+      });
     });
   };
   
-  const handleMarkConversationAsRead = (conversationId: string) => {
+  const handleMarkConversationAsReadBySeller = (conversationId: string) => {
     setConversations(prev => {
-        const updatedConversations = [...prev];
-        const conversation = updatedConversations.find(c => c.id === conversationId);
-        if (conversation && conversation.isReadByDealer === false) {
-          conversation.isReadByDealer = true;
-        }
-        return updatedConversations;
+        return prev.map(conversation => {
+          if (conversation.id === conversationId && !conversation.isReadBySeller) {
+            return { ...conversation, isReadBySeller: true };
+          }
+          return conversation;
+        });
     });
   }
+
+  const handleMarkConversationAsReadByCustomer = (conversationId: string) => {
+    setConversations(prev => {
+        return prev.map(conversation => {
+          if (conversation.id === conversationId && conversation.isReadByCustomer === false) {
+            return { ...conversation, isReadByCustomer: true };
+          }
+          return conversation;
+        });
+    });
+  };
 
   const vehiclesWithRatings = useMemo(() => {
     return vehicles.map(vehicle => {
@@ -260,7 +305,7 @@ const App: React.FC = () => {
         `https://picsum.photos/seed/${Date.now()}/800/600`,
         `https://picsum.photos/seed/${Date.now() + 1}/800/600`,
       ],
-      dealerEmail: currentUser?.email || 'dealer@test.com',
+      sellerEmail: currentUser?.email || 'seller@test.com',
       status: 'published',
       isFeatured: false,
     };
@@ -309,13 +354,6 @@ const App: React.FC = () => {
     }));
     addToast(featureChange, 'info');
   };
-  
-  const handleCheckAvailability = (vehicleId: number) => {
-    const vehicle = vehicles.find(v => v.id === vehicleId);
-    if (vehicle) {
-        addToast(`Good news! The ${vehicle.year} ${vehicle.make} ${vehicle.variant} is available. The dealer has been notified of your interest.`, 'success');
-    }
-  };
 
   const handleToggleCompare = (vehicleId: number) => {
     setComparisonList(prev => {
@@ -354,16 +392,16 @@ const App: React.FC = () => {
       addToast(`Welcome back, ${user.name.split(' ')[0]}!`, 'success');
   };
 
-  const handleDealerLogin = (credentials: { email: string; password: string; }) => {
-    const user = users.find(u => u.email === credentials.email && u.password === credentials.password && u.role === 'dealer');
+  const handleSellerLogin = (credentials: { email: string; password: string; }) => {
+    const user = users.find(u => u.email === credentials.email && u.password === credentials.password && u.role === 'seller');
     if (user && user.status === 'active') {
       loginUser(user);
-      setCurrentView(View.DEALER_DASHBOARD);
+      setCurrentView(View.SELLER_DASHBOARD);
       return { success: true, reason: ''};
     }
     const reason = user && user.status === 'inactive'
         ? 'Your account has been deactivated. Please contact support.'
-        : 'Invalid dealer credentials. Please try again or register.';
+        : 'Invalid seller credentials. Please try again or register.';
 
     addToast(reason, 'error');
     return { success: false, reason };
@@ -395,16 +433,16 @@ const App: React.FC = () => {
     return false;
   };
 
-  const handleDealerRegister = (credentials: Omit<User, 'role' | 'status'>): { success: boolean, reason: string } => {
+  const handleSellerRegister = (credentials: Omit<User, 'role' | 'status'>): { success: boolean, reason: string } => {
     if (users.some(u => u.email === credentials.email)) {
-      const reason = 'A dealer account with this email already exists.';
+      const reason = 'A seller account with this email already exists.';
       addToast(reason, 'error');
       return { success: false, reason };
     }
-    const newUser: User = {...credentials, role: 'dealer', status: 'active'};
+    const newUser: User = {...credentials, role: 'seller', status: 'active'};
     setUsers(prev => [...prev, newUser]);
     loginUser(newUser);
-    setCurrentView(View.DEALER_DASHBOARD);
+    setCurrentView(View.SELLER_DASHBOARD);
     addToast('Registration successful! Welcome to AutoVerse AI.', 'success');
     return { success: true, reason: ''};
   };
@@ -447,8 +485,8 @@ const App: React.FC = () => {
     if (window.confirm('Are you sure you want to permanently delete this user? This action cannot be undone.')) {
         setUsers(prevUsers => prevUsers.filter(user => user.email !== userEmail));
         // Also consider deleting their listings and conversations
-        setVehicles(prev => prev.filter(v => v.dealerEmail !== userEmail));
-        setConversations(prev => prev.filter(c => c.customerId !== userEmail && c.dealerId !== userEmail));
+        setVehicles(prev => prev.filter(v => v.sellerEmail !== userEmail));
+        setConversations(prev => prev.filter(c => c.customerId !== userEmail && c.sellerId !== userEmail));
         addToast('User has been permanently deleted.', 'info');
     }
   };
@@ -479,14 +517,23 @@ const App: React.FC = () => {
     addToast('Incorrect current password.', 'error');
     return false;
   };
+
+  const handleForgotPasswordRequest = (email: string) => {
+    // In a real app, this would trigger a secure email sending process.
+    // For security, we don't confirm if the user exists.
+    // This console log is for demonstration purposes to simulate the backend logic.
+    const userExists = users.some(u => u.email === email && u.role === forgotPasswordRole);
+    console.log(`Password reset for ${email} as a ${forgotPasswordRole}. User exists: ${userExists}`);
+    // The UI feedback is handled within the ForgotPassword component itself.
+  };
   
   const navigate = (view: View) => {
     setSelectedVehicle(null);
-    if (view === View.DEALER_DASHBOARD && currentUser?.role !== 'dealer') {
+    if (view === View.SELLER_DASHBOARD && currentUser?.role !== 'seller') {
         setCurrentView(View.LOGIN_PORTAL);
     } else if (view === View.ADMIN_PANEL && currentUser?.role !== 'admin') {
         setCurrentView(View.ADMIN_LOGIN);
-    } else if (view === View.PROFILE && !currentUser) {
+    } else if ((view === View.PROFILE || view === View.INBOX) && !currentUser) {
         setCurrentView(View.LOGIN_PORTAL);
     }
     else {
@@ -511,20 +558,27 @@ const App: React.FC = () => {
     return vehiclesWithRatings.filter(v => v.status === 'published');
   }, [vehiclesWithRatings]);
 
+  const inboxUnreadCount = useMemo(() => {
+    if (!currentUser || currentUser.role !== 'customer') return 0;
+    return conversations.filter(c => c.customerId === currentUser.email && !c.isReadByCustomer).length;
+  }, [conversations, currentUser]);
+
   const renderContent = () => {
     switch (currentView) {
       case View.DETAIL:
-// FIX: Changed onToggleCompare to handleToggleCompare
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToUsedCars} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddRating={handleAddRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onSendMessage={handleCustomerSendMessage} conversations={conversations} onCheckAvailability={handleCheckAvailability} />;
-      case View.DEALER_DASHBOARD:
-        return currentUser?.role === 'dealer' ? <Dashboard 
-                  dealerVehicles={vehiclesWithRatings.filter(v => v.dealerEmail === currentUser.email)} 
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToUsedCars} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddRating={handleAddRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onSendMessage={handleCustomerSendMessage} conversations={conversations} onUserTyping={handleUserTyping} typingStatus={typingStatus} onMarkMessagesAsRead={handleMarkMessagesAsRead} />;
+      case View.SELLER_DASHBOARD:
+        return currentUser?.role === 'seller' ? <Dashboard 
+                  sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
                   onAddVehicle={handleAddVehicle} 
                   onUpdateVehicle={handleUpdateVehicle} 
                   onDeleteVehicle={handleDeleteVehicle}
-                  conversations={conversations.filter(c => c.dealerId === currentUser.email)}
-                  onDealerSendMessage={handleDealerSendMessage}
-                  onMarkConversationAsRead={handleMarkConversationAsRead}
+                  conversations={conversations.filter(c => c.sellerId === currentUser.email)}
+                  onSellerSendMessage={handleSellerSendMessage}
+                  onMarkConversationAsReadBySeller={handleMarkConversationAsReadBySeller}
+                  onUserTyping={handleUserTyping}
+                  typingStatus={typingStatus}
+                  onMarkMessagesAsRead={handleMarkMessagesAsRead}
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.ADMIN_PANEL:
         return currentUser?.role === 'admin' ? <AdminPanel 
@@ -546,30 +600,58 @@ const App: React.FC = () => {
                   onUpdateProfile={handleUpdateUserProfile}
                   onUpdatePassword={handleUpdateUserPassword}
                 /> : <LoginPortal onNavigate={navigate} />;
+      case View.INBOX:
+        return currentUser?.role === 'customer' ? <CustomerInbox
+                  conversations={conversations.filter(c => c.customerId === currentUser.email)}
+                  onSendMessage={handleCustomerSendMessage}
+                  onMarkAsRead={handleMarkConversationAsReadByCustomer}
+                  users={users}
+                  onUserTyping={handleUserTyping}
+                  typingStatus={typingStatus}
+                  onMarkMessagesAsRead={handleMarkMessagesAsRead}
+                /> : <LoginPortal onNavigate={navigate} />;
       case View.LOGIN_PORTAL:
         return <LoginPortal onNavigate={navigate} />;
       case View.CUSTOMER_LOGIN:
-        return <CustomerLogin onLogin={handleCustomerLogin} onRegister={handleCustomerRegister} onNavigate={navigate} />;
-      case View.DEALER_LOGIN:
-        return <Login onLogin={handleDealerLogin} onRegister={handleDealerRegister} onNavigate={navigate} />;
+        return <CustomerLogin 
+                  onLogin={handleCustomerLogin} 
+                  onRegister={handleCustomerRegister} 
+                  onNavigate={navigate} 
+                  onForgotPassword={() => {
+                    setForgotPasswordRole('customer');
+                    navigate(View.FORGOT_PASSWORD);
+                  }}
+                />;
+      case View.SELLER_LOGIN:
+        return <Login 
+                  onLogin={handleSellerLogin} 
+                  onRegister={handleSellerRegister} 
+                  onNavigate={navigate}
+                  onForgotPassword={() => {
+                    setForgotPasswordRole('seller');
+                    navigate(View.FORGOT_PASSWORD);
+                  }}
+                />;
       case View.ADMIN_LOGIN:
         return <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
+      case View.FORGOT_PASSWORD:
+        return <ForgotPassword 
+                onResetRequest={handleForgotPasswordRequest}
+                onBack={() => navigate(forgotPasswordRole === 'customer' ? View.CUSTOMER_LOGIN : View.SELLER_LOGIN)}
+               />;
       case View.COMPARISON:
-// FIX: Changed onToggleCompare to handleToggleCompare
         return <Comparison vehicles={vehiclesToCompare} onBack={handleBackToUsedCars} onToggleCompare={handleToggleCompare} />;
       case View.WISHLIST:
-// FIX: Changed onToggleCompare to handleToggleCompare
         return <VehicleList vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} />;
       case View.USED_CARS:
       default:
-// FIX: Changed onToggleCompare to handleToggleCompare
         return <VehicleList vehicles={publishedVehicles} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} />;
     }
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-brand-gray-light dark:bg-brand-gray-darker font-sans transition-colors duration-300">
-      <Header onNavigate={navigate} currentUser={currentUser} onLogout={handleLogout} compareCount={comparisonList.length} wishlistCount={wishlist.length} theme={theme} onToggleTheme={handleToggleTheme} />
+      <Header onNavigate={navigate} currentUser={currentUser} onLogout={handleLogout} compareCount={comparisonList.length} wishlistCount={wishlist.length} inboxCount={inboxUnreadCount} theme={theme} onToggleTheme={handleToggleTheme} />
       <main className="flex-grow container mx-auto px-4 py-8">
         {renderContent()}
       </main>

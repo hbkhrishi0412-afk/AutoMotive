@@ -5,9 +5,10 @@ interface LoginProps {
   onLogin: (credentials: { email: string; password: string; }) => { success: boolean, reason: string };
   onRegister: (credentials: Omit<User, 'role' | 'status'>) => { success: boolean, reason: string };
   onNavigate: (view: View) => void;
+  onForgotPassword: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate, onForgotPassword }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -18,8 +19,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Check for a remembered dealer email when the component mounts
-    const rememberedEmail = localStorage.getItem('rememberedDealerEmail');
+    // Check for a remembered seller email when the component mounts
+    const rememberedEmail = localStorage.getItem('rememberedSellerEmail');
     if (rememberedEmail) {
       setEmail(rememberedEmail);
       setRememberMe(true);
@@ -41,9 +42,9 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
       } else {
         // Handle "Remember Me" logic on successful login
         if (rememberMe) {
-          localStorage.setItem('rememberedDealerEmail', email);
+          localStorage.setItem('rememberedSellerEmail', email);
         } else {
-          localStorage.removeItem('rememberedDealerEmail');
+          localStorage.removeItem('rememberedSellerEmail');
         }
       }
     } else { // register
@@ -63,7 +64,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
       setName('');
       setMobile('');
       // Keep email if it was remembered
-      if (!localStorage.getItem('rememberedDealerEmail')) {
+      if (!localStorage.getItem('rememberedSellerEmail')) {
           setEmail('');
       }
       setPassword('');
@@ -77,7 +78,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-brand-gray-dark p-10 rounded-xl shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-            {isLogin ? 'Dealer Dashboard Login' : 'Create a Dealer Account'}
+            {isLogin ? 'Seller Dashboard Login' : 'Create a Seller Account'}
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
@@ -179,6 +180,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
                   Remember me
                 </label>
               </div>
+
+              <div className="text-sm">
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="font-medium text-brand-blue hover:text-brand-blue-dark"
+                >
+                  Forgot your password?
+                </button>
+              </div>
             </div>
           )}
 
@@ -195,7 +206,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onRegister, onNavigate }) => {
         </form>
         <div className="text-sm text-center">
             <button onClick={toggleMode} className="font-medium text-brand-blue hover:text-brand-blue-dark">
-                {isLogin ? "Don't have a dealer account? Register" : "Already have a dealer account? Sign in"}
+                {isLogin ? "Don't have a seller account? Register" : "Already have a seller account? Sign in"}
             </button>
         </div>
          <div className="text-center">

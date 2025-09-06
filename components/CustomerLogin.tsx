@@ -5,9 +5,10 @@ interface CustomerLoginProps {
   onLogin: (credentials: { email: string; password: string; }) => { success: boolean, reason: string };
   onRegister: (credentials: Omit<User, 'role' | 'status'>) => { success: boolean, reason: string };
   onNavigate: (view: View) => void;
+  onForgotPassword: () => void;
 }
 
-const CustomerLogin: React.FC<CustomerLoginProps> = ({ onLogin, onRegister, onNavigate }) => {
+const CustomerLogin: React.FC<CustomerLoginProps> = ({ onLogin, onRegister, onNavigate, onForgotPassword }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
@@ -136,6 +137,15 @@ const CustomerLogin: React.FC<CustomerLoginProps> = ({ onLogin, onRegister, onNa
                 <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 text-brand-blue focus:ring-brand-blue-light border-gray-300 rounded" />
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">Remember me</label>
+              </div>
+              <div className="text-sm">
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  className="font-medium text-brand-blue hover:text-brand-blue-dark"
+                >
+                  Forgot your password?
+                </button>
               </div>
             </div>
           )}

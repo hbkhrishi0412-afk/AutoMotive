@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { Vehicle } from '../types';
 
@@ -65,7 +66,8 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
     const FormInput = ({ label, name, type = 'text', value, required = false }: { label: string, name: keyof Vehicle, type?: string, value: any, required?: boolean }) => (
         <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-            <input type={type} name={name} value={value} onChange={handleChange} required={required} className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-brand-gray-darker dark:text-gray-200" />
+            {/* FIX: Cast `name` to string for the name attribute. */}
+            <input type={type} name={name as string} value={value} onChange={handleChange} required={required} className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-brand-gray-darker dark:text-gray-200" />
         </div>
     );
 
@@ -75,7 +77,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
                 <form onSubmit={handleSubmit} className="flex flex-col h-full">
                     <div className="p-6 overflow-y-auto">
                         <div className="flex justify-between items-center mb-6 sticky top-0 bg-white dark:bg-brand-gray-dark py-2 -mt-6">
-                           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Edit Vehicle: {vehicle.year} {vehicle.make} {vehicle.variant}</h2>
+                           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Edit Vehicle: {vehicle.year} {vehicle.make} {vehicle.model}</h2>
                            <button type="button" onClick={onClose} className="text-gray-500 dark:text-gray-400 text-2xl hover:text-gray-800 dark:hover:text-gray-200">&times;</button>
                         </div>
                         <div className="space-y-6">
@@ -83,7 +85,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
                                 <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Core Details</legend>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <FormInput label="Make" name="make" value={formData.make} required />
-                                    <FormInput label="Variant" name="variant" value={formData.variant} required />
+                                    <FormInput label="Model" name="model" value={formData.model} required />
                                     <FormInput label="Year" name="year" type="number" value={formData.year} required />
                                     <FormInput label="Price ($)" name="price" type="number" value={formData.price} required />
                                     <FormInput label="Mileage" name="mileage" type="number" value={formData.mileage} required />

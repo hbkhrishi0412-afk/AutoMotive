@@ -11,7 +11,8 @@ interface UserManagementProps {
     onNavigate: (view: View) => void;
 }
 
-type RoleFilter = 'all' | 'customer' | 'dealer';
+// FIX: Correct 'dealer' to 'seller' to match the User type.
+type RoleFilter = 'all' | 'customer' | 'seller';
 
 const initialFormState: Omit<User, 'status'> = {
     name: '',
@@ -84,7 +85,8 @@ const CreateUserModal: React.FC<{
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
                                 <select name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full p-2 border rounded-md">
                                     <option value="customer">Customer</option>
-                                    <option value="dealer">Dealer</option>
+                                    {/* FIX: Correct 'dealer' to 'seller' to match the User type. */}
+                                    <option value="seller">Seller</option>
                                 </select>
                             </div>
                             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -106,6 +108,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, currentUser, onT
 
     const filteredUsers = useMemo(() => {
         if (roleFilter === 'all') return users;
+        // FIX: The comparison below now works correctly after aligning RoleFilter and User['role'] types.
         return users.filter(user => user.role === roleFilter);
     }, [users, roleFilter]);
 
@@ -113,7 +116,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, currentUser, onT
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)} className="p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200">
             <option value="all">All Users</option>
             <option value="customer">Customers</option>
-            <option value="dealer">Dealers</option>
+            {/* FIX: Correct 'dealer' to 'seller' to match the User type. */}
+            <option value="seller">Sellers</option>
         </select>
     );
 
@@ -152,7 +156,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, currentUser, onT
                                     <tr key={user.email}>
                                         <td className="px-6 py-4">{user.name}</td>
                                         <td className="px-6 py-4">{user.email}</td>
-                                        <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-800' : user.role === 'dealer' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>{user.role}</span></td>
+                                        <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-800' : user.role === 'seller' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>{user.role}</span></td>
                                         <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>{user.status}</span></td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <button 

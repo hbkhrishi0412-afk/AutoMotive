@@ -2,7 +2,7 @@
 import type { Vehicle, User } from './types';
 
 export const MOCK_USERS: User[] = [
-    { name: 'Mock Dealer', email: 'dealer@test.com', password: 'password', mobile: '555-123-4567', role: 'dealer', status: 'active' },
+    { name: 'Mock Seller', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active' },
     { name: 'Mock Customer', email: 'customer@test.com', password: 'password', mobile: '555-987-6543', role: 'customer', status: 'active' },
     { name: 'Mock Admin', email: 'admin@test.com', password: 'password', mobile: '111-222-3333', role: 'admin', status: 'active' }
 ];
@@ -11,7 +11,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
   {
     id: 1,
     make: 'Tesla',
-    variant: 'Model 3',
+    model: 'Model 3',
     year: 2023,
     price: 38000,
     mileage: 15000,
@@ -23,7 +23,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Autopilot', 'Premium Interior', 'Long Range', '15-inch Touchscreen', 'Glass Roof'],
     description: 'A sleek and powerful electric sedan with cutting-edge technology.',
-    dealerEmail: 'dealer@test.com',
+    sellerEmail: 'seller@test.com',
     engine: 'Dual Motor Electric',
     transmission: '1-Speed Automatic',
     fuelType: 'Electric',
@@ -36,7 +36,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
   {
     id: 2,
     make: 'Ford',
-    variant: 'Mustang Mach-E',
+    model: 'Mustang Mach-E',
     year: 2022,
     price: 45000,
     mileage: 22000,
@@ -48,7 +48,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Extended Range Battery', 'GT Performance', 'Panoramic Roof', 'B&O Sound System'],
     description: 'Experience the thrill of electric performance in this iconic SUV.',
-    dealerEmail: 'dealer@test.com',
+    sellerEmail: 'seller@test.com',
     engine: 'Electric Motor',
     transmission: '1-Speed Automatic',
     fuelType: 'Electric',
@@ -61,7 +61,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
   {
     id: 3,
     make: 'Rivian',
-    variant: 'R1T',
+    model: 'R1T',
     year: 2023,
     price: 75000,
     mileage: 8000,
@@ -73,7 +73,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Quad-Motor AWD', 'Adventure Package', 'Camp Kitchen', 'Reinforced Underbody Shield'],
     description: 'The ultimate electric adventure vehicle, ready for any terrain.',
-    dealerEmail: 'dealer@test.com',
+    sellerEmail: 'seller@test.com',
     engine: 'Quad-Motor Electric',
     transmission: '1-Speed Automatic',
     fuelType: 'Electric',
@@ -86,7 +86,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
   {
     id: 4,
     make: 'Porsche',
-    variant: 'Taycan',
+    model: 'Taycan',
     year: 2023,
     price: 95000,
     mileage: 5000,
@@ -98,7 +98,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Performance Battery Plus', 'Sport Chrono Package', 'Bose Surround Sound', 'Adaptive Air Suspension'],
     description: 'Unmistakable Porsche performance, electrified. A true sports car soul.',
-    dealerEmail: 'dealer@test.com',
+    sellerEmail: 'seller@test.com',
     engine: 'Permanent Magnet Synchronous Motors',
     transmission: '2-Speed Automatic',
     fuelType: 'Electric',
@@ -111,7 +111,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
   {
     id: 5,
     make: 'Hyundai',
-    variant: 'Ioniq 5',
+    model: 'Ioniq 5',
     year: 2022,
     price: 42000,
     mileage: 18000,
@@ -123,7 +123,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['Ultra-fast charging', 'Spacious Interior', 'Distinctive retro-futuristic design', 'Heads-Up Display'],
     description: 'A groundbreaking EV that combines innovative design with practical features.',
-    dealerEmail: 'dealer@test.com',
+    sellerEmail: 'seller@test.com',
     engine: 'Electric Motor',
     transmission: '1-Speed Automatic',
     fuelType: 'Electric',
@@ -136,7 +136,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
   {
     id: 6,
     make: 'BMW',
-    variant: 'i4',
+    model: 'i4',
     year: 2024,
     price: 58000,
     mileage: 3000,
@@ -148,7 +148,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     ],
     features: ['M Sport Package', 'Harman Kardon Audio', 'Curved Display', 'Iconic Sounds Electric'],
     description: 'The ultimate electric driving machine, delivering exhilarating performance and luxury.',
-    dealerEmail: 'dealer@test.com',
+    sellerEmail: 'seller@test.com',
     engine: 'AC Synchronous Electric Motor',
     transmission: '1-Speed Automatic',
     fuelType: 'Electric',

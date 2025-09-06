@@ -62,7 +62,7 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSave }) 
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
                                 <select name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full p-2 border rounded-md">
                                     <option value="customer">Customer</option>
-                                    <option value="dealer">Dealer</option>
+                                    <option value="seller">Seller</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </div>

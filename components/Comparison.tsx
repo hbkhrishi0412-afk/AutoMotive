@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import type { Vehicle } from '../types';
 
@@ -23,13 +24,14 @@ const specLabels: Record<keyof Vehicle, string> = {
     // a few more to satisfy the type
     id: 'ID',
     make: 'Make',
-    variant: 'Variant',
+    model: 'Model',
     images: 'Images',
     features: 'Features',
     description: 'Description',
-    dealerEmail: 'Dealer Email',
+    sellerEmail: 'Seller Email',
     averageRating: 'Average Rating',
     ratingCount: 'Rating Count',
+    // FIX: Add missing status and isFeatured properties
     status: 'Status',
     isFeatured: 'Featured',
 };
@@ -92,9 +94,9 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack, onToggleCompa
           <div className="font-bold text-lg text-gray-700 sticky top-16 bg-white dark:bg-brand-gray-dark py-2 z-10"></div>
           {vehicles.map(vehicle => (
             <div key={vehicle.id} className="text-center sticky top-16 bg-white dark:bg-brand-gray-dark py-2 z-10">
-              <img src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.variant}`} className="w-full h-40 object-cover rounded-lg mb-2" />
+              <img src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} className="w-full h-40 object-cover rounded-lg mb-2" />
               <h3 className="font-bold text-lg dark:text-gray-100">{vehicle.year} {vehicle.make}</h3>
-              <p className="text-md text-gray-600 dark:text-gray-300">{vehicle.variant}</p>
+              <p className="text-md text-gray-600 dark:text-gray-300">{vehicle.model}</p>
               <button onClick={() => onToggleCompare(vehicle.id)} className="mt-2 text-sm text-red-500 hover:text-red-700">Remove</button>
             </div>
           ))}
@@ -104,15 +106,17 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack, onToggleCompa
 
           {/* Specifications Section */}
           {specFields.map((key, index) => (
-            <React.Fragment key={key}>
+            // FIX: Use String(key) for React key prop as `keyof Vehicle` can be a symbol.
+            <React.Fragment key={String(key)}>
               <div className={`font-semibold text-gray-600 dark:text-gray-300 py-3 px-2 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''}`}>{specLabels[key]}</div>
               {vehicles.map(vehicle => {
                 const value = vehicle[key];
                 const isBest = typeof value === 'number' && isBestValue(key, value);
                 return (
-                  <div key={`${vehicle.id}-${key}`} className={`py-3 px-2 flex items-center gap-2 dark:text-gray-200 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''} ${isBest ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 font-bold' : ''}`}>
+                  // FIX: Use String(key) for React key prop as `keyof Vehicle` can be a symbol.
+                  <div key={`${vehicle.id}-${String(key)}`} className={`py-3 px-2 flex items-center gap-2 dark:text-gray-200 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''} ${isBest ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 font-bold' : ''}`}>
                      <span>
-                        {typeof value === 'number' ? (key === 'price' ? `$${value.toLocaleString()}`: value.toLocaleString()) : value}
+                        {typeof value === 'number' ? (key === 'price' ? `$${value.toLocaleString()}`: value.toLocaleString()) : String(value)}
                      </span>
                      {isBest && (
                         <span className="text-xs font-semibold bg-green-200 text-green-900 px-2 py-0.5 rounded-full">

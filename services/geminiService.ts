@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Vehicle, ProsAndCons } from '../types';
+import type { Vehicle, ProsAndCons, ChatMessage } from '../types';
+import type { SearchFilters } from "../types";
 
 if (!process.env.API_KEY) {
   console.warn("Gemini API key is not set in environment variables. AI features will not work.");
@@ -7,12 +8,88 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
+export const parseSearchQuery = async (query: string): Promise<SearchFilters> => {
+    const prompt = `Parse the user's vehicle search query and extract structured filter criteria.
+    The user's query is: "${query}".
+    - If the user mentions a specific make or model, extract it.
+    - If the user specifies a price range (e.g., "under $40k", "between 20000 and 30000"), extract the minPrice and maxPrice.
+    - If the user mentions specific features (e.g., "with Autopilot", "has a sunroof"), extract them into the features array.
+    - The 'model' is the specific model of the car.
+    Respond only with JSON matching the provided schema. If a value is not present, omit the key.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        make: { type: Type.STRING, description: "The make of the car, e.g., Tesla, Ford." },
+                        model: { type: Type.STRING, description: "The model of the car, e.g., Model 3, Mustang." },
+                        minPrice: { type: Type.NUMBER, description: "The minimum price." },
+                        maxPrice: { type: Type.NUMBER, description: "The maximum price." },
+                        features: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                            description: "A list of requested features."
+                        }
+                    }
+                }
+            }
+        });
+        
+        return JSON.parse(response.text) as SearchFilters;
+
+    } catch (error) {
+        console.error("Error parsing search query with AI:", error);
+        // Return an empty object on failure so the app doesn't crash
+        return {};
+    }
+};
+
+export const getVehicleSpecs = async (vehicleData: { make: string; model: string; year: number }): Promise<Record<string, string[]>> => {
+    const prompt = `Generate a list of common specifications and features for a ${vehicleData.year} ${vehicleData.make} ${vehicleData.model}.
+    Organize them into logical categories: "Engine & Performance", "Safety", "Comfort & Convenience", "Technology & Entertainment", "Exterior", and "Interior".
+    Provide a JSON object where keys are the category names and values are arrays of feature strings.
+    For example: { "Safety": ["Blind Spot Monitoring", "Lane Keep Assist"] }.
+    Be as accurate and comprehensive as possible for the given model and year. If a category has no relevant features, omit it from the response.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        "Engine & Performance": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Technology & Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Interior": { type: Type.ARRAY, items: { type: Type.STRING } }
+                    },
+                }
+            }
+        });
+        
+        return JSON.parse(response.text) as Record<string, string[]>;
+
+    } catch (error) {
+        console.error("Error generating vehicle specs:", error);
+        return { "Error": ["Could not generate suggestions. Please add features manually."] };
+    }
+};
+
 export const generateProsAndCons = async (vehicle: Vehicle): Promise<ProsAndCons> => {
     const prompt = `Based on the following vehicle details, generate a balanced list of 3-4 pros and 3-4 cons for a potential buyer. Focus on common considerations like performance, value, features, and potential drawbacks for its category.
 
     Vehicle Details:
     - Make: ${vehicle.make}
-    - Variant: ${vehicle.variant}
+    - Model: ${vehicle.model}
     - Year: ${vehicle.year}
     - Price: $${vehicle.price.toLocaleString()}
     - Mileage: ${vehicle.mileage.toLocaleString()} miles
@@ -60,7 +137,7 @@ export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>):
 
     Vehicle Details:
     - Make: ${vehicleData.make}
-    - Variant: ${vehicleData.variant}
+    - Model: ${vehicleData.model}
     - Year: ${vehicleData.year}
     - Price: $${vehicleData.price?.toLocaleString()}
     - Mileage: ${vehicleData.mileage?.toLocaleString()} miles
@@ -92,7 +169,7 @@ export const getAIResponse = async (vehicle: Vehicle, chatHistory: { role: strin
             model: 'gemini-2.5-flash',
             contents: chatHistory,
             config: {
-                systemInstruction: `You are a helpful AI assistant in a car marketplace chat. A user is asking about a ${vehicle.year} ${vehicle.make} ${vehicle.variant}. 
+                systemInstruction: `You are a helpful AI assistant in a car marketplace chat. A user is asking about a ${vehicle.year} ${vehicle.make} ${vehicle.model}. 
     
                 Here are the vehicle's details:
                 - Price: $${vehicle.price.toLocaleString()}

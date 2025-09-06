@@ -1,17 +1,19 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Vehicle, User, Conversation, ChatMessage } from '../types';
-import { generateVehicleDescription } from '../services/geminiService';
+import { generateVehicleDescription, getVehicleSpecs } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 
 interface DashboardProps {
-  dealerVehicles: Vehicle[];
+  sellerVehicles: Vehicle[];
   onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (vehicleId: number) => void;
   conversations: Conversation[];
-  onDealerSendMessage: (conversationId: string, messageText: string) => void;
-  onMarkConversationAsRead: (conversationId: string) => void;
+  onSellerSendMessage: (conversationId: string, messageText: string) => void;
+  onMarkConversationAsReadBySeller: (conversationId: string) => void;
+  typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
+  onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
+  onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
 }
 
 type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries';
@@ -27,11 +29,13 @@ const HelpTooltip: React.FC<{ text: string }> = ({ text }) => (
 const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onBlur: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; }> = 
   ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false }) => (
   <div>
-    <label htmlFor={name} className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    {/* FIX: Cast `name` to string for `htmlFor` attribute */}
+    <label htmlFor={String(name)} className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         {tooltip && <HelpTooltip text={tooltip} />}
     </label>
-    <input type={type} id={name} name={name} value={value} onChange={onChange} onBlur={onBlur} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
+    {/* FIX: Cast `name` to string for `id` and `name` attributes */}
+    <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
   </div>
 );
@@ -49,10 +53,11 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
 // Form Component (extracted for clarity)
 // FIX: Added missing status and isFeatured properties to satisfy the Vehicle type.
 const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
-  make: '', variant: '', year: new Date().getFullYear(), price: 0, mileage: 0,
+  make: '', model: '', year: new Date().getFullYear(), price: 0, mileage: 0,
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Electric', mpg: '',
   exteriorColor: '', interiorColor: '', features: [], images: [],
-  dealerEmail: '',
+  sellerEmail: '',
+  // FIX: Added missing status and isFeatured properties
   status: 'published',
   isFeatured: false,
 };
@@ -63,14 +68,50 @@ const VehicleForm: React.FC<{
     onUpdateVehicle: (vehicle: Vehicle) => void;
     onCancel: () => void;
 }> = ({ editingVehicle, onAddVehicle, onUpdateVehicle, onCancel }) => {
-    const [formData, setFormData] = useState(editingVehicle ? { ...initialFormState, ...editingVehicle, dealerEmail: editingVehicle.dealerEmail } : initialFormState);
+    const [formData, setFormData] = useState(editingVehicle ? { ...initialFormState, ...editingVehicle, sellerEmail: editingVehicle.sellerEmail } : initialFormState);
     const [featureInput, setFeatureInput] = useState('');
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, string>>>({});
+    const [suggestedSpecs, setSuggestedSpecs] = useState<Record<string, string[]> | null>(null);
+    const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
+    const debounceTimeoutRef = useRef<number | null>(null);
+
+     useEffect(() => {
+        const { make, model, year } = formData;
+        if (make.trim().length > 1 && model.trim().length > 1 && year >= 1900 && year <= new Date().getFullYear() + 1) {
+            if (debounceTimeoutRef.current) {
+                clearTimeout(debounceTimeoutRef.current);
+            }
+            debounceTimeoutRef.current = window.setTimeout(() => {
+                const fetchSpecs = async () => {
+                    setIsGeneratingSpecs(true);
+                    setSuggestedSpecs(null);
+                    try {
+                        const specs = await getVehicleSpecs({ make, model, year });
+                        setSuggestedSpecs(specs);
+                    } catch (error) {
+                        console.error("Failed to fetch vehicle specs:", error);
+                        setSuggestedSpecs({ "Error": ["Could not fetch suggestions."] });
+                    } finally {
+                        setIsGeneratingSpecs(false);
+                    }
+                };
+                fetchSpecs();
+            }, 1000); // Debounce for 1 second
+        } else {
+            setSuggestedSpecs(null);
+        }
+
+        return () => {
+            if (debounceTimeoutRef.current) {
+                clearTimeout(debounceTimeoutRef.current);
+            }
+        };
+    }, [formData.make, formData.model, formData.year]);
     
     const validateField = (name: keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, value: any): string => {
       switch(name) {
-          case 'make': case 'variant': return value.trim().length < 2 ? `${name} must be at least 2 characters long.` : '';
+          case 'make': case 'model': return value.trim().length < 2 ? `${name} must be at least 2 characters long.` : '';
           case 'year': return value < 1900 || value > new Date().getFullYear() + 1 ? 'Please enter a valid year.' : '';
           case 'price': return value <= 0 ? 'Price must be greater than 0.' : '';
           case 'mileage': return value < 0 ? 'Mileage cannot be negative.' : '';
@@ -103,6 +144,16 @@ const VehicleForm: React.FC<{
     const handleRemoveFeature = (featureToRemove: string) => {
       setFormData(prev => ({ ...prev, features: prev.features.filter(f => f !== featureToRemove) }));
     };
+
+    const handleSuggestedFeatureToggle = (feature: string) => {
+        setFormData(prev => {
+            const currentFeatures = prev.features;
+            const newFeatures = currentFeatures.includes(feature)
+                ? currentFeatures.filter(f => f !== feature)
+                : [...currentFeatures, feature];
+            return { ...prev, features: newFeatures.sort() };
+        });
+    };
     
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files) {
@@ -125,8 +176,8 @@ const VehicleForm: React.FC<{
     };
   
     const handleGenerateDescription = async () => {
-      if (!formData.make || !formData.variant || !formData.year) {
-        alert('Please enter Make, Variant, and Year before generating a description.');
+      if (!formData.make || !formData.model || !formData.year) {
+        alert('Please enter Make, Model, and Year before generating a description.');
         return;
       }
       setIsGeneratingDesc(true);
@@ -167,11 +218,11 @@ const VehicleForm: React.FC<{
             <fieldset>
                 <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Core Details</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                    <FormInput label="Make" name="make" value={formData.make} onChange={handleChange} onBlur={handleBlur} error={errors.make} required />
-                    <FormInput label="Variant" name="variant" value={formData.variant} onChange={handleChange} onBlur={handleBlur} error={errors.variant} required />
-                    <FormInput label="Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year} required />
-                    <FormInput label="Price ($)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
-                    <FormInput label="Mileage" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage} />
+                    <FormInput label="Make" name="make" value={formData.make} onChange={handleChange} onBlur={handleBlur} error={errors.make as string} required />
+                    <FormInput label="Model" name="model" value={formData.model} onChange={handleChange} onBlur={handleBlur} error={errors.model as string} required />
+                    <FormInput label="Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year as string} required />
+                    <FormInput label="Price ($)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price as string} tooltip="Enter the listing price without commas or symbols." required />
+                    <FormInput label="Mileage" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage as string} />
                     <FormInput label="Exterior Color" name="exteriorColor" value={formData.exteriorColor} onChange={handleChange} onBlur={handleBlur} />
                 </div>
             </fieldset>
@@ -208,7 +259,7 @@ const VehicleForm: React.FC<{
                 <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Description</legend>
                 <div className="flex justify-between items-center mb-1">
                     <label htmlFor="description" className="block text-sm font-medium">Vehicle Description</label>
-                    <button type="button" onClick={handleGenerateDescription} disabled={isGeneratingDesc || !formData.make || !formData.variant} className="text-sm font-semibold text-indigo-600 disabled:opacity-50"> {isGeneratingDesc ? '...' : '✨ Generate with AI'}</button>
+                    <button type="button" onClick={handleGenerateDescription} disabled={isGeneratingDesc || !formData.make || !formData.model} className="text-sm font-semibold text-indigo-600 disabled:opacity-50"> {isGeneratingDesc ? '...' : '✨ Generate with AI'}</button>
                 </div>
                 <textarea id="description" name="description" rows={4} value={formData.description} onChange={handleChange} className="block w-full p-3 border border-brand-gray dark:border-gray-600 rounded-lg" />
             </fieldset>
@@ -221,11 +272,58 @@ const VehicleForm: React.FC<{
 
           {/* Preview Column */}
           <div className="hidden lg:block">
-              <div className="sticky top-24 self-start">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Live Preview</h3>
-                  <div className="pointer-events-none">
-                     <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} />
+              <div className="sticky top-24 self-start space-y-6">
+                  <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Live Preview</h3>
+                      <div className="pointer-events-none">
+                         <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} />
+                      </div>
                   </div>
+                  <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                           <span>✨ Suggested Features</span>
+                           {isGeneratingSpecs && <div className="w-4 h-4 border-2 border-dashed rounded-full animate-spin border-brand-blue"></div>}
+                        </h3>
+                        <div className="bg-brand-gray-light dark:bg-brand-gray-darker p-4 rounded-lg border dark:border-gray-700 max-h-96 overflow-y-auto">
+                            {isGeneratingSpecs && !suggestedSpecs && (
+                                <div className="space-y-4">
+                                    <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-1/3 animate-pulse"></div>
+                                    <div className="space-y-2 pl-2">
+                                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-full animate-pulse"></div>
+                                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-5/6 animate-pulse"></div>
+                                    </div>
+                                    <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-1/3 animate-pulse mt-4"></div>
+                                    <div className="space-y-2 pl-2">
+                                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                            )}
+                            {!isGeneratingSpecs && !suggestedSpecs && (
+                                <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-4">Enter Make, Model, and Year above to get AI-powered suggestions.</p>
+                            )}
+                            {suggestedSpecs && Object.entries(suggestedSpecs).map(([category, features]) => {
+                                if (features.length === 0) return null;
+                                return (
+                                    <div key={category} className="mb-4 last:mb-0">
+                                        <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 pb-1 border-b dark:border-gray-600">{category}</h4>
+                                        <div className="space-y-2">
+                                            {features.map(feature => (
+                                                <label key={feature} className="flex items-center space-x-3 cursor-pointer group">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.features.includes(feature)}
+                                                        onChange={() => handleSuggestedFeatureToggle(feature)}
+                                                        className="h-4 w-4 text-brand-blue rounded border-gray-300 dark:border-gray-500 focus:ring-brand-blue-light bg-transparent"
+                                                    />
+                                                    <span className="text-sm text-gray-800 dark:text-gray-300 group-hover:text-brand-blue dark:group-hover:text-brand-blue-light">{feature}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
               </div>
           </div>
         </div>
@@ -234,24 +332,70 @@ const VehicleForm: React.FC<{
 }
 
 // Inquiries Component
+const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
+    isRead ? (
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-blue-400" viewBox="0 0 24 24" fill="none">
+            <path d="M1.5 12.5L5.5 16.5L11.5 10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M8.5 12.5L12.5 16.5L22.5 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+    ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+        </svg>
+    )
+);
+
+const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
+    <div className="flex items-start">
+        <div className="rounded-xl px-4 py-3 max-w-lg bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200 flex items-center space-x-2">
+            <span className="text-sm font-medium">{name} is typing</span>
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></div>
+        </div>
+    </div>
+);
+
 const InquiriesView: React.FC<{
   conversations: Conversation[];
   onSendMessage: (conversationId: string, messageText: string) => void;
   onMarkAsRead: (conversationId: string) => void;
-}> = ({ conversations, onSendMessage, onMarkAsRead }) => {
+  typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
+  onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
+  onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
+}> = ({ conversations, onSendMessage, onMarkAsRead, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
     const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
     const [replyText, setReplyText] = useState("");
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [selectedConv?.messages]);
+    }, [selectedConv?.messages, typingStatus]);
+
+    useEffect(() => {
+        if (selectedConv) {
+            const updatedConversation = conversations.find(c => c.id === selectedConv.id);
+            if (updatedConversation && updatedConversation.messages.length !== selectedConv.messages.length) {
+                setSelectedConv(updatedConversation);
+            } else if (!updatedConversation) {
+                setSelectedConv(null);
+            }
+        }
+    }, [conversations, selectedConv]);
 
     const handleSelectConversation = (conv: Conversation) => {
       setSelectedConv(conv);
-      if(!conv.isReadByDealer) {
+      if(!conv.isReadBySeller) {
         onMarkAsRead(conv.id);
+        onMarkMessagesAsRead(conv.id, 'seller');
       }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setReplyText(e.target.value);
+        if (selectedConv) {
+            onUserTyping(selectedConv.id, 'seller');
+        }
     };
 
     const handleSendReply = (e: React.FormEvent) => {
@@ -277,22 +421,32 @@ const InquiriesView: React.FC<{
             </div>
           </div>
           <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-light dark:bg-brand-gray-darker space-y-4">
-            {selectedConv.messages.map(msg => (
-                <div key={msg.id} className={`flex flex-col ${msg.sender === 'dealer' ? 'items-end' : 'items-start'}`}>
-                  {msg.sender === 'ai' && <span className="text-xs font-bold text-indigo-500 dark:text-indigo-400 mb-1 ml-2">AI Assistant</span>}
-                  <div className={`rounded-xl px-4 py-2 max-w-lg ${ msg.sender === 'dealer' ? 'bg-brand-blue text-white' : 'bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200'}`}>
-                    {msg.text}
-                  </div>
-                  <span className="text-xs text-gray-400 mt-1 px-1">
-                    {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </span>
-                </div>
-            ))}
-             <div ref={chatEndRef} />
+            {selectedConv.messages.map(msg => {
+                if (msg.sender === 'system') {
+                    return (
+                        <div key={msg.id} className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-2">
+                            {msg.text}
+                        </div>
+                    );
+                }
+                return (
+                    <div key={msg.id} className={`flex flex-col ${msg.sender === 'seller' ? 'items-end' : 'items-start'}`}>
+                      <div className={`rounded-xl px-4 py-2 max-w-lg ${ msg.sender === 'seller' ? 'bg-brand-blue text-white' : 'bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200'}`}>
+                        {msg.text}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1 px-1 flex items-center">
+                        {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {msg.sender === 'seller' && <ReadReceiptIcon isRead={msg.isRead} />}
+                      </div>
+                    </div>
+                )
+            })}
+            {typingStatus?.conversationId === selectedConv?.id && typingStatus?.userRole === 'customer' && <TypingIndicator name={selectedConv.customerName} />}
+            <div ref={chatEndRef} />
           </div>
            <div className="p-4 border-t dark:border-gray-700">
             <form onSubmit={handleSendReply} className="flex gap-2">
-              <input type="text" value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Type your reply..." className="flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-brand-blue-light focus:outline-none bg-white dark:bg-brand-gray-darker dark:text-gray-200 border-brand-gray dark:border-gray-600" />
+              <input type="text" value={replyText} onChange={handleInputChange} placeholder="Type your reply..." className="flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-brand-blue-light focus:outline-none bg-white dark:bg-brand-gray-darker dark:text-gray-200 border-brand-gray dark:border-gray-600" />
               <button type="submit" className="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark">Send</button>
             </form>
           </div>
@@ -307,7 +461,7 @@ const InquiriesView: React.FC<{
             {sortedConversations.length > 0 ? sortedConversations.map(conv => (
               <div key={conv.id} onClick={() => handleSelectConversation(conv)} className="p-4 rounded-lg cursor-pointer hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker border-b dark:border-gray-700 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    {!conv.isReadByDealer && <div className="w-3 h-3 bg-blue-500 rounded-full flex-shrink-0"></div>}
+                    {!conv.isReadBySeller && <div className="w-3 h-3 bg-blue-500 rounded-full flex-shrink-0"></div>}
                     <div>
                       <p className="font-bold text-gray-800 dark:text-gray-100">{conv.customerName} - <span className="font-normal text-gray-600 dark:text-gray-300">{conv.vehicleName}</span></p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-md">{conv.messages[conv.messages.length - 1].text}</p>
@@ -315,7 +469,15 @@ const InquiriesView: React.FC<{
                 </div>
                 <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(conv.lastMessageAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
-            )) : <p className="text-gray-500 dark:text-gray-400 text-center py-8">You have no customer inquiries yet.</p>}
+            )) : (
+                <div className="text-center py-16 px-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-gray-100">No inquiries yet</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">When a customer sends a message about one of your listings, it will appear here.</p>
+                </div>
+            )}
          </div>
        </div>
     );
@@ -323,7 +485,7 @@ const InquiriesView: React.FC<{
 
 
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ dealerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, conversations, onDealerSendMessage, onMarkConversationAsRead }) => {
+const Dashboard: React.FC<DashboardProps> = ({ sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
@@ -342,14 +504,14 @@ const Dashboard: React.FC<DashboardProps> = ({ dealerVehicles, onAddVehicle, onU
     setActiveView('listings');
   }
 
-  const unreadCount = useMemo(() => conversations.filter(c => !c.isReadByDealer).length, [conversations]);
+  const unreadCount = useMemo(() => conversations.filter(c => !c.isReadBySeller).length, [conversations]);
 
   const renderContent = () => {
     switch(activeView) {
       case 'overview':
         return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <StatCard title="Active Listings" value={dealerVehicles.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+            <StatCard title="Active Listings" value={sellerVehicles.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
             <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
           </div>
         );
@@ -360,29 +522,47 @@ const Dashboard: React.FC<DashboardProps> = ({ dealerVehicles, onAddVehicle, onU
               <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Your Listings</h2>
               <button onClick={handleAddNewClick} className="bg-brand-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-brand-blue-dark">List New Vehicle</button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-800"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th><th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th><th className="relative px-6 py-3"></th></tr></thead>
-                <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
-                  {dealerVehicles.map((v) => (
-                    <tr key={v.id}>
-                      <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.variant}</td>
-                      <td className="px-6 py-4">${v.price.toLocaleString()}</td>
-                      <td className="px-6 py-4 text-right">
-                        <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark mr-4">Edit</button>
-                        <button onClick={() => onDeleteVehicle(v.id)} className="text-red-600 hover:text-red-800">Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {sellerVehicles.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th><th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th><th className="relative px-6 py-3"></th></tr></thead>
+                  <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
+                    {sellerVehicles.map((v) => (
+                      <tr key={v.id}>
+                        <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
+                        <td className="px-6 py-4">${v.price.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark mr-4">Edit</button>
+                          <button onClick={() => onDeleteVehicle(v.id)} className="text-red-600 hover:text-red-800">Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+                <div className="text-center py-12 bg-gray-50 dark:bg-brand-gray-darker rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-gray-100">No vehicles listed yet</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ready to sell? Add your first vehicle to get started.</p>
+                    <div className="mt-6">
+                        <button
+                            onClick={handleAddNewClick}
+                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-brand-blue hover:bg-brand-blue-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-blue-light"
+                        >
+                            List Your First Vehicle
+                        </button>
+                    </div>
+                </div>
+            )}
           </div>
         );
       case 'form':
         return <VehicleForm editingVehicle={editingVehicle} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} />;
       case 'inquiries':
-        return <InquiriesView conversations={conversations} onSendMessage={onDealerSendMessage} onMarkAsRead={onMarkConversationAsRead} />;
+        return <InquiriesView conversations={conversations} onSendMessage={onSellerSendMessage} onMarkAsRead={onMarkConversationAsReadBySeller} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} />;
     }
   }
 

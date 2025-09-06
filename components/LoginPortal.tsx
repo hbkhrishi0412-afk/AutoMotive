@@ -19,10 +19,10 @@ const LoginPortal: React.FC<LoginPortalProps> = ({ onNavigate }) => {
             I am a Customer
           </button>
           <button
-            onClick={() => onNavigate(View.DEALER_LOGIN)}
+            onClick={() => onNavigate(View.SELLER_LOGIN)}
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-lg font-medium rounded-md text-brand-blue-dark dark:text-white bg-brand-gray dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-transform transform hover:scale-105"
           >
-            I am a Dealer
+            I am a Seller
           </button>
         </div>
         <div className="text-sm mt-6">

@@ -28,7 +28,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
       className="bg-white dark:bg-brand-gray-dark rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 flex flex-col"
     >
       <div className="relative">
-        <img className="w-full h-56 object-cover" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.variant}`} onClick={() => onSelect(vehicle)} />
+        <img className="w-full h-56 object-cover" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} onClick={() => onSelect(vehicle)} />
         {vehicle.isFeatured && (
           <div className="absolute top-0 left-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-br-lg z-10">
             ⭐ Featured
@@ -59,7 +59,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
         </div>
       </div>
       <div className="p-6 flex-grow flex flex-col cursor-pointer" onClick={() => onSelect(vehicle)}>
-        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{vehicle.year} {vehicle.make} {vehicle.variant}</h3>
+        <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{vehicle.year} {vehicle.make} {vehicle.model}</h3>
         <div className="flex items-center gap-2 mt-2">
             <StarRating rating={vehicle.averageRating || 0} readOnly size="sm"/>
             <span className="text-xs text-gray-500 dark:text-gray-400">({vehicle.ratingCount || 0} reviews)</span>
