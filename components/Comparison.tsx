@@ -9,19 +9,17 @@ interface ComparisonProps {
   onToggleCompare: (id: number) => void;
 }
 
-const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'mpg', 'exteriorColor', 'interiorColor'];
-// FIX: Added missing properties to satisfy Record<keyof Vehicle, string> type.
+const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'exteriorColor', 'interiorColor'];
 const specLabels: Record<keyof Vehicle, string> = {
     price: 'Price',
     year: 'Year',
-    mileage: 'Mileage',
+    mileage: 'Mileage (kms)',
     engine: 'Engine',
     transmission: 'Transmission',
     fuelType: 'Fuel Type',
-    mpg: 'MPG',
+    fuelEfficiency: 'Fuel Efficiency',
     exteriorColor: 'Exterior Color',
     interiorColor: 'Interior Color',
-    // a few more to satisfy the type
     id: 'ID',
     make: 'Make',
     model: 'Model',
@@ -116,7 +114,7 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack, onToggleCompa
                 return (
                   <div key={`${vehicle.id}-${String(key)}`} className={`py-3 px-2 flex items-center gap-2 dark:text-gray-200 ${index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-800' : ''} ${isBest ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 font-bold' : ''}`}>
                      <span>
-                        {typeof value === 'number' ? (key === 'price' ? `$${value.toLocaleString()}`: value.toLocaleString()) : String(value)}
+                        {typeof value === 'number' ? (key === 'price' ? `₹${value.toLocaleString('en-IN')}`: value.toLocaleString('en-IN')) : String(value)}
                      </span>
                      {isBest && (
                         <span className="text-xs font-semibold bg-green-200 text-green-900 px-2 py-0.5 rounded-full">

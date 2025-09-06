@@ -20,6 +20,9 @@ interface AdminPanelProps {
     onUpdateSettings: (settings: PlatformSettings) => void;
     onSendBroadcast: (message: string) => void;
     auditLog: AuditLogEntry[];
+    onExportUsers: () => void;
+    onExportVehicles: () => void;
+    onExportSales: () => void;
 }
 
 type AdminView = 'analytics' | 'users' | 'listings';
@@ -103,7 +106,7 @@ const BarChart: React.FC<{ title: string; data: { label: string; value: number }
 
 // --- Main Admin Panel Component ---
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales }) => {
     const [activeView, setActiveView] = useState<AdminView>('analytics');
     
     // State for User Management
@@ -222,6 +225,33 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                             <BarChart title="Listings by Make" data={analyticsData.listingsByMakeChartData} />
                             <BarChart title="User Role Distribution" data={analyticsData.userRoleChartData} />
                         </div>
+                        <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Data Export</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Download platform data in CSV format for external analysis.</p>
+                            <div className="flex flex-wrap gap-4">
+                                <button
+                                    onClick={onExportUsers}
+                                    className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    Export Users
+                                </button>
+                                <button
+                                    onClick={onExportVehicles}
+                                    className="flex items-center gap-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    Export Vehicles
+                                </button>
+                                <button
+                                    onClick={onExportSales}
+                                    className="flex items-center gap-2 bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    Export Sales Report
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 );
             case 'users':
@@ -279,7 +309,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                             <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                                 {vehicles.map(v => (
                                     <tr key={v.id}>
-                                        {/* FIX: Corrected property from v.variant to v.model */}
                                         <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model}</td>
                                         <td className="px-6 py-4">${v.price.toLocaleString()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">

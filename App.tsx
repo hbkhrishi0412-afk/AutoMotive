@@ -24,6 +24,7 @@ import ForgotPassword from './components/ForgotPassword';
 import CustomerInbox from './components/CustomerInbox';
 import { getSettings, saveSettings } from './services/settingsService';
 import { getAuditLog, logAction, saveAuditLog } from './services/auditLogService';
+import { exportToCsv } from './services/exportService';
 
 
 type Theme = 'light' | 'dark';
@@ -619,6 +620,58 @@ const App: React.FC = () => {
     addToast('Broadcast message sent to all users.', 'success');
   };
   
+  const getFormattedDate = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const handleExportUsers = () => {
+    const dataToExport = users.map(({ password, ...rest }) => rest);
+    exportToCsv(`users_export_${getFormattedDate()}.csv`, dataToExport);
+    addLogEntry('Exported Data', 'Users CSV', `${dataToExport.length} records`);
+  };
+
+  const handleExportVehicles = () => {
+    const dataToExport = vehicles.map(v => ({
+      id: v.id,
+      make: v.make,
+      model: v.model,
+      year: v.year,
+      price: v.price,
+      mileage: v.mileage,
+      sellerEmail: v.sellerEmail,
+      status: v.status,
+      isFeatured: v.isFeatured,
+      views: v.views,
+      inquiriesCount: v.inquiriesCount,
+      features: v.features.join(' | '),
+    }));
+    exportToCsv(`vehicles_export_${getFormattedDate()}.csv`, dataToExport);
+    addLogEntry('Exported Data', 'Vehicles CSV', `${dataToExport.length} records`);
+  };
+
+  const handleExportSales = () => {
+    const salesData = vehicles
+      .filter(v => v.status === 'sold')
+      .map(v => ({
+        id: v.id,
+        make: v.make,
+        model: v.model,
+        year: v.year,
+        price: v.price,
+        mileage: v.mileage,
+        sellerEmail: v.sellerEmail,
+      }));
+
+    if (salesData.length === 0) {
+      addToast("There are no sold vehicles to export.", 'info');
+      return;
+    }
+
+    exportToCsv(`sales_report_${getFormattedDate()}.csv`, salesData);
+    addLogEntry('Exported Data', 'Sales Report CSV', `${salesData.length} records`);
+  };
+
   const navigate = (view: View) => {
     setSelectedVehicle(null);
     if (view === View.SELLER_DASHBOARD && currentUser?.role !== 'seller') {
@@ -693,6 +746,9 @@ const App: React.FC = () => {
                   onUpdateSettings={handleAdminUpdateSettings}
                   onSendBroadcast={handleAdminSendBroadcast}
                   auditLog={auditLog}
+                  onExportUsers={handleExportUsers}
+                  onExportVehicles={handleExportVehicles}
+                  onExportSales={handleExportSales}
                 /> : <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
       case View.PROFILE:
         return currentUser ? <Profile 

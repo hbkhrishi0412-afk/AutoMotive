@@ -14,7 +14,7 @@ export interface Vehicle {
   engine: string;
   transmission: string;
   fuelType: string;
-  mpg: string;
+  fuelEfficiency: string;
   exteriorColor: string;
   interiorColor: string;
   status: 'published' | 'unpublished' | 'sold';

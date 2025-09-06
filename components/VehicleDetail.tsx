@@ -204,7 +204,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                                         <KeySpec label="Engine" value={vehicle.engine} />
                                         <KeySpec label="Transmission" value={vehicle.transmission} />
                                         <KeySpec label="Fuel Type" value={vehicle.fuelType} />
-                                        <KeySpec label="MPG" value={vehicle.mpg} />
+                                        <KeySpec label="Fuel Efficiency" value={vehicle.fuelEfficiency} />
                                         <KeySpec label="Exterior Color" value={vehicle.exteriorColor} />
                                         <KeySpec label="Interior Color" value={vehicle.interiorColor} />
                                     </div>
@@ -217,8 +217,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack, comparis
                 {/* Right Column: Price and Actions (Sticky) */}
                 <div className="lg:sticky top-24 self-start space-y-4">
                     <div className="bg-brand-gray-light dark:bg-brand-gray-dark rounded-lg shadow-lg p-6">
-                        <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">${vehicle.price.toLocaleString()}</p>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1">Est. payment: $550/mo</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">₹{vehicle.price.toLocaleString('en-IN')}</p>
                         <div className="mt-6 space-y-3">
                              <button
                               onClick={() => setIsChatOpen(true)}

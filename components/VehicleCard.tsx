@@ -64,8 +64,8 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
             <StarRating rating={vehicle.averageRating || 0} readOnly size="sm"/>
             <span className="text-xs text-gray-500 dark:text-gray-400">({vehicle.ratingCount || 0} reviews)</span>
         </div>
-        <p className="text-xl font-semibold text-brand-blue mt-2">${vehicle.price.toLocaleString()}</p>
-        <p className="text-gray-600 dark:text-gray-300 mt-1">{vehicle.mileage.toLocaleString()} miles</p>
+        <p className="text-xl font-semibold text-brand-blue mt-2">₹{vehicle.price.toLocaleString('en-IN')}</p>
+        <p className="text-gray-600 dark:text-gray-300 mt-1">{vehicle.mileage.toLocaleString('en-IN')} kms</p>
         <div className="mt-4 flex flex-wrap gap-2 flex-grow content-start">
           {vehicle.features.slice(0, 2).map((feature, index) => (
             <span key={index} className="bg-brand-gray-light dark:bg-brand-gray-dark text-brand-blue-dark dark:text-brand-blue-light text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">

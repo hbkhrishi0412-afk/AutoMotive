@@ -35,8 +35,8 @@ const sortOptions = {
   MILEAGE_ASC: 'Mileage: Low to High',
 };
 
-const MIN_PRICE = 10000;
-const MAX_PRICE = 100000;
+const MIN_PRICE = 500000;
+const MAX_PRICE = 5000000;
 
 const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, isLoading, comparisonList, onToggleCompare, onClearCompare, wishlist, onToggleWishlist, isWishlistMode = false }) => {
   // AI Search State
@@ -208,12 +208,12 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Price Range</label>
                   <div className="flex justify-between items-center text-xs text-gray-600 dark:text-gray-400">
-                    <span>${priceRange.min.toLocaleString()}</span>
-                    <span>${priceRange.max.toLocaleString()}</span>
+                    <span>₹{priceRange.min.toLocaleString('en-IN')}</span>
+                    <span>₹{priceRange.max.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="relative h-8 flex items-center">
-                    <input name="min" type="range" min={MIN_PRICE} max={MAX_PRICE} step="1000" value={priceRange.min} onChange={handlePriceChange} className="absolute w-full h-1 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
-                    <input name="max" type="range" min={MIN_PRICE} max={MAX_PRICE} step="1000" value={priceRange.max} onChange={handlePriceChange} className="absolute w-full h-1 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                    <input name="min" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={priceRange.min} onChange={handlePriceChange} className="absolute w-full h-1 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                    <input name="max" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={priceRange.max} onChange={handlePriceChange} className="absolute w-full h-1 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
                     <div className="relative w-full h-1 bg-gray-200 dark:bg-gray-600 rounded-full">
                         <div className="absolute h-1 bg-brand-blue rounded-full" style={{ left: `${((priceRange.min - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%`, right: `${100 - ((priceRange.max - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%` }}></div>
                     </div>
@@ -247,7 +247,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
       <main className="space-y-6">
         <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md">
             <label htmlFor="ai-search" className="text-lg font-bold text-gray-800 dark:text-gray-100">✨ Intelligent Search</label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Describe what you're looking for, e.g., "a white tesla under $40k with autopilot"</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Describe what you're looking for, e.g., "a white Tata Nexon under ₹15 lakhs with a sunroof"</p>
             <div className="flex gap-2 relative">
                 <input
                     type="text"

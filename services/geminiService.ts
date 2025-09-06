@@ -12,8 +12,8 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
     const prompt = `Parse the user's vehicle search query and extract structured filter criteria.
     The user's query is: "${query}".
     - If the user mentions a specific make or model, extract it.
-    - If the user specifies a price range (e.g., "under $40k", "between 20000 and 30000"), extract the minPrice and maxPrice.
-    - If the user mentions specific features (e.g., "with Autopilot", "has a sunroof"), extract them into the features array.
+    - If the user specifies a price range (e.g., "under ₹8 lakhs", "between 1000000 and 1500000"), extract the minPrice and maxPrice.
+    - If the user mentions specific features (e.g., "with a sunroof", "has ADAS"), extract them into the features array.
     - The 'model' is the specific model of the car.
     Respond only with JSON matching the provided schema. If a value is not present, omit the key.`;
 
@@ -26,76 +26,33 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        make: { type: Type.STRING, description: "The make of the car, e.g., Tesla, Ford." },
-                        model: { type: Type.STRING, description: "The model of the car, e.g., Model 3, Mustang." },
-                        minPrice: { type: Type.NUMBER, description: "The minimum price." },
-                        maxPrice: { type: Type.NUMBER, description: "The maximum price." },
+                        make: { type: Type.STRING, description: "The make of the car, e.g., Tata, Hyundai." },
+                        model: { type: Type.STRING, description: "The model of the car, e.g., Nexon, Creta." },
+                        minPrice: { type: Type.NUMBER, description: "The minimum price in INR." },
+                        maxPrice: { type: Type.NUMBER, description: "The maximum price in INR." },
                         features: {
                             type: Type.ARRAY,
                             items: { type: Type.STRING },
-                            description: "A list of requested features."
-                        }
-                    }
-                }
-            }
+                            description: "An array of requested vehicle features, e.g., Sunroof, ADAS."
+                        },
+                    },
+                },
+            },
         });
-        
-        return JSON.parse(response.text) as SearchFilters;
-
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
     } catch (error) {
-        console.error("Error parsing search query with AI:", error);
-        // Return an empty object on failure so the app doesn't crash
+        console.error("Error parsing search query with Gemini:", error);
         return {};
     }
 };
 
-export const getVehicleSpecs = async (vehicleData: { make: string; model: string; year: number }): Promise<Record<string, string[]>> => {
-    const prompt = `Generate a list of common specifications and features for a ${vehicleData.year} ${vehicleData.make} ${vehicleData.model}.
-    Organize them into logical categories: "Engine & Performance", "Safety", "Comfort & Convenience", "Technology & Entertainment", "Exterior", and "Interior".
-    Provide a JSON object where keys are the category names and values are arrays of feature strings.
-    For example: { "Safety": ["Blind Spot Monitoring", "Lane Keep Assist"] }.
-    Be as accurate and comprehensive as possible for the given model and year. If a category has no relevant features, omit it from the response.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        "Engine & Performance": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Technology & Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Interior": { type: Type.ARRAY, items: { type: Type.STRING } }
-                    },
-                }
-            }
-        });
-        
-        return JSON.parse(response.text) as Record<string, string[]>;
-
-    } catch (error) {
-        console.error("Error generating vehicle specs:", error);
-        return { "Error": ["Could not generate suggestions. Please add features manually."] };
-    }
-};
-
 export const generateProsAndCons = async (vehicle: Vehicle): Promise<ProsAndCons> => {
-    const prompt = `Based on the following vehicle details, generate a balanced list of 3-4 pros and 3-4 cons for a potential buyer. Focus on common considerations like performance, value, features, and potential drawbacks for its category.
-
-    Vehicle Details:
-    - Make: ${vehicle.make}
-    - Model: ${vehicle.model}
-    - Year: ${vehicle.year}
-    - Price: $${vehicle.price.toLocaleString()}
-    - Mileage: ${vehicle.mileage.toLocaleString()} miles
-    - Key Features: ${vehicle.features.join(', ')}
-    - Engine: ${vehicle.engine}
-    - MPG: ${vehicle.mpg}`;
+    const prompt = `Based on the following vehicle data, generate a balanced list of 3 pros and 3 cons.
+Make: ${vehicle.make}, Model: ${vehicle.model}, Year: ${vehicle.year}.
+The car has run ${vehicle.mileage} kms. Its fuel efficiency is ${vehicle.fuelEfficiency}.
+Key features include: ${vehicle.features.join(', ')}.
+Provide the output in JSON format with two keys: "pros" and "cons", each containing an array of strings.`;
 
     try {
         const response = await ai.models.generateContent({
@@ -118,71 +75,58 @@ export const generateProsAndCons = async (vehicle: Vehicle): Promise<ProsAndCons
                 }
             }
         });
-        
-        // The response text will be a JSON string, parse it
-        return JSON.parse(response.text) as ProsAndCons;
-
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
     } catch (error) {
-        console.error("Error generating vehicle pros and cons:", error);
-        return { 
-            pros: ["Could not generate pros at this time."], 
-            cons: ["Please try again later."] 
-        };
+        console.error("Failed to generate pros and cons:", error);
+        return { pros: ['AI analysis unavailable.'], cons: ['Could not generate suggestions at this time.'] };
     }
 };
 
-export const generateVehicleDescription = async (vehicleData: Partial<Vehicle>): Promise<string> => {
-    const prompt = `Generate a compelling and professional marketing description for the following vehicle.
-    Highlight its key features and appeal to potential buyers. Keep it to 2-3 sentences. Be enthusiastic but not overly hype.
 
-    Vehicle Details:
-    - Make: ${vehicleData.make}
-    - Model: ${vehicleData.model}
-    - Year: ${vehicleData.year}
-    - Price: $${vehicleData.price?.toLocaleString()}
-    - Mileage: ${vehicleData.mileage?.toLocaleString()} miles
-    - Key Features: ${vehicleData.features?.join(', ')}
-    - Engine: ${vehicleData.engine}
-    - Exterior Color: ${vehicleData.exteriorColor}
-    - Interior Color: ${vehicleData.interiorColor}`;
+export const generateVehicleDescription = async (vehicle: Partial<Vehicle>): Promise<string> => {
+    if (!vehicle.make || !vehicle.model || !vehicle.year) {
+        return "Please provide Make, Model, and Year for an accurate description.";
+    }
+
+    const prompt = `Generate a compelling, one-sentence vehicle description for an online marketplace, targeting an Indian audience.
+Use the following details:
+Make: ${vehicle.make}, Model: ${vehicle.model}, Year: ${vehicle.year}.
+Price: ₹${vehicle.price}, Mileage: ${vehicle.mileage} kms.
+Key features: ${vehicle.features?.slice(0, 3).join(', ')}.
+The description should be concise, appealing, and highlight the vehicle's best qualities.
+Do not start with "This is a..." or "For sale is a...". Just provide the single sentence description.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+        return response.text.trim();
+    } catch (error) {
+        console.error("Failed to generate vehicle description:", error);
+        return "Failed to generate AI description. Please write one manually.";
+    }
+};
+
+export const getVehicleSpecs = async (vehicle: { make: string, model: string, year: number }): Promise<Record<string, string[]>> => {
+    const prompt = `Provide a list of common features and specifications for a ${vehicle.year} ${vehicle.make} ${vehicle.model} in the Indian market.
+Categorize the features into "Comfort & Convenience", "Safety", "Entertainment", and "Exterior".
+Return the result as a JSON object where keys are the categories and values are arrays of feature strings.
+Example: { "Safety": ["ABS", "Airbags"], "Comfort & Convenience": ["Automatic Climate Control"] }`;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
-                systemInstruction: "You are an expert car salesperson writing a captivating vehicle listing description for a marketplace.",
-                temperature: 0.7,
+                responseMimeType: 'application/json'
             }
         });
-        return response.text.trim();
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
     } catch (error) {
-        console.error("Error generating vehicle description:", error);
-        return "Failed to generate description. Please try again or write one manually.";
-    }
-};
-
-
-export const getAIResponse = async (vehicle: Vehicle, chatHistory: { role: string, parts: {text: string}[] }[]): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: chatHistory,
-            config: {
-                systemInstruction: `You are a helpful AI assistant in a car marketplace chat. A user is asking about a ${vehicle.year} ${vehicle.make} ${vehicle.model}. 
-    
-                Here are the vehicle's details:
-                - Price: $${vehicle.price.toLocaleString()}
-                - Mileage: ${vehicle.mileage.toLocaleString()} miles
-                - Features: ${vehicle.features.join(', ')}
-                - Description: ${vehicle.description}
-
-                Keep your answers concise and friendly. Answer the user's question based on the provided details. If the question is about negotiation, financing, or test drives, politely suggest they speak directly with the seller for those details.`,
-            }
-        });
-        return response.text;
-    } catch (error) {
-        console.error("Error getting AI chat response:", error);
-        return "I am unable to process that request right now. Please ask something else about the vehicle!";
+        console.error("Error fetching vehicle specs from Gemini:", error);
+        return { "Error": ["Could not fetch suggestions."] };
     }
 };

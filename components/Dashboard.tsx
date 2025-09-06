@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Vehicle, User, Conversation } from '../types';
 import { generateVehicleDescription, getVehicleSpecs } from '../services/geminiService';
@@ -33,14 +35,20 @@ const HelpTooltip: React.FC<{ text: string }> = ({ text }) => (
     </span>
 );
 
-const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; }> = 
-  ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false }) => (
+const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; children?: React.ReactNode; }> = 
+  ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false, children }) => (
   <div>
     <label htmlFor={String(name)} className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         {tooltip && <HelpTooltip text={tooltip} />}
     </label>
-    <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
+    {type === 'select' ? (
+        <select id={String(name)} name={String(name)} value={String(value)} onChange={onChange} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`}>
+            {children}
+        </select>
+    ) : (
+        <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
+    )}
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
   </div>
 );
@@ -57,7 +65,7 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
 
 const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
   make: '', model: '', year: new Date().getFullYear(), price: 0, mileage: 0,
-  description: '', engine: '', transmission: 'Automatic', fuelType: 'Electric', mpg: '',
+  description: '', engine: '', transmission: 'Automatic', fuelType: 'Petrol', fuelEfficiency: '',
   exteriorColor: '', interiorColor: '', features: [], images: [],
   sellerEmail: '',
   status: 'published',
@@ -121,7 +129,7 @@ const VehicleForm: React.FC<{
       }
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value } = e.target as { name: keyof typeof initialFormState; value: string };
       const parsedValue = ['year', 'price', 'mileage'].includes(name) ? parseInt(value) || 0 : value;
       setFormData(prev => ({ ...prev, [name]: parsedValue }));
@@ -222,9 +230,30 @@ const VehicleForm: React.FC<{
                     <FormInput label="Make" name="make" value={formData.make} onChange={handleChange} onBlur={handleBlur} error={errors.make as string} required />
                     <FormInput label="Model" name="model" value={formData.model} onChange={handleChange} onBlur={handleBlur} error={errors.model as string} required />
                     <FormInput label="Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year as string} required />
-                    <FormInput label="Price ($)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price as string} tooltip="Enter the listing price without commas or symbols." required />
-                    <FormInput label="Mileage" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage as string} />
+                    <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price as string} tooltip="Enter the listing price without commas or symbols." required />
+                    <FormInput label="Mileage (kms)" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage as string} />
                     <FormInput label="Exterior Color" name="exteriorColor" value={formData.exteriorColor} onChange={handleChange} onBlur={handleBlur} />
+                    <FormInput label="Interior Color" name="interiorColor" value={formData.interiorColor} onChange={handleChange} onBlur={handleBlur} />
+                </div>
+            </fieldset>
+             <fieldset>
+                <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Specifications</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <FormInput label="Engine" name="engine" value={formData.engine} onChange={handleChange} tooltip="e.g., 1.5L Petrol, 150kW Motor"/>
+                    <FormInput label="Transmission" name="transmission" type="select" value={formData.transmission} onChange={handleChange}>
+                        <option>Automatic</option>
+                        <option>Manual</option>
+                        <option>CVT</option>
+                        <option>DCT</option>
+                    </FormInput>
+                    <FormInput label="Fuel Type" name="fuelType" type="select" value={formData.fuelType} onChange={handleChange}>
+                        <option>Petrol</option>
+                        <option>Diesel</option>
+                        <option>Electric</option>
+                        <option>CNG</option>
+                        <option>Hybrid</option>
+                    </FormInput>
+                    <FormInput label="Fuel Efficiency" name="fuelEfficiency" value={formData.fuelEfficiency} onChange={handleChange} tooltip="e.g., 18 KMPL or 300 km range"/>
                 </div>
             </fieldset>
             <fieldset>
@@ -481,6 +510,100 @@ const InquiriesView: React.FC<{
     );
 }
 
+const ProfileInput: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; }> = ({ label, name, value, onChange }) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+        <input
+            type="text"
+            name={name}
+            id={name}
+            value={value}
+            onChange={onChange}
+            className="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm bg-white dark:bg-brand-gray-darker dark:text-gray-200"
+        />
+    </div>
+);
+
+const ProfileTextarea: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void; placeholder?: string; }> = ({ label, name, value, onChange, placeholder }) => (
+     <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+        <textarea
+            name={name}
+            id={name}
+            rows={4}
+            value={value}
+            onChange={onChange}
+            className="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm bg-white dark:bg-brand-gray-darker dark:text-gray-200"
+            placeholder={placeholder}
+        />
+    </div>
+);
+
+
+const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any) => void; }> = ({ seller, onUpdateProfile }) => {
+    const [formData, setFormData] = useState({
+        dealershipName: seller.dealershipName || '',
+        bio: seller.bio || '',
+        logoUrl: seller.logoUrl || '',
+    });
+    
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if(event.target?.result) {
+                    setFormData(prev => ({ ...prev, logoUrl: event.target.result as string }));
+                }
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+    
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onUpdateProfile(formData);
+    };
+
+    return (
+        <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Seller Profile</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="flex items-center gap-6">
+                    <img src={formData.logoUrl || 'https://via.placeholder.com/100'} alt="Logo" className="w-24 h-24 rounded-full object-cover bg-gray-200" />
+                    <div>
+                        <label htmlFor="logo-upload" className="cursor-pointer font-medium text-brand-blue hover:text-brand-blue-dark">
+                            <span>Upload New Logo</span>
+                            <input id="logo-upload" name="logo-upload" type="file" className="sr-only" accept="image/*" onChange={handleLogoUpload} />
+                        </label>
+                        <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 2MB.</p>
+                    </div>
+                </div>
+                <ProfileInput 
+                    label="Dealership Name"
+                    name="dealershipName"
+                    value={formData.dealershipName}
+                    onChange={handleChange}
+                />
+                <ProfileTextarea
+                    label="Public Bio / About"
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleChange}
+                    placeholder="Tell customers about your dealership..."
+                />
+                <div>
+                    <button type="submit" className="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-brand-blue-dark">Save Profile</button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+
 // Main Dashboard Component
 const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
@@ -570,7 +693,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
                     {activeListings.map((v) => (
                       <tr key={v.id}>
                         <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
-                        <td className="px-6 py-4">${v.price.toLocaleString()}</td>
+                        <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
                         <td className="px-6 py-4 text-right whitespace-nowrap">
                           <button onClick={() => onMarkAsSold(v.id)} className="text-green-600 hover:text-green-800 mr-4">Mark as Sold</button>
                           <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark mr-4">Edit</button>
@@ -612,7 +735,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
                     {soldListings.map((v) => (
                       <tr key={v.id}>
                         <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
-                        <td className="px-6 py-4">${v.price.toLocaleString()}</td>
+                        <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -655,64 +778,6 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
         </main>
     </div>
   );
-};
-
-const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any) => void; }> = ({ seller, onUpdateProfile }) => {
-    const [formData, setFormData] = useState({
-        dealershipName: seller.dealershipName || '',
-        bio: seller.bio || '',
-        logoUrl: seller.logoUrl || '',
-    });
-    
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    };
-
-    const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if(event.target?.result) {
-                    setFormData(prev => ({ ...prev, logoUrl: event.target.result as string }));
-                }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    };
-    
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onUpdateProfile(formData);
-    };
-
-    return (
-        <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Seller Profile</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex items-center gap-6">
-                    <img src={formData.logoUrl || 'https://via.placeholder.com/100'} alt="Logo" className="w-24 h-24 rounded-full object-cover bg-gray-200" />
-                    <div>
-                        <label htmlFor="logo-upload" className="cursor-pointer font-medium text-brand-blue hover:text-brand-blue-dark">
-                            <span>Upload New Logo</span>
-                            <input id="logo-upload" name="logo-upload" type="file" className="sr-only" accept="image/*" onChange={handleLogoUpload} />
-                        </label>
-                        <p className="text-xs text-gray-500 mt-1">PNG, JPG, GIF up to 2MB.</p>
-                    </div>
-                </div>
-                <div>
-                    <label htmlFor="dealershipName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dealership Name</label>
-                    <input type="text" name="dealershipName" id="dealershipName" value={formData.dealershipName} onChange={handleChange} className="mt-1 block w-full p-3 border rounded-lg" />
-                </div>
-                 <div>
-                    <label htmlFor="bio" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Public Bio / About</label>
-                    <textarea name="bio" id="bio" rows={4} value={formData.bio} onChange={handleChange} className="mt-1 block w-full p-3 border rounded-lg" placeholder="Tell customers about your dealership..."></textarea>
-                </div>
-                <div>
-                    <button type="submit" className="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-brand-blue-dark">Save Profile</button>
-                </div>
-            </form>
-        </div>
-    );
 };
 
 export default Dashboard;

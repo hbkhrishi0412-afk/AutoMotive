@@ -66,7 +66,6 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
     const FormInput = ({ label, name, type = 'text', value, required = false }: { label: string, name: keyof Vehicle, type?: string, value: any, required?: boolean }) => (
         <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-            {/* FIX: Cast `name` to string for the name attribute. */}
             <input type={type} name={name as string} value={value} onChange={handleChange} required={required} className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-brand-gray-darker dark:text-gray-200" />
         </div>
     );
@@ -87,8 +86,8 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
                                     <FormInput label="Make" name="make" value={formData.make} required />
                                     <FormInput label="Model" name="model" value={formData.model} required />
                                     <FormInput label="Year" name="year" type="number" value={formData.year} required />
-                                    <FormInput label="Price ($)" name="price" type="number" value={formData.price} required />
-                                    <FormInput label="Mileage" name="mileage" type="number" value={formData.mileage} required />
+                                    <FormInput label="Price (₹)" name="price" type="number" value={formData.price} required />
+                                    <FormInput label="Mileage (kms)" name="mileage" type="number" value={formData.mileage} required />
                                     <FormInput label="Exterior Color" name="exteriorColor" value={formData.exteriorColor} />
                                 </div>
                             </fieldset>
@@ -99,7 +98,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
                                     <FormInput label="Engine" name="engine" value={formData.engine} />
                                     <FormInput label="Transmission" name="transmission" value={formData.transmission} />
                                     <FormInput label="Fuel Type" name="fuelType" value={formData.fuelType} />
-                                    <FormInput label="MPG" name="mpg" value={formData.mpg} />
+                                    <FormInput label="Fuel Efficiency" name="fuelEfficiency" value={formData.fuelEfficiency} />
                                     <FormInput label="Interior Color" name="interiorColor" value={formData.interiorColor} />
                                 </div>
                             </fieldset>
