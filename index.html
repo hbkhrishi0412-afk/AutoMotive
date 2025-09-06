@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AutoVerse AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+      darkMode: 'class', // Enable class-based dark mode
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            'brand-blue': {
+              'light': '#3B82F6',
+              'DEFAULT': '#2563EB',
+              'dark': '#1D4ED8',
+            },
+            'brand-gray': {
+              'light': '#F3F4F6',
+              'DEFAULT': '#E5E7EB',
+              'dark': '#374151',
+              'darker': '#1F2937',
+            }
+          },
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(-10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' },
+            },
+            'toast-in': {
+              '0%': { transform: 'translateX(100%)', opacity: '0' },
+              '100%': { transform: 'translateX(0)', opacity: '1' },
+            },
+            'toast-out': {
+                '0%': { transform: 'translateX(0)', opacity: '1' },
+                '100%': { transform: 'translateX(100%)', opacity: '0' },
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.5s ease-out forwards',
+            'toast-in': 'toast-in 0.5s ease-out forwards',
+            'toast-out': 'toast-out 0.5s ease-in forwards',
+          }
+        }
+      }
+    }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
+  }
+}
+</script>
+</head>
+  <body class="bg-brand-gray-light dark:bg-brand-gray-darker transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
