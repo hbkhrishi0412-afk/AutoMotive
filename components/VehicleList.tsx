@@ -87,6 +87,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   const [priceRange, setPriceRange] = useState({ min: MIN_PRICE, max: MAX_PRICE });
   const [yearFilter, setYearFilter] = useState('0');
   const [colorFilter, setColorFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [featureSearch, setFeatureSearch] = useState('');
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
@@ -108,6 +109,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   }, [makeFilter, vehicles]);
   const uniqueYears = useMemo(() => [...new Set(vehicles.map(v => v.year))].sort((a, b) => b - a), [vehicles]);
   const uniqueColors = useMemo(() => [...new Set(vehicles.map(v => v.color))].sort(), [vehicles]);
+  const uniqueLocations = useMemo(() => [...new Set(vehicles.map(v => v.location))].sort(), [vehicles]);
   const allFeatures = useMemo(() => [...new Set(vehicles.flatMap(v => v.features))].sort(), [vehicles]);
   
   const filteredFeatures = useMemo(() => {
@@ -223,7 +225,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
 
   const handleResetFilters = () => {
     setAiSearchQuery(''); setCategoryFilter('ALL'); setMakeFilter(''); setModelFilter('');
-    setPriceRange({ min: MIN_PRICE, max: MAX_PRICE }); setYearFilter('0'); setColorFilter('');
+    setPriceRange({ min: MIN_PRICE, max: MAX_PRICE }); setYearFilter('0'); setColorFilter(''); setLocationFilter('');
     setSelectedFeatures([]); setFeatureSearch(''); setSortOrder('YEAR_DESC'); onClearCompare(); setCurrentPage(1);
   };
 
@@ -238,9 +240,10 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
         const matchesPrice = vehicle.price >= priceRange.min && vehicle.price <= priceRange.max;
         const matchesYear = Number(yearFilter) === 0 || vehicle.year === Number(yearFilter);
         const matchesColor = !colorFilter || vehicle.color === colorFilter;
+        const matchesLocation = !locationFilter || vehicle.location === locationFilter;
         const matchesFeatures = selectedFeatures.every(feature => vehicle.features.includes(feature));
         
-        return matchesCategory && matchesMake && matchesModel && matchesPrice && matchesYear && matchesFeatures && matchesColor;
+        return matchesCategory && matchesMake && matchesModel && matchesPrice && matchesYear && matchesFeatures && matchesColor && matchesLocation;
     });
 
     return [...filtered].sort((a, b) => {
@@ -254,7 +257,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             default: return b.year - a.year;
         }
     });
-  }, [vehicles, categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist, colorFilter]);
+  }, [vehicles, categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist, colorFilter, locationFilter]);
   
   const totalPages = Math.ceil(processedVehicles.length / ITEMS_PER_PAGE);
   const paginatedVehicles = useMemo(() => {
@@ -354,6 +357,14 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
                     <select id="color-filter" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} className={formElementClass}>
                         <option value="">Any Color</option>
                         {uniqueColors.map(color => <option key={color} value={color}>{color}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="location-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Location</label>
+                    <select id="location-filter" value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className={formElementClass}>
+                        <option value="">Any Location</option>
+                        {uniqueLocations.map(location => <option key={location} value={location}>{location}</option>)}
                     </select>
                   </div>
                   

@@ -163,6 +163,7 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack: onBackTo
                               <KeySpec label="No. of Owners" value={`${vehicle.noOfOwners}${vehicle.noOfOwners === 1 ? 'st' : 'nd'} Owner`} />
                               <KeySpec label="Insurance" value={vehicle.insuranceType} />
                               <KeySpec label="RTO" value={vehicle.rto} />
+                              <KeySpec label="Location" value={vehicle.location} />
                           </div>
                       </div>
 

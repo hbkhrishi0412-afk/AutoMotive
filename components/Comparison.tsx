@@ -7,7 +7,7 @@ interface ComparisonProps {
   onToggleCompare: (id: number) => void;
 }
 
-const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'color', 'sellerName', 'averageRating', 'sellerAverageRating', 'registrationYear', 'noOfOwners', 'displacement'];
+const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'color', 'sellerName', 'location', 'averageRating', 'sellerAverageRating', 'registrationYear', 'noOfOwners', 'displacement'];
 const specLabels: Record<keyof Vehicle, string> = {
     price: 'Price',
     year: 'Year',
@@ -27,6 +27,7 @@ const specLabels: Record<keyof Vehicle, string> = {
     description: 'Description',
     sellerEmail: 'Seller Email',
     sellerName: 'Seller Name',
+    location: 'Location',
     averageRating: 'Vehicle Rating',
     ratingCount: 'Rating Count',
     status: 'Status',

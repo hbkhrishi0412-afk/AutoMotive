@@ -44,6 +44,7 @@ export interface Vehicle {
   insuranceValidity: string;
   insuranceType: string;
   rto: string;
+  location: string;
   noOfOwners: number;
   displacement: string; // e.g., "1086 cc"
   groundClearance: string; // e.g., "165 mm"

@@ -46,6 +46,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Aug 2026',
     insuranceType: 'Comprehensive',
     rto: 'MH01',
+    location: 'Mumbai, MH',
     noOfOwners: 1,
     displacement: 'N/A',
     groundClearance: '205 mm',
@@ -82,6 +83,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Mar 2025',
     insuranceType: 'Third Party',
     rto: 'DL3C',
+    location: 'Delhi, DL',
     noOfOwners: 1,
     displacement: '1497 cc',
     groundClearance: '190 mm',
@@ -118,6 +120,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Oct 2026',
     insuranceType: 'Comprehensive',
     rto: 'KA05',
+    location: 'Bengaluru, KA',
     noOfOwners: 1,
     displacement: '1197 cc',
     groundClearance: '163 mm',
@@ -154,6 +157,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Jan 2025',
     insuranceType: 'Comprehensive',
     rto: 'TN10',
+    location: 'Chennai, TN',
     noOfOwners: 1,
     displacement: '1999 cc',
     groundClearance: '200 mm',
@@ -190,6 +194,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Jun 2026',
     insuranceType: 'Comprehensive',
     rto: 'MH12',
+    location: 'Pune, MH',
     noOfOwners: 1,
     displacement: '1493 cc',
     groundClearance: '190 mm',
@@ -226,6 +231,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Feb 2027',
     insuranceType: 'Comprehensive',
     rto: 'UP16',
+    location: 'Noida, UP',
     noOfOwners: 1,
     displacement: '1498 cc',
     groundClearance: '165 mm',
@@ -262,6 +268,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     insuranceValidity: 'Expired',
     insuranceType: 'Comprehensive',
     rto: 'HR26',
+    location: 'Gurugram, HR',
     noOfOwners: 2,
     displacement: '2755 cc',
     groundClearance: '225 mm',
@@ -275,16 +282,16 @@ export const MOCK_VEHICLES: Vehicle[] = [
   // Two Wheelers - Adding new fields to a few for demonstration
   ...Array.from({ length: 10 }, (_, i) => {
     const bikes = [
-        { make: 'Hero', model: 'Splendor Plus', price: 75000, mileage: 8000, fuel: '65 KMPL', features: ['i3S Technology', 'Alloy Wheels'] },
-        { make: 'Honda', model: 'Activa 6G', price: 80000, mileage: 12000, fuel: '50 KMPL', features: ['Silent Start', 'Telescopic Suspension'] },
-        { make: 'Royal Enfield', model: 'Classic 350', price: 210000, mileage: 5000, fuel: '35 KMPL', features: ['ABS', 'Tripper Navigation'] },
-        { make: 'TVS', model: 'Jupiter 125', price: 90000, mileage: 7000, fuel: '55 KMPL', features: ['External Fuel Fill', 'Large Underseat Storage'] },
-        { make: 'Bajaj', model: 'Pulsar NS200', price: 140000, mileage: 15000, fuel: '40 KMPL', features: ['Liquid Cooling', 'Perimeter Frame'] },
-        { make: 'Yamaha', model: 'MT-15', price: 165000, mileage: 9000, fuel: '45 KMPL', features: ['Bi-Functional LED', 'Assist & Slipper Clutch'] },
-        { make: 'Ola', model: 'S1 Pro', price: 130000, mileage: 6000, fuel: '180 km range', features: ['Hypermode', 'Large Touchscreen'] },
-        { make: 'Ather', model: '450X', price: 150000, mileage: 11000, fuel: '146 km range', features: ['Warp Mode', 'Google Maps'] },
-        { make: 'Suzuki', model: 'Access 125', price: 85000, mileage: 18000, fuel: '52 KMPL', features: ['Bluetooth Console', 'Eco Assist'] },
-        { make: 'KTM', model: 'Duke 200', price: 190000, mileage: 13000, fuel: '33 KMPL', features: ['USD Forks', 'Supermoto ABS'] },
+        { make: 'Hero', model: 'Splendor Plus', price: 75000, mileage: 8000, fuel: '65 KMPL', features: ['i3S Technology', 'Alloy Wheels'], location: 'Jaipur, RJ' },
+        { make: 'Honda', model: 'Activa 6G', price: 80000, mileage: 12000, fuel: '50 KMPL', features: ['Silent Start', 'Telescopic Suspension'], location: 'Ahmedabad, GJ' },
+        { make: 'Royal Enfield', model: 'Classic 350', price: 210000, mileage: 5000, fuel: '35 KMPL', features: ['ABS', 'Tripper Navigation'], location: 'Chandigarh, CH' },
+        { make: 'TVS', model: 'Jupiter 125', price: 90000, mileage: 7000, fuel: '55 KMPL', features: ['External Fuel Fill', 'Large Underseat Storage'], location: 'Hyderabad, TS' },
+        { make: 'Bajaj', model: 'Pulsar NS200', price: 140000, mileage: 15000, fuel: '40 KMPL', features: ['Liquid Cooling', 'Perimeter Frame'], location: 'Pune, MH' },
+        { make: 'Yamaha', model: 'MT-15', price: 165000, mileage: 9000, fuel: '45 KMPL', features: ['Bi-Functional LED', 'Assist & Slipper Clutch'], location: 'Bengaluru, KA' },
+        { make: 'Ola', model: 'S1 Pro', price: 130000, mileage: 6000, fuel: '180 km range', features: ['Hypermode', 'Large Touchscreen'], location: 'Mumbai, MH' },
+        { make: 'Ather', model: '450X', price: 150000, mileage: 11000, fuel: '146 km range', features: ['Warp Mode', 'Google Maps'], location: 'Delhi, DL' },
+        { make: 'Suzuki', model: 'Access 125', price: 85000, mileage: 18000, fuel: '52 KMPL', features: ['Bluetooth Console', 'Eco Assist'], location: 'Kolkata, WB' },
+        { make: 'KTM', model: 'Duke 200', price: 190000, mileage: 13000, fuel: '33 KMPL', features: ['USD Forks', 'Supermoto ABS'], location: 'Chennai, TN' },
     ];
     const bike = bikes[i];
     return {
@@ -311,6 +318,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
         insuranceValidity: i < 2 ? 'Dec 2024' : 'N/A',
         insuranceType: i < 2 ? 'Third Party' : 'N/A',
         rto: i < 2 ? 'MH14' : 'N/A',
+        location: bike.location,
         noOfOwners: 1,
         displacement: i === 0 ? '97.2 cc' : '124 cc',
         groundClearance: 'N/A',
@@ -326,16 +334,16 @@ export const MOCK_VEHICLES: Vehicle[] = [
   // Three Wheelers
   ...Array.from({ length: 10 }, (_, i) => {
     const autos = [
-      { make: 'Bajaj', model: 'RE Compact', fuel: 'CNG', use: 'Passenger' },
-      { make: 'Piaggio', model: 'Ape City', fuel: 'LPG', use: 'Passenger' },
-      { make: 'Mahindra', model: 'Alfa DX', fuel: 'Diesel', use: 'Passenger' },
-      { make: 'TVS', model: 'King Duramax', fuel: 'Petrol', use: 'Passenger' },
-      { make: 'Bajaj', model: 'Maxima Z', fuel: 'Diesel', use: 'Cargo' },
-      { make: 'Piaggio', model: 'Ape Xtra LDX', fuel: 'Diesel', use: 'Cargo' },
-      { make: 'Mahindra', model: 'Treo Zor', fuel: 'Electric', use: 'Cargo' },
-      { make: 'Euler', model: 'HiLoad EV', fuel: 'Electric', use: 'Cargo' },
-      { make: 'Atul', model: 'Gem Paxx', fuel: 'Diesel', use: 'Passenger' },
-      { make: 'Kinetic Green', model: 'Safar Smart', fuel: 'Electric', use: 'Passenger' },
+      { make: 'Bajaj', model: 'RE Compact', fuel: 'CNG', use: 'Passenger', location: 'Surat, GJ' },
+      { make: 'Piaggio', model: 'Ape City', fuel: 'LPG', use: 'Passenger', location: 'Lucknow, UP' },
+      { make: 'Mahindra', model: 'Alfa DX', fuel: 'Diesel', use: 'Passenger', location: 'Indore, MP' },
+      { make: 'TVS', model: 'King Duramax', fuel: 'Petrol', use: 'Passenger', location: 'Nagpur, MH' },
+      { make: 'Bajaj', model: 'Maxima Z', fuel: 'Diesel', use: 'Cargo', location: 'Kanpur, UP' },
+      { make: 'Piaggio', model: 'Ape Xtra LDX', fuel: 'Diesel', use: 'Cargo', location: 'Patna, BR' },
+      { make: 'Mahindra', model: 'Treo Zor', fuel: 'Electric', use: 'Cargo', location: 'Delhi, DL' },
+      { make: 'Euler', model: 'HiLoad EV', fuel: 'Electric', use: 'Cargo', location: 'Mumbai, MH' },
+      { make: 'Atul', model: 'Gem Paxx', fuel: 'Diesel', use: 'Passenger', location: 'Rajkot, GJ' },
+      { make: 'Kinetic Green', model: 'Safar Smart', fuel: 'Electric', use: 'Passenger', location: 'Bhopal, MP' },
     ];
     const auto = autos[i];
     return {
@@ -357,23 +365,23 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Yellow/Green',
         status: 'published' as 'published',
         isFeatured: false,
-        registrationYear: 2021, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 2, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
+        registrationYear: 2021, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: auto.location, noOfOwners: 2, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 
   // Farm Vehicles
   ...Array.from({ length: 10 }, (_, i) => {
     const tractors = [
-        { make: 'Mahindra', model: 'Yuvo 575 DI', hp: 45 },
-        { make: 'John Deere', model: '5050 D', hp: 50 },
-        { make: 'Sonalika', model: 'DI 745 III', hp: 50 },
-        { make: 'Massey Ferguson', model: '241 DI', hp: 42 },
-        { make: 'New Holland', model: '3630 TX', hp: 55 },
-        { make: 'Escorts', model: 'Farmtrac 60', hp: 50 },
-        { make: 'Swaraj', model: '744 FE', hp: 48 },
-        { make: 'Eicher', model: '380 Super DI', hp: 40 },
-        { make: 'Kubota', model: 'MU4501', hp: 45 },
-        { make: 'Powertrac', model: 'Euro 50', hp: 50 },
+        { make: 'Mahindra', model: 'Yuvo 575 DI', hp: 45, location: 'Ludhiana, PB' },
+        { make: 'John Deere', model: '5050 D', hp: 50, location: 'Hissar, HR' },
+        { make: 'Sonalika', model: 'DI 745 III', hp: 50, location: 'Hoshiarpur, PB' },
+        { make: 'Massey Ferguson', model: '241 DI', hp: 42, location: 'Bhopal, MP' },
+        { make: 'New Holland', model: '3630 TX', hp: 55, location: 'Noida, UP' },
+        { make: 'Escorts', model: 'Farmtrac 60', hp: 50, location: 'Faridabad, HR' },
+        { make: 'Swaraj', model: '744 FE', hp: 48, location: 'Mohali, PB' },
+        { make: 'Eicher', model: '380 Super DI', hp: 40, location: 'Alwar, RJ' },
+        { make: 'Kubota', model: 'MU4501', hp: 45, location: 'Pune, MH' },
+        { make: 'Powertrac', model: 'Euro 50', hp: 50, location: 'Faridabad, HR' },
     ];
     const tractor = tractors[i];
     return {
@@ -395,23 +403,23 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Red/Blue/Green',
         status: 'published' as 'published',
         isFeatured: i === 0,
-        registrationYear: 2020, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
+        registrationYear: 2020, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: tractor.location, noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 
   // Commercial Vehicles
   ...Array.from({ length: 10 }, (_, i) => {
     const trucks = [
-        { make: 'Tata', model: 'Ace Gold', payload: '750 Kg' },
-        { make: 'Ashok Leyland', model: 'Dost+', payload: '1.5 Tonne' },
-        { make: 'Mahindra', model: 'Bolero Pik-Up', payload: '1.7 Tonne' },
-        { make: 'Maruti Suzuki', model: 'Super Carry', payload: '740 Kg' },
-        { make: 'Eicher', model: 'Pro 2049', payload: '2.5 Tonne' },
-        { make: 'BharatBenz', model: '1015R', payload: '6 Tonne' },
-        { make: 'Tata', model: '407 Gold SFC', payload: '2.25 Tonne' },
-        { make: 'Force', model: 'Traveller 3050', payload: '12-Seater' },
-        { make: 'Isuzu', model: 'D-Max', payload: '1.2 Tonne' },
-        { make: 'Tata', model: 'Winger', payload: '15-Seater' },
+        { make: 'Tata', model: 'Ace Gold', payload: '750 Kg', location: 'Mumbai, MH' },
+        { make: 'Ashok Leyland', model: 'Dost+', payload: '1.5 Tonne', location: 'Chennai, TN' },
+        { make: 'Mahindra', model: 'Bolero Pik-Up', payload: '1.7 Tonne', location: 'Nagpur, MH' },
+        { make: 'Maruti Suzuki', model: 'Super Carry', payload: '740 Kg', location: 'Delhi, DL' },
+        { make: 'Eicher', model: 'Pro 2049', payload: '2.5 Tonne', location: 'Pithampur, MP' },
+        { make: 'BharatBenz', model: '1015R', payload: '6 Tonne', location: 'Oragadam, TN' },
+        { make: 'Tata', model: '407 Gold SFC', payload: '2.25 Tonne', location: 'Jamshedpur, JH' },
+        { make: 'Force', model: 'Traveller 3050', payload: '12-Seater', location: 'Pithampur, MP' },
+        { make: 'Isuzu', model: 'D-Max', payload: '1.2 Tonne', location: 'Sri City, AP' },
+        { make: 'Tata', model: 'Winger', payload: '15-Seater', location: 'Pune, MH' },
     ];
     const truck = trucks[i];
     return {
@@ -433,23 +441,23 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'White',
         status: 'published' as 'published',
         isFeatured: false,
-        registrationYear: 2022, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
+        registrationYear: 2022, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: truck.location, noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 
   // Construction Vehicles
   ...Array.from({ length: 10 }, (_, i) => {
     const machines = [
-        { make: 'JCB', model: '3DX Backhoe Loader' },
-        { make: 'CAT', model: '320D2 Excavator' },
-        { make: 'L&T', model: '9020 Wheel Loader' },
-        { make: 'Tata Hitachi', model: 'EX 200LC Excavator' },
-        { make: 'CASE', model: '770 EX Magnum Backhoe' },
-        { make: 'Komatsu', model: 'PC210-10M0 Excavator' },
-        { make: 'Volvo', model: 'EC210D Excavator' },
-        { make: 'Mahindra', model: 'EarthMaster SX Backhoe' },
-        { make: 'ACE', model: 'AX 124 Backhoe' },
-        { make: 'Hyundai', model: 'R215LC-7 Excavator' },
+        { make: 'JCB', model: '3DX Backhoe Loader', location: 'Ballabgarh, HR' },
+        { make: 'CAT', model: '320D2 Excavator', location: 'Thiruvallur, TN' },
+        { make: 'L&T', model: '9020 Wheel Loader', location: 'Bengaluru, KA' },
+        { make: 'Tata Hitachi', model: 'EX 200LC Excavator', location: 'Kharagpur, WB' },
+        { make: 'CASE', model: '770 EX Magnum Backhoe', location: 'Pithampur, MP' },
+        { make: 'Komatsu', model: 'PC210-10M0 Excavator', location: 'Oragadam, TN' },
+        { make: 'Volvo', model: 'EC210D Excavator', location: 'Bengaluru, KA' },
+        { make: 'Mahindra', model: 'EarthMaster SX Backhoe', location: 'Chakan, MH' },
+        { make: 'ACE', model: 'AX 124 Backhoe', location: 'Faridabad, HR' },
+        { make: 'Hyundai', model: 'R215LC-7 Excavator', location: 'Chakan, MH' },
     ];
     const machine = machines[i];
     return {
@@ -471,7 +479,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Yellow',
         status: 'published' as 'published',
         isFeatured: i === 0,
-        registrationYear: 2019, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
+        registrationYear: 2019, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: machine.location, noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 ];

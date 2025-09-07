@@ -84,6 +84,7 @@ const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = 
   insuranceValidity: '',
   insuranceType: 'Comprehensive',
   rto: '',
+  location: '',
   noOfOwners: 1,
   displacement: '',
   groundClearance: '',
@@ -442,6 +443,7 @@ const VehicleForm: React.FC<{
                     <FormInput label="Km Driven" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage} />
                     <FormInput label="No. of Owners" name="noOfOwners" type="number" value={formData.noOfOwners} onChange={handleChange} />
                     <FormInput label="RTO" name="rto" value={formData.rto} onChange={handleChange} placeholder="e.g., MH01" />
+                    <FormInput label="Location" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Mumbai, MH" required />
                     <FormInput label="Insurance Type" name="insuranceType" type="select" value={formData.insuranceType} onChange={handleChange}>
                         <option>Comprehensive</option>
                         <option>Third Party</option>
