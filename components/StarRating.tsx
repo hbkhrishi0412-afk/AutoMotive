@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 
 interface StarRatingProps {
   rating: number;
@@ -80,4 +80,4 @@ const StarRating: React.FC<StarRatingProps> = ({ rating, onRate, readOnly = fals
   );
 };
 
-export default StarRating;
+export default memo(StarRating);

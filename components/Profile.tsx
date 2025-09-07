@@ -10,7 +10,7 @@ interface ProfileProps {
 const ProfileInput: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; disabled?: boolean; }> = 
   ({ label, name, value, onChange, type = 'text', disabled = false }) => (
   <div>
-    <label htmlFor={name} className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+    <label htmlFor={name} className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300">{label}</label>
     <input
       type={type}
       id={name}
@@ -18,7 +18,7 @@ const ProfileInput: React.FC<{ label: string; name: string; value: string; onCha
       value={value}
       onChange={onChange}
       disabled={disabled}
-      className="mt-1 block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800"
+      className="mt-1 block w-full p-3 border border-brand-gray-300 dark:border-brand-gray-600 rounded-lg shadow-sm focus:ring-brand-blue focus:border-brand-blue sm:text-sm bg-white dark:bg-brand-gray-800 disabled:bg-brand-gray-100 dark:disabled:bg-brand-gray-700"
     />
   </div>
 );
@@ -92,13 +92,13 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
   };
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in space-y-8">
-      <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">My Profile</h1>
+    <div className="max-w-4xl mx-auto animate-fade-in space-y-8 container py-8">
+      <h1 className="text-3xl font-extrabold text-brand-gray-900 dark:text-brand-gray-100">My Profile</h1>
       
       {/* Account Details Card */}
-      <div className="bg-white dark:bg-brand-gray-dark shadow-lg rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-brand-gray-800 shadow-soft-lg rounded-xl overflow-hidden">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Account Details</h2>
+          <h2 className="text-2xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-4">Account Details</h2>
           <form onSubmit={handleProfileSave}>
             <div className="space-y-4">
               <ProfileInput
@@ -109,9 +109,9 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
                 disabled={!isEditing}
               />
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-                <p className="mt-1 text-lg text-gray-500 dark:text-gray-400">{currentUser.email}</p>
-                <p className="mt-1 text-xs text-gray-400">Email address cannot be changed.</p>
+                <label className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300">Email</label>
+                <p className="mt-1 text-lg text-brand-gray-500 dark:text-brand-gray-400">{currentUser.email}</p>
+                <p className="mt-1 text-xs text-brand-gray-400">Email address cannot be changed.</p>
               </div>
               <ProfileInput
                 label="Mobile Number"
@@ -127,7 +127,7 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
                   <button type="submit" className="px-6 py-2 bg-brand-blue text-white font-semibold rounded-md hover:bg-brand-blue-dark transition-colors">
                     Save Changes
                   </button>
-                  <button type="button" onClick={handleEditToggle} className="px-6 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-semibold rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">
+                  <button type="button" onClick={handleEditToggle} className="px-6 py-2 bg-brand-gray-200 dark:bg-brand-gray-600 text-brand-gray-800 dark:text-brand-gray-200 font-semibold rounded-md hover:bg-brand-gray-300 dark:hover:bg-brand-gray-500 transition-colors">
                     Cancel
                   </button>
                 </>
@@ -142,9 +142,9 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
       </div>
 
       {/* Change Password Card */}
-      <div className="bg-white dark:bg-brand-gray-dark shadow-lg rounded-lg overflow-hidden">
+      <div className="bg-white dark:bg-brand-gray-800 shadow-soft-lg rounded-xl overflow-hidden">
         <div className="p-6">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4">Change Password</h2>
+          <h2 className="text-2xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-4">Change Password</h2>
           <form onSubmit={handlePasswordSave}>
             <div className="space-y-4">
               <ProfileInput

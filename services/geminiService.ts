@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Vehicle, ProsAndCons, ChatMessage } from '../types';
+import type { Vehicle, ProsAndCons, ChatMessage, Conversation, Suggestion } from '../types';
 import type { SearchFilters } from "../types";
 
 if (!process.env.API_KEY) {
@@ -120,7 +121,16 @@ Example: { "Safety": ["ABS", "Airbags"], "Comfort & Convenience": ["Automatic Cl
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: {
-                responseMimeType: 'application/json'
+                responseMimeType: 'application/json',
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
+                    }
+                }
             }
         });
         const jsonText = response.text.trim();
@@ -128,5 +138,135 @@ Example: { "Safety": ["ABS", "Airbags"], "Comfort & Convenience": ["Automatic Cl
     } catch (error) {
         console.error("Error fetching vehicle specs from Gemini:", error);
         return { "Error": ["Could not fetch suggestions."] };
+    }
+};
+
+export const getSearchSuggestions = async (query: string, vehicles: Pick<Vehicle, 'make' | 'model' | 'features'>[]): Promise<string[]> => {
+    if (!query.trim()) {
+        return [];
+    }
+
+    const makes = [...new Set(vehicles.map(v => v.make))];
+    const models = [...new Set(vehicles.map(v => v.model))];
+    const features = [...new Set(vehicles.flatMap(v => v.features))];
+
+    const prompt = `Based on the user's partial search query and the available vehicle inventory, generate up to 5 relevant and concise search suggestions.
+Suggestions can be for makes, models, features, or common search phrases (e.g., "SUV with sunroof").
+Prioritize suggestions that are highly relevant to the user's input.
+
+User's partial query: "${query}"
+
+Available makes: ${makes.slice(0, 15).join(', ')}
+Available models: ${models.slice(0, 20).join(', ')}
+Available features: ${features.slice(0, 20).join(', ')}
+
+Return the suggestions as a JSON array of strings. For example: ["Hyundai Creta", "Sunroof", "under 15 lakhs"].`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error("Error fetching search suggestions from Gemini:", error);
+        return [];
+    }
+};
+
+export const generateSellerSuggestions = async (vehicles: Vehicle[], conversations: Conversation[]): Promise<Suggestion[]> => {
+    const vehicleSummary = vehicles.map(v => ({
+        id: v.id,
+        name: `${v.year} ${v.make} ${v.model}`,
+        price: v.price,
+        mileage: v.mileage,
+        descriptionLength: v.description.length,
+        imageCount: v.images.length,
+        views: v.views || 0,
+        inquiries: v.inquiriesCount || 0,
+        status: v.status,
+    })).filter(v => v.status === 'published');
+
+    // FIX: Corrected a property access error in the filter logic. The mapped object
+    // has an `isRead` property, not `isReadBySeller`.
+    const conversationSummary = conversations.map(c => ({
+        id: c.id,
+        vehicleName: c.vehicleName,
+        isRead: c.isReadBySeller,
+        lastMessageTimestamp: c.lastMessageAt,
+        lastMessageText: c.messages[c.messages.length - 1].text,
+        lastMessageSender: c.messages[c.messages.length - 1].sender,
+    })).filter(c => c.lastMessageSender !== 'seller' && !c.isRead);
+
+    const prompt = `You are an expert AI Sales Assistant for a used vehicle marketplace. Your goal is to provide actionable suggestions to a seller to help them sell their vehicles faster and improve customer communication.
+Analyze the following JSON data which contains the seller's current vehicle listings and un-replied customer inquiries.
+
+**Active Vehicle Listings:**
+${JSON.stringify(vehicleSummary, null, 2)}
+
+**Un-replied Customer Inquiries:**
+${JSON.stringify(conversationSummary, null, 2)}
+
+Based on this data, provide up to 4 high-impact suggestions. Categorize them into 'pricing', 'listing_quality', or 'urgent_inquiry'.
+- For pricing suggestions, identify vehicles that might be over or underpriced. A vehicle with high views but very few inquiries could be overpriced. A vehicle with very low views might need a price drop to attract attention.
+- For listing quality, suggest improvements. A vehicle with few images (less than 3) or a very short description (less than 50 characters) is a good candidate.
+- For urgent inquiries, identify unread messages from customers, especially recent ones or those asking direct questions about price, availability, or test drives, and flag them as high priority.
+
+Respond ONLY with a JSON object containing a "suggestions" key, which is an array of suggestion objects. Each object must have these keys:
+- "type": (string) one of 'pricing', 'listing_quality', 'urgent_inquiry'.
+- "title": (string) a short, catchy title for the suggestion.
+- "description": (string) a one or two-sentence explanation of the suggestion and why it's important.
+- "targetId": (string or number) the ID of the vehicle or conversation this suggestion applies to. For vehicles, use the numeric ID. For conversations, use the string ID.
+- "priority": (string) one of 'high', 'medium', 'low'.
+
+If there is no data or no meaningful suggestions can be made, return an empty array for "suggestions".`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        suggestions: {
+                            type: Type.ARRAY,
+                            items: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    type: { type: Type.STRING },
+                                    title: { type: Type.STRING },
+                                    description: { type: Type.STRING },
+// FIX: Replaced invalid `Type.ANY` with `Type.STRING`. The Gemini API schema
+// does not support an 'ANY' type. `STRING` is the most flexible choice for
+// a value that can be a string or a number, as the subsequent logic can parse it correctly.
+                                    targetId: { type: Type.STRING },
+                                    priority: { type: Type.STRING },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        const jsonText = response.text.trim();
+        const result = JSON.parse(jsonText);
+        
+        return result.suggestions.map((s: any) => ({
+            ...s,
+            targetId: s.type === 'urgent_inquiry' ? String(s.targetId) : Number(s.targetId)
+        }));
+    } catch (error) {
+        console.error("Error generating seller suggestions with Gemini:", error);
+        return [];
     }
 };

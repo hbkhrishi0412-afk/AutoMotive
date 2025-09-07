@@ -14,6 +14,7 @@ export interface Vehicle {
   category: VehicleCategory;
   make: string;
   model: string;
+  variant?: string;
   year: number;
   price: number;
   mileage: number;
@@ -21,12 +22,12 @@ export interface Vehicle {
   features: string[];
   description: string;
   sellerEmail: string;
+  sellerName?: string;
   engine: string;
   transmission: string;
   fuelType: string;
   fuelEfficiency: string;
-  exteriorColor: string;
-  interiorColor: string;
+  color: string;
   status: 'published' | 'unpublished' | 'sold';
   isFeatured: boolean;
   views?: number;
@@ -34,6 +35,8 @@ export interface Vehicle {
   isFlagged?: boolean;
   averageRating?: number;
   ratingCount?: number;
+  sellerAverageRating?: number;
+  sellerRatingCount?: number;
 }
 
 export interface User {
@@ -48,6 +51,8 @@ export interface User {
   dealershipName?: string;
   bio?: string;
   logoUrl?: string;
+  averageRating?: number;
+  ratingCount?: number;
 }
 
 export interface ChatMessage {
@@ -79,6 +84,7 @@ export interface Toast {
 }
 
 export enum View {
+  HOME = 'HOME',
   USED_CARS = 'USED_CARS',
   DETAIL = 'DETAIL',
   SELLER_DASHBOARD = 'SELLER_DASHBOARD',
@@ -92,6 +98,7 @@ export enum View {
   PROFILE = 'PROFILE',
   FORGOT_PASSWORD = 'FORGOT_PASSWORD',
   INBOX = 'INBOX',
+  SELLER_PROFILE = 'SELLER_PROFILE',
 }
 
 export interface ProsAndCons {
@@ -119,4 +126,14 @@ export interface AuditLogEntry {
     action: string;
     target: string; // e.g., user email or vehicle ID
     details?: string;
+}
+
+export type VehicleData = Record<string, Record<string, Record<string, string[]>>>;
+
+export interface Suggestion {
+  type: 'pricing' | 'listing_quality' | 'urgent_inquiry';
+  title: string;
+  description: string;
+  targetId: number | string;
+  priority: 'high' | 'medium' | 'low';
 }

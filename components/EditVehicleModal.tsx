@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import type { Vehicle } from '../types';
 
@@ -88,7 +89,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
                                     <FormInput label="Year" name="year" type="number" value={formData.year} required />
                                     <FormInput label="Price (₹)" name="price" type="number" value={formData.price} required />
                                     <FormInput label="Mileage (kms)" name="mileage" type="number" value={formData.mileage} required />
-                                    <FormInput label="Exterior Color" name="exteriorColor" value={formData.exteriorColor} />
+                                    <FormInput label="Color" name="color" value={formData.color} />
                                 </div>
                             </fieldset>
                             
@@ -99,7 +100,6 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
                                     <FormInput label="Transmission" name="transmission" value={formData.transmission} />
                                     <FormInput label="Fuel Type" name="fuelType" value={formData.fuelType} />
                                     <FormInput label="Fuel Efficiency" name="fuelEfficiency" value={formData.fuelEfficiency} />
-                                    <FormInput label="Interior Color" name="interiorColor" value={formData.interiorColor} />
                                 </div>
                             </fieldset>
                             

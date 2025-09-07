@@ -13,7 +13,6 @@ interface UserManagementProps {
 
 type RoleFilter = 'all' | 'customer' | 'seller';
 
-// FIX: Changed type to not require createdAt, which will be generated on submission.
 const initialFormState: Omit<User, 'status' | 'createdAt'> = {
     name: '',
     email: '',

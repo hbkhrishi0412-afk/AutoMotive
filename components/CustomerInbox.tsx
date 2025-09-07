@@ -19,7 +19,7 @@ const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
             <path d="M8.5 12.5L12.5 16.5L22.5 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
     ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-brand-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
         </svg>
     )
@@ -27,11 +27,11 @@ const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
 
 const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
     <div className="flex items-start">
-        <div className="rounded-xl px-4 py-3 max-w-lg bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200 flex items-center space-x-2">
+        <div className="rounded-xl px-4 py-3 max-w-lg bg-brand-gray-200 dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 flex items-center space-x-2">
             <span className="text-sm font-medium">{name} is typing</span>
-            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></div>
+            <div className="w-1.5 h-1.5 bg-brand-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-1.5 h-1.5 bg-brand-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-1.5 h-1.5 bg-brand-gray-500 rounded-full animate-bounce"></div>
         </div>
     </div>
 );
@@ -106,15 +106,16 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
   const getSellerName = (sellerId: string) => {
     return users.find(u => u.email === sellerId)?.name || 'Seller';
   }
+  const formInputClass = "flex-grow p-3 border border-brand-gray-300 dark:border-brand-gray-600 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:outline-none transition bg-white dark:bg-brand-gray-800 dark:text-gray-200";
 
   return (
-    <div className="animate-fade-in">
-      <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-6 border-b dark:border-gray-700 pb-4">My Inbox</h1>
-      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 bg-white dark:bg-brand-gray-dark rounded-lg shadow-md h-[75vh]">
+    <div className="animate-fade-in container mx-auto py-8">
+      <h1 className="text-3xl font-extrabold text-brand-gray-900 dark:text-brand-gray-100 mb-6 border-b border-brand-gray-200 dark:border-brand-gray-700 pb-4">My Inbox</h1>
+      <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6 bg-white dark:bg-brand-gray-800 rounded-xl shadow-soft-lg h-[75vh]">
         {/* Conversation List */}
-        <aside className="border-r dark:border-gray-700 flex flex-col">
-           <div className="p-4 border-b dark:border-gray-700">
-                <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">Conversations</h2>
+        <aside className="border-r border-brand-gray-200 dark:border-brand-gray-700 flex flex-col">
+           <div className="p-4 border-b border-brand-gray-200 dark:border-brand-gray-700">
+                <h2 className="text-lg font-bold text-brand-gray-800 dark:text-brand-gray-100">Conversations</h2>
            </div>
            <div className="overflow-y-auto">
                 {sortedConversations.length > 0 ? (
@@ -125,14 +126,14 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                                 <li key={conv.id}>
                                     <button
                                         onClick={() => handleSelectConversation(conv)}
-                                        className={`w-full text-left p-4 border-l-4 ${selectedConv?.id === conv.id ? 'border-brand-blue bg-brand-gray-light dark:bg-brand-gray-darker' : 'border-transparent hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}
+                                        className={`w-full text-left p-4 border-l-4 transition-colors ${selectedConv?.id === conv.id ? 'border-brand-blue bg-brand-gray-100 dark:bg-brand-gray-900' : 'border-transparent hover:bg-brand-gray-100 dark:hover:bg-brand-gray-700'}`}
                                     >
                                         <div className="flex justify-between items-center mb-1">
-                                            <p className="font-bold text-gray-800 dark:text-gray-100 truncate">{conv.vehicleName}</p>
+                                            <p className="font-bold text-brand-gray-800 dark:text-brand-gray-100 truncate">{conv.vehicleName}</p>
                                             {!conv.isReadByCustomer && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full flex-shrink-0 ml-2"></div>}
                                         </div>
-                                        <p className="text-sm text-gray-600 dark:text-gray-300">With {getSellerName(conv.sellerId)}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">
+                                        <p className="text-sm text-brand-gray-600 dark:text-brand-gray-300">With {getSellerName(conv.sellerId)}</p>
+                                        <p className="text-xs text-brand-gray-500 dark:text-brand-gray-400 truncate mt-1">
                                             {lastMessage && (
                                                 lastMessage.sender === 'user' ? (
                                                     <span><span className="font-semibold">You: </span>{lastMessage.text}</span>
@@ -149,7 +150,7 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                         })}
                     </ul>
                 ) : (
-                    <p className="p-4 text-center text-gray-500 dark:text-gray-400">You have no messages yet. Inquire about a vehicle to start a conversation.</p>
+                    <p className="p-4 text-center text-brand-gray-500 dark:text-brand-gray-400">You have no messages yet. Inquire about a vehicle to start a conversation.</p>
                 )}
            </div>
         </aside>
@@ -158,12 +159,12 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
         <main className="flex flex-col">
             {selectedConv ? (
                  <>
-                    <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <div className="p-4 border-b border-brand-gray-200 dark:border-brand-gray-700 flex justify-between items-center">
                         <div>
-                            <h3 className="font-bold text-lg text-gray-800 dark:text-gray-100">{selectedConv.vehicleName}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Conversation with {getSellerName(selectedConv.sellerId)}</p>
+                            <h3 className="font-bold text-lg text-brand-gray-800 dark:text-brand-gray-100">{selectedConv.vehicleName}</h3>
+                            <p className="text-sm text-brand-gray-500 dark:text-brand-gray-400">Conversation with {getSellerName(selectedConv.sellerId)}</p>
                         </div>
-                         <button onClick={handleFlagClick} disabled={selectedConv.isFlagged} className="disabled:opacity-50 flex items-center gap-1 text-xs text-gray-500 hover:text-red-500" title={selectedConv.isFlagged ? "This conversation has been reported" : "Report conversation"}>
+                         <button onClick={handleFlagClick} disabled={selectedConv.isFlagged} className="disabled:opacity-50 flex items-center gap-1 text-xs text-brand-gray-500 hover:text-red-500" title={selectedConv.isFlagged ? "This conversation has been reported" : "Report conversation"}>
                             {selectedConv.isFlagged ? (
                                 <>
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 01-1-1V6z" clipRule="evenodd" /></svg>
@@ -177,17 +178,17 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                             )}
                         </button>
                     </div>
-                    <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-light dark:bg-brand-gray-darker space-y-4">
+                    <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-50 dark:bg-brand-gray-900 space-y-4">
                         {selectedConv.messages.map(msg => (
-                           <div key={msg.id} className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
-                                {msg.sender === 'seller' && <span className="text-xs font-bold text-green-600 dark:text-green-400 mb-1 ml-2">{getSellerName(selectedConv.sellerId)}</span>}
-                                {msg.sender === 'system' && <div className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-2 w-full">{msg.text}</div>}
+                           <div key={msg.id} className={`flex flex-col animate-fade-in ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+                                {msg.sender === 'seller' && <span className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-2">{getSellerName(selectedConv.sellerId)}</span>}
+                                {msg.sender === 'system' && <div className="text-center text-xs text-brand-gray-500 dark:text-brand-gray-400 italic py-2 w-full">{msg.text}</div>}
                                 {msg.sender !== 'system' && (
                                     <>
-                                        <div className={`rounded-xl px-4 py-2 max-w-lg ${ msg.sender === 'user' ? 'bg-brand-blue text-white' : 'bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200'}`}>
-                                            {msg.text}
+                                        <div className={`px-4 py-3 max-w-lg ${ msg.sender === 'user' ? 'bg-brand-blue text-white rounded-l-xl rounded-t-xl' : 'bg-brand-gray-200 dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 rounded-r-xl rounded-t-xl'}`}>
+                                            <p className="text-sm">{msg.text}</p>
                                         </div>
-                                        <div className="text-xs text-gray-400 mt-1 px-1 flex items-center">
+                                        <div className="text-xs text-brand-gray-400 mt-1 px-1 flex items-center">
                                             {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                             {msg.sender === 'user' && <ReadReceiptIcon isRead={msg.isRead} />}
                                         </div>
@@ -198,18 +199,18 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                         {typingStatus?.conversationId === selectedConv?.id && typingStatus?.userRole === 'seller' && <TypingIndicator name={getSellerName(selectedConv.sellerId)} />}
                         <div ref={chatEndRef} />
                     </div>
-                    <div className="p-4 border-t dark:border-gray-700 bg-white dark:bg-brand-gray-dark">
+                    <div className="p-4 border-t border-brand-gray-200 dark:border-brand-gray-700 bg-white dark:bg-brand-gray-800">
                         <form onSubmit={handleSendReply} className="flex gap-2">
-                        <input type="text" value={replyText} onChange={handleInputChange} placeholder="Type your message..." className="flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-brand-blue-light focus:outline-none bg-white dark:bg-brand-gray-darker dark:text-gray-200 border-brand-gray dark:border-gray-600" />
+                        <input type="text" value={replyText} onChange={handleInputChange} placeholder="Type your message..." className={formInputClass} />
                         <button type="submit" className="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark">Send</button>
                         </form>
                     </div>
                  </>
             ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center p-8">
-                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                     <h3 className="mt-4 text-xl font-semibold text-gray-700 dark:text-gray-200">Select a Conversation</h3>
-                     <p className="text-gray-500 dark:text-gray-400 mt-1">Choose a conversation from the left to view messages.</p>
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-brand-gray-300 dark:text-brand-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                     <h3 className="mt-4 text-xl font-semibold text-brand-gray-700 dark:text-brand-gray-200">Select a Conversation</h3>
+                     <p className="text-brand-gray-500 dark:text-brand-gray-400 mt-1">Choose a conversation from the left to view messages.</p>
                 </div>
             )}
         </main>

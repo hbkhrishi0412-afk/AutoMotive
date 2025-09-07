@@ -1,11 +1,11 @@
-
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Vehicle, User, Conversation } from '../types';
+import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
+import type { Vehicle, User, Conversation, VehicleData } from '../types';
 import { VehicleCategory } from '../types';
 import { generateVehicleDescription, getVehicleSpecs } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
+import AiAssistant from './AiAssistant';
+import ChatWidget from './ChatWidget';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController);
 import { Bar, Line } from 'react-chartjs-2';
@@ -25,36 +25,37 @@ interface DashboardProps {
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onUpdateSellerProfile: (details: { dealershipName: string; bio: string; logoUrl: string; }) => void;
+  vehicleData: VehicleData;
 }
 
 type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile';
 
-const HelpTooltip: React.FC<{ text: string }> = ({ text }) => (
+const HelpTooltip: React.FC<{ text: string }> = memo(({ text }) => (
     <span className="group relative ml-1">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         <span className="absolute bottom-full mb-2 w-48 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 left-1/2 -translate-x-1/2 z-10">{text}</span>
     </span>
-);
+));
 
-const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; children?: React.ReactNode; }> = 
-  ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false, children }) => (
+const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; children?: React.ReactNode; disabled?: boolean }> = 
+  ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false, children, disabled = false }) => (
   <div>
     <label htmlFor={String(name)} className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
         {tooltip && <HelpTooltip text={tooltip} />}
     </label>
     {type === 'select' ? (
-        <select id={String(name)} name={String(name)} value={String(value)} onChange={onChange} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`}>
+        <select id={String(name)} name={String(name)} value={String(value)} onChange={onChange} required={required} disabled={disabled} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`}>
             {children}
         </select>
     ) : (
-        <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
+        <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} disabled={disabled} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
     )}
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
   </div>
 );
 
-const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
+const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = memo(({ title, value, icon }) => (
   <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md flex items-center">
     <div className="bg-brand-blue-light p-3 rounded-full mr-4">{icon}</div>
     <div>
@@ -62,12 +63,12 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
     </div>
   </div>
-);
+));
 
 const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
-  make: '', model: '', year: new Date().getFullYear(), price: 0, mileage: 0,
+  make: '', model: '', variant: '', year: new Date().getFullYear(), price: 0, mileage: 0,
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Petrol', fuelEfficiency: '',
-  exteriorColor: '', interiorColor: '', features: [], images: [],
+  color: '', features: [], images: [],
   sellerEmail: '',
   category: VehicleCategory.FOUR_WHEELER,
   status: 'published',
@@ -79,7 +80,8 @@ const VehicleForm: React.FC<{
     onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
     onUpdateVehicle: (vehicle: Vehicle) => void;
     onCancel: () => void;
-}> = ({ editingVehicle, onAddVehicle, onUpdateVehicle, onCancel }) => {
+    vehicleData: VehicleData;
+}> = memo(({ editingVehicle, onAddVehicle, onUpdateVehicle, onCancel, vehicleData }) => {
     const [formData, setFormData] = useState(editingVehicle ? { ...initialFormState, ...editingVehicle, sellerEmail: editingVehicle.sellerEmail } : initialFormState);
     const [featureInput, setFeatureInput] = useState('');
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
@@ -87,6 +89,21 @@ const VehicleForm: React.FC<{
     const [suggestedSpecs, setSuggestedSpecs] = useState<Record<string, string[]> | null>(null);
     const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
     const debounceTimeoutRef = useRef<number | null>(null);
+
+    const availableMakes = useMemo(() => {
+        if (!formData.category || !vehicleData[formData.category]) return [];
+        return Object.keys(vehicleData[formData.category]).sort();
+    }, [formData.category, vehicleData]);
+
+    const availableModels = useMemo(() => {
+        if (!formData.category || !formData.make || !vehicleData[formData.category]?.[formData.make]) return [];
+        return Object.keys(vehicleData[formData.category][formData.make]).sort();
+    }, [formData.category, formData.make, vehicleData]);
+
+    const availableVariants = useMemo(() => {
+        if (!formData.category || !formData.make || !formData.model || !vehicleData[formData.category]?.[formData.make]?.[formData.model]) return [];
+        return vehicleData[formData.category][formData.make][formData.model].sort();
+    }, [formData.category, formData.make, formData.model, vehicleData]);
 
      useEffect(() => {
         const { make, model, year } = formData;
@@ -133,8 +150,27 @@ const VehicleForm: React.FC<{
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value } = e.target as { name: keyof typeof initialFormState; value: string };
-      const parsedValue = ['year', 'price', 'mileage'].includes(name) ? parseInt(value) || 0 : value;
-      setFormData(prev => ({ ...prev, [name]: parsedValue }));
+      
+      const isNumeric = ['year', 'price', 'mileage'].includes(name);
+      const parsedValue = isNumeric ? parseInt(value, 10) || 0 : value;
+
+      setFormData(prev => {
+        const newState = { ...prev, [name]: parsedValue };
+        if (name === 'category') {
+            newState.make = '';
+            newState.model = '';
+            newState.variant = '';
+        }
+        if (name === 'make') {
+            newState.model = '';
+            newState.variant = '';
+        }
+        if (name === 'model') {
+            newState.variant = '';
+        }
+        return newState;
+      });
+
       const error = validateField(name, parsedValue);
       setErrors(prev => ({...prev, [name]: error}));
     };
@@ -229,18 +265,27 @@ const VehicleForm: React.FC<{
             <fieldset>
                 <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Core Details</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                    <FormInput label="Make" name="make" value={formData.make} onChange={handleChange} onBlur={handleBlur} error={errors.make as string} required />
-                    <FormInput label="Model" name="model" value={formData.model} onChange={handleChange} onBlur={handleBlur} error={errors.model as string} required />
                     <FormInput label="Category" name="category" type="select" value={formData.category} onChange={handleChange} required>
                         {Object.values(VehicleCategory).map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
                     </FormInput>
+                    <FormInput label="Make" name="make" type="select" value={formData.make} onChange={handleChange} error={errors.make as string} disabled={!formData.category} required>
+                        <option value="" disabled>Select Make</option>
+                        {availableMakes.map(make => <option key={make} value={make}>{make}</option>)}
+                    </FormInput>
+                    <FormInput label="Model" name="model" type="select" value={formData.model} onChange={handleChange} error={errors.model as string} disabled={!formData.make} required>
+                        <option value="" disabled>Select Model</option>
+                        {availableModels.map(model => <option key={model} value={model}>{model}</option>)}
+                    </FormInput>
+                    <FormInput label="Variant" name="variant" type="select" value={formData.variant || ''} onChange={handleChange} disabled={!formData.model}>
+                        <option value="">Select Variant (Optional)</option>
+                        {availableVariants.map(variant => <option key={variant} value={variant}>{variant}</option>)}
+                    </FormInput>
                     <FormInput label="Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year as string} required />
                     <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price as string} tooltip="Enter the listing price without commas or symbols." required />
                     <FormInput label="Mileage (kms)" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage as string} />
-                    <FormInput label="Exterior Color" name="exteriorColor" value={formData.exteriorColor} onChange={handleChange} onBlur={handleBlur} />
-                    <FormInput label="Interior Color" name="interiorColor" value={formData.interiorColor} onChange={handleChange} onBlur={handleBlur} />
+                    <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} onBlur={handleBlur} />
                 </div>
             </fieldset>
              <fieldset>
@@ -311,7 +356,7 @@ const VehicleForm: React.FC<{
                   <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Live Preview</h3>
                       <div className="pointer-events-none">
-                         <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} />
+                         <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} isCompareDisabled={true} onViewSellerProfile={() => {}} />
                       </div>
                   </div>
                   <div>
@@ -364,129 +409,26 @@ const VehicleForm: React.FC<{
         </div>
       </div>
     );
-}
-
-const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
-    isRead ? (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-blue-400" viewBox="0 0 24 24" fill="none">
-            <path d="M1.5 12.5L5.5 16.5L11.5 10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8.5 12.5L12.5 16.5L22.5 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-        </svg>
-    )
-);
-
-const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
-    <div className="flex items-start">
-        <div className="rounded-xl px-4 py-3 max-w-lg bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200 flex items-center space-x-2">
-            <span className="text-sm font-medium">{name} is typing</span>
-            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"></div>
-        </div>
-    </div>
-);
+});
 
 const InquiriesView: React.FC<{
   conversations: Conversation[];
-  onSendMessage: (conversationId: string, messageText: string) => void;
-  onMarkAsRead: (conversationId: string) => void;
-  typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
-  onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
+  onMarkConversationAsReadBySeller: (conversationId: string) => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
-}> = ({ conversations, onSendMessage, onMarkAsRead, typingStatus, onUserTyping, onMarkMessagesAsRead }) => {
-    const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
-    const [replyText, setReplyText] = useState("");
-    const chatEndRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [selectedConv?.messages, typingStatus]);
-
-    useEffect(() => {
-        if (selectedConv) {
-            const updatedConversation = conversations.find(c => c.id === selectedConv.id);
-            if (updatedConversation && updatedConversation.messages.length !== selectedConv.messages.length) {
-                setSelectedConv(updatedConversation);
-            } else if (!updatedConversation) {
-                setSelectedConv(null);
-            }
-        }
-    }, [conversations, selectedConv]);
+  onSelectConv: (conv: Conversation) => void;
+}> = memo(({ conversations, onMarkConversationAsReadBySeller, onMarkMessagesAsRead, onSelectConv }) => {
 
     const handleSelectConversation = (conv: Conversation) => {
-      setSelectedConv(conv);
+      onSelectConv(conv);
       if(!conv.isReadBySeller) {
-        onMarkAsRead(conv.id);
+        onMarkConversationAsReadBySeller(conv.id);
         onMarkMessagesAsRead(conv.id, 'seller');
       }
-    };
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setReplyText(e.target.value);
-        if (selectedConv) {
-            onUserTyping(selectedConv.id, 'seller');
-        }
-    };
-
-    const handleSendReply = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (replyText.trim() && selectedConv) {
-            onSendMessage(selectedConv.id, replyText);
-            setReplyText("");
-        }
     };
 
     const sortedConversations = useMemo(() => {
         return [...conversations].sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
     }, [conversations]);
-
-    if(selectedConv) {
-      return (
-        <div className="bg-white dark:bg-brand-gray-dark rounded-lg shadow-md h-[70vh] flex flex-col">
-          <div className="p-4 border-b dark:border-gray-700 flex items-center gap-4">
-            <button onClick={() => setSelectedConv(null)} className="font-bold text-lg hover:text-brand-blue">&larr;</button>
-            <div>
-              <h3 className="font-bold text-gray-800 dark:text-gray-100">{selectedConv.customerName}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Inquiring about: {selectedConv.vehicleName}</p>
-            </div>
-          </div>
-          <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-light dark:bg-brand-gray-darker space-y-4">
-            {selectedConv.messages.map(msg => {
-                if (msg.sender === 'system') {
-                    return (
-                        <div key={msg.id} className="text-center text-xs text-gray-500 dark:text-gray-400 italic py-2">
-                            {msg.text}
-                        </div>
-                    );
-                }
-                return (
-                    <div key={msg.id} className={`flex flex-col ${msg.sender === 'seller' ? 'items-end' : 'items-start'}`}>
-                      <div className={`rounded-xl px-4 py-2 max-w-lg ${ msg.sender === 'seller' ? 'bg-brand-blue text-white' : 'bg-brand-gray dark:bg-brand-gray-dark text-gray-800 dark:text-gray-200'}`}>
-                        {msg.text}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1 px-1 flex items-center">
-                        {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                        {msg.sender === 'seller' && <ReadReceiptIcon isRead={msg.isRead} />}
-                      </div>
-                    </div>
-                )
-            })}
-            {typingStatus?.conversationId === selectedConv?.id && typingStatus?.userRole === 'customer' && <TypingIndicator name={selectedConv.customerName} />}
-            <div ref={chatEndRef} />
-          </div>
-           <div className="p-4 border-t dark:border-gray-700">
-            <form onSubmit={handleSendReply} className="flex gap-2">
-              <input type="text" value={replyText} onChange={handleInputChange} placeholder="Type your reply..." className="flex-grow p-3 border rounded-lg focus:ring-2 focus:ring-brand-blue-light focus:outline-none bg-white dark:bg-brand-gray-darker dark:text-gray-200 border-brand-gray dark:border-gray-600" />
-              <button type="submit" className="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark">Send</button>
-            </form>
-          </div>
-        </div>
-      );
-    }
 
     return (
        <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
@@ -515,7 +457,7 @@ const InquiriesView: React.FC<{
          </div>
        </div>
     );
-}
+});
 
 const ProfileInput: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; }> = ({ label, name, value, onChange }) => (
     <div>
@@ -547,12 +489,13 @@ const ProfileTextarea: React.FC<{ label: string; name: string; value: string; on
 );
 
 
-const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any) => void; }> = ({ seller, onUpdateProfile }) => {
+const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any) => void; }> = memo(({ seller, onUpdateProfile }) => {
     const [formData, setFormData] = useState({
         dealershipName: seller.dealershipName || '',
         bio: seller.bio || '',
         logoUrl: seller.logoUrl || '',
     });
+    const [copySuccess, setCopySuccess] = useState('');
     
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -573,6 +516,19 @@ const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onUpdateProfile(formData);
+    };
+
+    const profileUrl = `${window.location.origin}${window.location.pathname}?seller=${seller.email}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(profileUrl)}`;
+    
+    const handleCopy = () => {
+        navigator.clipboard.writeText(profileUrl).then(() => {
+            setCopySuccess('Copied!');
+            setTimeout(() => setCopySuccess(''), 2000);
+        }, () => {
+            setCopySuccess('Failed to copy');
+            setTimeout(() => setCopySuccess(''), 2000);
+        });
     };
 
     return (
@@ -606,30 +562,74 @@ const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any
                     <button type="submit" className="bg-brand-blue text-white font-bold py-3 px-6 rounded-lg hover:bg-brand-blue-dark">Save Profile</button>
                 </div>
             </form>
+
+             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Your Public Profile</h3>
+                <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-gray-50 dark:bg-brand-gray-darker rounded-lg">
+                    <div className="text-center">
+                        <img src={qrCodeUrl} alt="Seller Profile QR Code" className="w-36 h-36 rounded-lg border dark:border-gray-600" />
+                         <a href={qrCodeUrl} download={`qr-code-${seller.email}.png`} className="mt-2 inline-block text-sm text-brand-blue hover:underline">
+                            Download QR Code
+                        </a>
+                    </div>
+                    <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">Share this QR code or link with customers. When they scan or click it, they'll be taken directly to your profile page with all your listings.</p>
+                        <div className="mt-2 p-2 bg-gray-200 dark:bg-gray-800 rounded-md flex items-center justify-between gap-2">
+                           <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 dark:text-blue-400 font-mono truncate hover:underline">{profileUrl}</a>
+                           <button onClick={handleCopy} className="text-sm font-semibold px-3 py-1 bg-brand-blue text-white rounded-md hover:bg-brand-blue-dark transition-colors whitespace-nowrap">
+                               {copySuccess || 'Copy Link'}
+                           </button>
+                        </div>
+                    </div>
+                </div>
+              </div>
         </div>
     );
-};
+});
 
 
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile }) => {
+const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
+
+  const navigate = (view: DashboardView) => {
+    if (view !== 'inquiries') {
+        setSelectedConv(null);
+    }
+    setActiveView(view);
+  };
 
   const handleEditClick = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
-    setActiveView('form');
+    navigate('form');
   };
   
   const handleAddNewClick = () => {
     setEditingVehicle(null);
-    setActiveView('form');
+    navigate('form');
   }
 
   const handleFormCancel = () => {
     setEditingVehicle(null);
-    setActiveView('listings');
+    navigate('listings');
   }
+
+  const handleNavigateToVehicle = (vehicleId: number) => {
+    const vehicle = sellerVehicles.find(v => v.id === vehicleId);
+    if (vehicle) {
+        handleEditClick(vehicle);
+    }
+  };
+
+  const handleNavigateToInquiry = (conversationId: string) => {
+    const conv = conversations.find(c => c.id === conversationId);
+    if (conv) {
+        setSelectedConv(conv);
+        navigate('inquiries');
+    }
+  };
 
   const unreadCount = useMemo(() => conversations.filter(c => !c.isReadBySeller).length, [conversations]);
   const activeListings = useMemo(() => sellerVehicles.filter(v => v.status !== 'sold'), [sellerVehicles]);
@@ -638,7 +638,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
   const analyticsData = useMemo(() => {
     const totalViews = activeListings.reduce((sum, v) => sum + (v.views || 0), 0);
     const totalInquiries = activeListings.reduce((sum, v) => sum + (v.inquiriesCount || 0), 0);
-    const chartLabels = activeListings.map(v => `${v.year} ${v.model}`);
+    const chartLabels = activeListings.map(v => `${v.year} ${v.model} ${v.variant || ''}`.trim());
     const chartData = {
       labels: chartLabels,
       datasets: [
@@ -665,11 +665,18 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
     switch(activeView) {
       case 'overview':
         return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
-            <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
-            <StatCard title="Total Views" value={analyticsData.totalViews} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>} />
-            <StatCard title="Total Inquiries" value={analyticsData.totalInquiries} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+              <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
+              <StatCard title="Your Seller Rating" value={`${seller.averageRating?.toFixed(1) || 'N/A'} (${seller.ratingCount || 0})`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.522 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.522 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.522-4.674a1 1 0 00-.363-1.118L2.98 8.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.522-4.674z" /></svg>} />
+            </div>
+            <AiAssistant
+              vehicles={activeListings}
+              conversations={conversations}
+              onNavigateToVehicle={handleNavigateToVehicle}
+              onNavigateToInquiry={handleNavigateToInquiry}
+            />
           </div>
         );
       case 'analytics':
@@ -699,7 +706,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
                   <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                     {activeListings.map((v) => (
                       <tr key={v.id}>
-                        <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
+                        <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model} {v.variant || ''}</td>
                         <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
                         <td className="px-6 py-4 text-right whitespace-nowrap">
                           <button onClick={() => onMarkAsSold(v.id)} className="text-green-600 hover:text-green-800 mr-4">Mark as Sold</button>
@@ -741,7 +748,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
                   <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                     {soldListings.map((v) => (
                       <tr key={v.id}>
-                        <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model}</td>
+                        <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model} {v.variant || ''}</td>
                         <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
                       </tr>
                     ))}
@@ -754,14 +761,19 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
           </div>
         );
       case 'form':
-        return <VehicleForm editingVehicle={editingVehicle} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} />;
+        return <VehicleForm editingVehicle={editingVehicle} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} vehicleData={vehicleData} />;
       case 'inquiries':
-        return <InquiriesView conversations={conversations} onSendMessage={onSellerSendMessage} onMarkAsRead={onMarkConversationAsReadBySeller} typingStatus={typingStatus} onUserTyping={onUserTyping} onMarkMessagesAsRead={onMarkMessagesAsRead} />;
+        return <InquiriesView 
+                    conversations={conversations} 
+                    onMarkConversationAsReadBySeller={onMarkConversationAsReadBySeller} 
+                    onMarkMessagesAsRead={onMarkMessagesAsRead}
+                    onSelectConv={setSelectedConv}
+                />;
     }
   }
 
   const NavItem: React.FC<{ view: DashboardView, children: React.ReactNode, count?: number }> = ({ view, children, count }) => (
-    <button onClick={() => setActiveView(view)} className={`flex justify-between items-center w-full text-left px-4 py-3 rounded-lg transition-colors ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
+    <button onClick={() => navigate(view)} className={`flex justify-between items-center w-full text-left px-4 py-3 rounded-lg transition-colors ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
       <span>{children}</span>
       {count && count > 0 && <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{count}</span>}
     </button>
@@ -783,6 +795,19 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
         <main>
           {renderContent()}
         </main>
+        {selectedConv && seller && (
+            <ChatWidget
+                conversation={selectedConv}
+                currentUserRole="seller"
+                otherUserName={selectedConv.customerName}
+                onSendMessage={(messageText) => onSellerSendMessage(selectedConv.id, messageText)}
+                onClose={() => setSelectedConv(null)}
+                onUserTyping={onUserTyping}
+                onMarkMessagesAsRead={onMarkMessagesAsRead}
+                onFlagContent={() => {}}
+                typingStatus={typingStatus}
+            />
+        )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry } from '../types';
+import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
 
@@ -23,9 +23,11 @@ interface AdminPanelProps {
     onExportUsers: () => void;
     onExportVehicles: () => void;
     onExportSales: () => void;
+    vehicleData: VehicleData;
+    onUpdateVehicleData: (newData: VehicleData) => void;
 }
 
-type AdminView = 'analytics' | 'users' | 'listings';
+type AdminView = 'analytics' | 'users' | 'listings' | 'vehicleData';
 type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
 type SortConfig = {
     key: keyof User;
@@ -103,10 +105,145 @@ const BarChart: React.FC<{ title: string; data: { label: string; value: number }
     );
 };
 
+// --- Vehicle Data Editor Component ---
+const VehicleDataEditor: React.FC<{ vehicleData: VehicleData, onUpdate: (newData: VehicleData) => void }> = ({ vehicleData, onUpdate }) => {
+    const [newItem, setNewItem] = useState<{ path: string[], value: string } | null>(null);
+
+    const handleUpdate = (updater: (draft: VehicleData) => void) => {
+        const draft = JSON.parse(JSON.stringify(vehicleData));
+        updater(draft);
+        onUpdate(draft);
+    };
+
+    const handleDelete = (path: string[]) => {
+        if (!window.confirm(`Are you sure you want to delete "${path[path.length - 1]}"? This cannot be undone.`)) return;
+        handleUpdate(draft => {
+            let current: any = draft;
+            for (let i = 0; i < path.length - 1; i++) {
+                current = current[path[i]];
+            }
+            delete current[path[path.length - 1]];
+        });
+    };
+    
+    const handleAdd = (path: string[]) => {
+      const value = newItem?.value.trim();
+      if (!value) {
+        setNewItem(null);
+        return;
+      }
+      handleUpdate(draft => {
+        let current: any = draft;
+        for (const key of path) {
+            current = current[key];
+        }
+        if (path.length === 2) { // Adding a model
+            current[value] = [];
+        } else if (path.length === 3) { // Adding a variant
+            if (!Array.isArray(current)) return;
+            if (!current.includes(value)) {
+                (current as string[]).push(value);
+            }
+        } else { // Adding category or make
+            current[value] = {};
+        }
+      });
+      setNewItem(null);
+    };
+
+    const renderTree = (data: any, path: string[] = []) => {
+        return (
+            <ul className={path.length > 0 ? "pl-6 border-l border-gray-200 dark:border-gray-700" : ""}>
+                {Object.entries(data).map(([key, value]) => (
+                    <li key={key} className="my-2">
+                        <div className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200">{key}</span>
+                            <button onClick={() => handleDelete([...path, key])} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                        </div>
+
+                        {/* Add new item form */}
+                        {newItem?.path.join(',') === [...path, key].join(',') && (
+                            <div className="pl-6 my-2 flex gap-2">
+                                <input
+                                    type="text"
+                                    value={newItem.value}
+                                    onChange={(e) => setNewItem({ ...newItem, value: e.target.value })}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAdd([...path, key])}
+                                    autoFocus
+                                    className="p-1 text-sm border rounded bg-white dark:bg-gray-900"
+                                />
+                                <button onClick={() => handleAdd([...path, key])} className="text-xs px-2 py-1 bg-green-500 text-white rounded">Save</button>
+                                <button onClick={() => setNewItem(null)} className="text-xs px-2 py-1 bg-gray-500 text-white rounded">Cancel</button>
+                            </div>
+                        )}
+
+                        {value && typeof value === 'object' && !Array.isArray(value) && renderTree(value, [...path, key])}
+
+                        {Array.isArray(value) && (
+                            <ul className="pl-6 border-l border-gray-200 dark:border-gray-700">
+                                {value.map((variant: string) => (
+                                    <li key={variant} className="my-2">
+                                        <div className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
+                                            <span className="text-sm text-gray-600 dark:text-gray-400">{variant}</span>
+                                            <button onClick={() => {
+                                                if (!window.confirm(`Delete variant "${variant}"?`)) return;
+                                                handleUpdate(draft => {
+                                                    const model = draft[path[0]][path[1]][key];
+                                                    const index = model.indexOf(variant);
+                                                    if (index > -1) model.splice(index, 1);
+                                                });
+                                            }} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                                        </div>
+                                    </li>
+                                ))}
+                                <li>
+                                    <button onClick={() => setNewItem({ path: [...path, key], value: ''})} className="text-xs text-blue-500 hover:underline p-2">+ Add Variant</button>
+                                </li>
+                            </ul>
+                        )}
+
+                        {path.length < 2 && (
+                             <button onClick={() => setNewItem({ path: [...path, key], value: '' })} className="text-xs text-blue-500 hover:underline p-2">+ Add {path.length === 0 ? 'Make' : 'Model'}</button>
+                        )}
+                    </li>
+                ))}
+            </ul>
+        );
+    };
+
+    return (
+        <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Manage Vehicle Data</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add, edit, or remove the vehicle options available to sellers in their dashboard dropdowns.</p>
+            <div>
+                {renderTree(vehicleData)}
+                 {newItem?.path.length === 0 && (
+                    <div className="my-2 flex gap-2">
+                        <input
+                            type="text"
+                            value={newItem.value}
+                            onChange={(e) => setNewItem({ ...newItem, value: e.target.value })}
+                            onKeyDown={(e) => e.key === 'Enter' && handleAdd([])}
+                            autoFocus
+                            className="p-1 text-sm border rounded bg-white dark:bg-gray-900"
+                            placeholder="New Category Name"
+                        />
+                        <button onClick={() => handleAdd([])} className="text-xs px-2 py-1 bg-green-500 text-white rounded">Save</button>
+                        <button onClick={() => setNewItem(null)} className="text-xs px-2 py-1 bg-gray-500 text-white rounded">Cancel</button>
+                    </div>
+                )}
+                <button onClick={() => setNewItem({ path: [], value: ''})} className="mt-4 bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600 text-sm">
+                    + Add New Category
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 // --- Main Admin Panel Component ---
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData }) => {
     const [activeView, setActiveView] = useState<AdminView>('analytics');
     
     // State for User Management
@@ -309,7 +446,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                             <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                                 {vehicles.map(v => (
                                     <tr key={v.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model} {v.variant || ''}</td>
                                         <td className="px-6 py-4">${v.price.toLocaleString()}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${v.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{v.status}</span>
@@ -328,6 +465,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                         </table>
                     </TableContainer>
                 );
+            case 'vehicleData':
+                return <VehicleDataEditor vehicleData={vehicleData} onUpdate={onUpdateVehicleData} />;
         }
     };
     
@@ -340,6 +479,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                     <AdminNavItem view="analytics">Analytics</AdminNavItem>
                     <AdminNavItem view="users">User Management</AdminNavItem>
                     <AdminNavItem view="listings">Vehicle Listings</AdminNavItem>
+                    <AdminNavItem view="vehicleData">Vehicle Data</AdminNavItem>
                 </div>
             </aside>
             <main>
