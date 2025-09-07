@@ -5,7 +5,7 @@ import StarRating from './StarRating';
 import QuickViewModal from './QuickViewModal';
 
 interface HomeProps {
-    onNavigate: (view: View) => void;
+    onSearch: (query: string) => void;
     onSelectCategory: (category: VehicleCategory) => void;
     featuredVehicles: Vehicle[];
     onSelectVehicle: (vehicle: Vehicle) => void;
@@ -55,7 +55,7 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
     return (
       <div 
         onClick={() => onSelectVehicle(vehicle)}
-        className="bg-white dark:bg-brand-gray-900/50 backdrop-blur-sm border border-brand-gray-200 dark:border-brand-gray-700 rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-brand-blue hover:shadow-soft-xl dark:hover:shadow-[0_0_20px_rgba(0,122,255,0.5)] hover:-translate-y-2"
+        className="bg-white dark:bg-brand-gray-dark/50 backdrop-blur-sm border border-brand-gray-200 dark:border-brand-gray-700 rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-brand-blue hover:shadow-glow hover:-translate-y-2"
       >
         <div className="relative overflow-hidden">
           <img className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} />
@@ -84,7 +84,7 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
           </div>
            <p className="text-sm text-brand-gray-500 dark:text-brand-gray-400 mt-1">{vehicle.variant || ''}</p>
           <div className="mt-2 text-xs text-brand-gray-500 dark:text-brand-gray-500 truncate">
-             Sold by: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue dark:text-brand-blue-light">{vehicle.sellerName}</button>
+             By: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue dark:text-brand-blue-light">{vehicle.sellerName}</button>
           </div>
           
           <div className="mt-4 pt-4 border-t border-brand-gray-200 dark:border-brand-gray-700 grid grid-cols-3 gap-2 text-center text-sm text-brand-gray-600 dark:text-brand-gray-400">
@@ -115,7 +115,7 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
     );
 };
 
-const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehicles, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile, recommendations, allVehicles }) => {
+const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicles, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile, recommendations, allVehicles }) => {
     const [aiSearchQuery, setAiSearchQuery] = useState('');
     const [isAiSearching, setIsAiSearching] = useState(false);
     const [quickViewVehicle, setQuickViewVehicle] = useState<Vehicle | null>(null);
@@ -159,21 +159,21 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
     const handleAiSearch = async () => {
         if (!aiSearchQuery.trim()) return;
         setIsAiSearching(true);
-        console.log("AI Search initiated for:", aiSearchQuery);
+        // Simulate a quick AI processing feel before navigating
         setTimeout(() => {
-            onNavigate(ViewEnum.USED_CARS);
+            onSearch(aiSearchQuery);
             setIsAiSearching(false);
-        }, 1000);
+        }, 300);
     };
 
     return (
         <>
             {/* Hero Section */}
             <section className="relative h-screen flex items-center justify-center text-center px-4 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-brand-gray-50 to-brand-gray-200 dark:from-brand-gray-900 dark:to-brand-gray-800 z-0"></div>
+                <div className="absolute inset-0 bg-gradient-main dark:bg-gradient-main-dark z-0"></div>
                 <div className="absolute inset-0 bg-gradient-radial from-transparent to-black/5 dark:to-black/30 z-10"></div>
 
-                <div className="relative z-20 space-y-6">
+                <div className="relative z-20 space-y-6 animate-fade-in-up">
                     <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-brand-gray-900 dark:text-white">The Future of Motion</h1>
                     <p className="text-lg md:text-xl max-w-3xl mx-auto text-brand-gray-600 dark:text-brand-gray-300">Discover a curated collection of premium vehicles, powered by cutting-edge AI for a seamless journey.</p>
                     <div className="mt-8 max-w-xl mx-auto">
@@ -195,7 +195,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
             </section>
             
             {/* Category Section */}
-            <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-black">
+            <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-brand-gray-darker">
                 <div className="container mx-auto px-4 scroll-animate">
                      <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Browse by Category</h2>
                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -203,7 +203,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
                             <button
                                 key={category}
                                 onClick={() => onSelectCategory(category)}
-                                className="group p-4 bg-white dark:bg-brand-gray-900/50 border border-brand-gray-200 dark:border-brand-gray-700 rounded-lg text-center transition-all duration-300 transform hover:-translate-y-1 hover:border-brand-blue hover:shadow-soft-lg dark:hover:shadow-[0_0_15px_rgba(0,122,255,0.4)]"
+                                className="group p-4 bg-white dark:bg-brand-gray-dark border border-brand-gray-200 dark:border-brand-gray-700 rounded-lg text-center transition-all duration-300 transform hover:-translate-y-1 hover:border-brand-blue hover:shadow-soft-lg dark:hover:shadow-glow"
                             >
                                 <div className="text-brand-blue dark:text-brand-blue-light mx-auto mb-2 group-hover:text-brand-blue-dark dark:group-hover:text-white transition-colors">{categoryIcons[category]}</div>
                                 <span className="font-semibold text-brand-gray-700 dark:text-brand-gray-300 group-hover:text-brand-gray-900 dark:group-hover:text-white transition-colors">{category}</span>
@@ -215,7 +215,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
 
             {/* Recommended For You */}
             {recommendations.length > 0 && (
-                 <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-black">
+                 <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-dark">
                     <div className="container mx-auto px-4 scroll-animate">
                         <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Recommended For You</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
@@ -238,7 +238,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
             )}
 
             {/* Featured Listings */}
-            <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-900/30">
+            <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-brand-gray-darker">
                 <div className="container mx-auto px-4 scroll-animate">
                     <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Featured Collection</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
@@ -257,7 +257,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
                         ))}
                     </div>
                      <div className="text-center mt-12">
-                        <button onClick={() => onNavigate(ViewEnum.USED_CARS)} className="bg-brand-blue text-white font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-blue-dark transition-all transform hover:scale-105">
+                        <button onClick={() => onSearch('')} className="bg-brand-blue text-white font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-blue-dark transition-all transform hover:scale-105">
                             View All Vehicles
                         </button>
                     </div>
@@ -266,10 +266,10 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
 
             {/* Recently Viewed */}
             {recentlyViewed.length > 0 && (
-                <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-900/30">
+                <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-dark">
                     <div className="container mx-auto px-4 scroll-animate">
                         <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Recently Viewed</h2>
-                        <div className="flex overflow-x-auto space-x-8 pb-6 -mx-4 px-4 scrollbar-horizontal">
+                        <div className="flex overflow-x-auto space-x-8 pb-6 -mx-4 px-4">
                             {recentlyViewed.map(vehicle => (
                                 <div key={vehicle.id} className="flex-shrink-0 w-full max-w-sm sm:w-80">
                                     <FeaturedVehicleCard
@@ -290,11 +290,11 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
             )}
             
              {/* Seller CTA */}
-            <section className="bg-gradient-to-r from-brand-blue-lightest to-brand-gray-100 dark:from-brand-blue/20 dark:via-black dark:to-black">
+            <section className="bg-gradient-to-r from-brand-blue-lightest to-brand-gray-100 dark:from-brand-blue/20 dark:via-brand-gray-dark dark:to-brand-gray-darker">
                 <div className="container mx-auto px-4 py-20 text-center scroll-animate">
                     <h2 className="text-4xl font-bold mb-4 text-brand-gray-900 dark:text-white">Are You a Seller?</h2>
                     <p className="max-w-2xl mx-auto mb-8 text-brand-gray-600 dark:text-brand-gray-300">Join the most advanced vehicle marketplace today. Reach thousands of buyers and use our AI tools to sell faster.</p>
-                     <button onClick={() => onNavigate(ViewEnum.LOGIN_PORTAL)} className="bg-white text-brand-blue font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-gray-200 transition-all transform hover:scale-105">
+                     <button onClick={() => onSearch('')} className="bg-white dark:bg-brand-gray-100 text-brand-blue font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-gray-200 dark:hover:bg-white dark:text-brand-blue-darker transition-all transform hover:scale-105">
                         Start Selling Now
                     </button>
                 </div>

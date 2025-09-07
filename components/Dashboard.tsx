@@ -1,7 +1,9 @@
+
+
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
 import type { Vehicle, User, Conversation, VehicleData, PricingSuggestion } from '../types';
 import { VehicleCategory } from '../types';
-import { generateVehicleDescription, getVehicleSpecs, getPricingSuggestion } from '../services/geminiService';
+import { generateVehicleDescription, getVehicleSpecs, getPricingSuggestion, getStructuredVehicleSpecs } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
 import AiAssistant from './AiAssistant';
@@ -142,19 +144,47 @@ const VehicleForm: React.FC<{
         return vehicleData[formData.category][formData.make][formData.model].sort();
     }, [formData.category, formData.make, formData.model, vehicleData]);
 
-     useEffect(() => {
-        const { make, model, year } = formData;
+    useEffect(() => {
+        const { make, model, year, variant } = formData;
         if (make.trim().length > 1 && model.trim().length > 1 && year >= 1900 && year <= new Date().getFullYear() + 1) {
             if (debounceTimeoutRef.current) {
                 clearTimeout(debounceTimeoutRef.current);
             }
             debounceTimeoutRef.current = window.setTimeout(() => {
-                const fetchSpecs = async () => {
+                const fetchAllSpecs = async () => {
                     setIsGeneratingSpecs(true);
                     setSuggestedSpecs(null);
                     try {
-                        const specs = await getVehicleSpecs({ make, model, year });
-                        setSuggestedSpecs(specs);
+                        // Using Promise.all to fetch both in parallel
+                        const [features, structuredSpecs] = await Promise.all([
+                            getVehicleSpecs({ make, model, year }),
+                            getStructuredVehicleSpecs({ make, model, variant, year })
+                        ]);
+
+                        // Set suggested features for checkboxes
+                        setSuggestedSpecs(features);
+
+                        // Auto-fill specification fields if they are empty
+                        if (structuredSpecs && Object.keys(structuredSpecs).length > 0) {
+                            const updates: Partial<Vehicle> = {};
+                            const specsToUpdate: (keyof typeof structuredSpecs)[] = ['engine', 'transmission', 'fuelType', 'fuelEfficiency', 'displacement', 'groundClearance', 'bootSpace'];
+                            
+                            specsToUpdate.forEach(specKey => {
+                                const specValue = structuredSpecs[specKey];
+                                // Only update if AI provided a value and the form field is empty
+                                if (specValue && specValue !== "N/A" && !formData[specKey]) {
+                                    // FIX: Changed assignment to avoid TypeScript error where the indexed property on `updates`
+                                    // resolves to `never` due to key type widening. Using `any` on the object is a safe
+                                    // way to perform this dynamic assignment.
+                                    (updates as any)[specKey] = specValue;
+                                }
+                            });
+                            
+                            if (Object.keys(updates).length > 0) {
+                                setFormData(prev => ({ ...prev, ...updates }));
+                            }
+                        }
+
                     } catch (error) {
                         console.error("Failed to fetch vehicle specs:", error);
                         setSuggestedSpecs({ "Error": ["Could not fetch suggestions."] });
@@ -162,7 +192,7 @@ const VehicleForm: React.FC<{
                         setIsGeneratingSpecs(false);
                     }
                 };
-                fetchSpecs();
+                fetchAllSpecs();
             }, 1000); // Debounce for 1 second
         } else {
             setSuggestedSpecs(null);
@@ -173,7 +203,7 @@ const VehicleForm: React.FC<{
                 clearTimeout(debounceTimeoutRef.current);
             }
         };
-    }, [formData.make, formData.model, formData.year]);
+    }, [formData.make, formData.model, formData.year, formData.variant]);
     
     const validateField = (name: keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, value: any): string => {
       switch(name) {
@@ -422,6 +452,7 @@ const VehicleForm: React.FC<{
             </FormFieldset>
             
             <FormFieldset title="Vehicle Specifications">
+                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 -mt-2">✨ Select a make, model, and year to auto-fill specs with AI.</p>
                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                     <FormInput label="Engine" name="engine" value={formData.engine} onChange={handleChange} tooltip="e.g., 1.5L Petrol, 150kW Motor"/>
                     <FormInput label="Displacement" name="displacement" value={formData.displacement} onChange={handleChange} placeholder="e.g., 1497 cc"/>
@@ -799,6 +830,21 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
 
+  useEffect(() => {
+    if (selectedConv) {
+        const updatedConversation = conversations.find(c => c.id === selectedConv.id);
+        if (updatedConversation) {
+            // Using stringify is a simple way to deep-compare for changes.
+            if (JSON.stringify(updatedConversation) !== JSON.stringify(selectedConv)) {
+                 setSelectedConv(updatedConversation);
+            }
+        } else {
+            // The selected conversation is no longer in the list, so deselect it.
+            setSelectedConv(null);
+        }
+    }
+  }, [conversations, selectedConv]);
+
   const navigate = (view: DashboardView) => {
     if (view !== 'inquiries') {
         setSelectedConv(null);
@@ -1038,35 +1084,37 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
-        <aside>
-          <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md space-y-2">
-            <NavItem view="overview">Overview</NavItem>
-            <NavItem view="analytics">Analytics</NavItem>
-            <NavItem view="listings">My Listings</NavItem>
-            <NavItem view="reports" count={reportedCount}>Reports</NavItem>
-            <NavItem view="salesHistory">Sales History</NavItem>
-            <NavItem view="form">Add Vehicle</NavItem>
-            <NavItem view="inquiries" count={unreadCount}>Inquiries</NavItem>
-            <NavItem view="profile">My Profile</NavItem>
-          </div>
-        </aside>
-        <main>
-          {renderContent()}
-        </main>
-        {selectedConv && seller && (
-            <ChatWidget
-                conversation={selectedConv}
-                currentUserRole="seller"
-                otherUserName={selectedConv.customerName}
-                onSendMessage={(messageText) => onSellerSendMessage(selectedConv.id, messageText)}
-                onClose={() => setSelectedConv(null)}
-                onUserTyping={onUserTyping}
-                onMarkMessagesAsRead={onMarkMessagesAsRead}
-                onFlagContent={() => {}}
-                typingStatus={typingStatus}
-            />
-        )}
+    <div className="container mx-auto py-8 animate-fade-in">
+        <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
+            <aside>
+            <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md space-y-2">
+                <NavItem view="overview">Overview</NavItem>
+                <NavItem view="analytics">Analytics</NavItem>
+                <NavItem view="listings">My Listings</NavItem>
+                <NavItem view="reports" count={reportedCount}>Reports</NavItem>
+                <NavItem view="salesHistory">Sales History</NavItem>
+                <NavItem view="form">Add Vehicle</NavItem>
+                <NavItem view="inquiries" count={unreadCount}>Inquiries</NavItem>
+                <NavItem view="profile">My Profile</NavItem>
+            </div>
+            </aside>
+            <main>
+            {renderContent()}
+            </main>
+            {selectedConv && seller && (
+                <ChatWidget
+                    conversation={selectedConv}
+                    currentUserRole="seller"
+                    otherUserName={selectedConv.customerName}
+                    onSendMessage={(messageText) => onSellerSendMessage(selectedConv.id, messageText)}
+                    onClose={() => setSelectedConv(null)}
+                    onUserTyping={onUserTyping}
+                    onMarkMessagesAsRead={onMarkMessagesAsRead}
+                    onFlagContent={() => {}}
+                    typingStatus={typingStatus}
+                />
+            )}
+        </div>
     </div>
   );
 };

@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const [activeChat, setActiveChat] = useState<Conversation | null>(null);
   const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
   const [recommendations, setRecommendations] = useState<Vehicle[]>([]);
+  const [initialSearchQuery, setInitialSearchQuery] = useState<string>('');
 
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = getUsers();
@@ -1050,6 +1051,7 @@ const App: React.FC = () => {
         window.history.pushState({}, '', window.location.pathname);
         setPublicSellerProfile(null);
     }
+    setInitialSearchQuery(''); // Reset search query on navigation
     setSelectedVehicle(null);
     if (view === View.USED_CARS) {
         setSelectedCategory('ALL');
@@ -1065,6 +1067,11 @@ const App: React.FC = () => {
         setCurrentView(view);
     }
   }, [currentView, currentUser]);
+  
+  const handleHomeSearch = useCallback((query: string) => {
+      setInitialSearchQuery(query);
+      setCurrentView(View.USED_CARS);
+  }, []);
 
   const handleMarkNotificationsAsRead = useCallback((ids: number[]) => {
     setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n));
@@ -1157,7 +1164,7 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToHome} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatings} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatings} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={usersWithRatings.find(u => u.email === currentUser.email)!}
@@ -1219,14 +1226,14 @@ const App: React.FC = () => {
                   onFlagContent={handleFlagContent}
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.COMPARISON:
-        return <Comparison vehicles={vehiclesToCompare} onBack={handleBackToHome} onToggleCompare={handleToggleCompare} />;
+        return <Comparison vehicles={vehiclesToCompare} onBack={() => navigate(View.USED_CARS)} onToggleCompare={handleToggleCompare} />;
       case View.WISHLIST:
         return <VehicleList categoryTitle="Your Wishlist" vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.USED_CARS:
-        return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
+        return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
-        return <Home onNavigate={navigate} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} />;
+        return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} />;
     }
   };
 

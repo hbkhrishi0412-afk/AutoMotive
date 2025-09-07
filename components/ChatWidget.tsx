@@ -108,9 +108,9 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ conversation, currentUserRole, 
   }
 
   return (
-    <div className={`fixed bottom-0 right-4 md:right-8 z-50 w-full max-w-sm h-[60vh] flex flex-col bg-white dark:bg-brand-gray-800 rounded-t-lg shadow-2xl ${isExiting ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}>
+    <div className={`fixed bottom-0 right-4 md:right-8 z-50 w-full max-w-sm h-[60vh] flex flex-col bg-white dark:bg-brand-gray-dark rounded-t-lg shadow-2xl ${isExiting ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}>
         {/* Header */}
-        <div className="p-3 border-b border-brand-gray-200 dark:border-brand-gray-700 flex justify-between items-center bg-brand-gray-50 dark:bg-brand-gray-800 rounded-t-lg">
+        <div className="p-3 border-b border-brand-gray-200 dark:border-brand-gray-700 flex justify-between items-center bg-brand-gray-50 dark:bg-brand-gray-darker rounded-t-lg">
             <div onClick={() => setIsMinimized(true)} className="cursor-pointer flex-grow">
                 <h3 className="text-sm font-bold text-brand-gray-800 dark:text-brand-gray-100 truncate">{conversation.vehicleName}</h3>
                 <p className="text-xs text-brand-gray-500 dark:text-brand-gray-400">Chat with {otherUserName}</p>
@@ -129,7 +129,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ conversation, currentUserRole, 
         </div>
 
         {/* Messages */}
-        <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-100 dark:bg-brand-gray-900 space-y-4">
+        <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-100 dark:bg-brand-gray-darker space-y-4">
             {conversation.messages.map((msg) => (
                 <div key={msg.id} className={`flex flex-col ${msg.sender === senderType ? 'items-end' : 'items-start'}`}>
                     {msg.sender === 'system' && <div className="text-center text-xs text-brand-gray-500 dark:text-brand-gray-400 italic py-2 w-full">{msg.text}</div>}

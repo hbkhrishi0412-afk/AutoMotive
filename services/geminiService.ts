@@ -141,6 +141,49 @@ Example: { "Safety": ["ABS", "Airbags"], "Comfort & Convenience": ["Automatic Cl
     }
 };
 
+export const getStructuredVehicleSpecs = async (
+    vehicle: { make: string, model: string, variant?: string, year: number }
+): Promise<Partial<Pick<Vehicle, 'engine' | 'transmission' | 'fuelType' | 'fuelEfficiency' | 'displacement' | 'groundClearance' | 'bootSpace'>>> => {
+    const prompt = `Provide key technical specifications for a ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.variant || ''} for the Indian market.
+Respond ONLY with a JSON object with these keys: "engine", "transmission", "fuelType", "fuelEfficiency", "displacement", "groundClearance", "bootSpace".
+- engine: Brief description (e.g., "1.5L i-VTEC Petrol").
+- transmission: e.g., "CVT", "6-Speed Automatic".
+- fuelType: e.g., "Petrol", "Diesel", "Electric".
+- fuelEfficiency: e.g., "18.4 KMPL" or "325 km range".
+- displacement: e.g., "1498 cc".
+- groundClearance: e.g., "165 mm".
+- bootSpace: e.g., "506 litres".
+If a value is not applicable or commonly available, return "N/A".`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        engine: { type: Type.STRING },
+                        transmission: { type: Type.STRING },
+                        fuelType: { type: Type.STRING },
+                        fuelEfficiency: { type: Type.STRING },
+                        displacement: { type: Type.STRING },
+                        groundClearance: { type: Type.STRING },
+                        bootSpace: { type: Type.STRING },
+                    }
+                }
+            }
+        });
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error("Error fetching structured vehicle specs from Gemini:", error);
+        return {};
+    }
+};
+
+
 export const getSearchSuggestions = async (query: string, vehicles: Pick<Vehicle, 'make' | 'model' | 'features'>[]): Promise<string[]> => {
     if (!query.trim()) {
         return [];

@@ -169,7 +169,7 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                             )}
                         </button>
                     </div>
-                    <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-50 dark:bg-brand-gray-900 space-y-4">
+                    <div className="flex-grow p-4 overflow-y-auto bg-brand-gray-50 dark:bg-brand-gray-darker space-y-4">
                         {selectedConv.messages.map(msg => (
                            <div key={msg.id} className={`flex flex-col animate-fade-in ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
                                 {msg.sender === 'seller' && <span className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 ml-2">{getSellerName(selectedConv.sellerId)}</span>}

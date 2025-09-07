@@ -89,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, comp
     setIsMobileMenuOpen(false);
   }
 
-  const headerClasses = 'bg-brand-gray-50/80 dark:bg-brand-gray-900/80 backdrop-blur-sm shadow-soft border-b border-brand-gray-200 dark:border-brand-gray-800';
+  const headerClasses = 'bg-brand-gray-50/80 dark:bg-brand-gray-dark/80 backdrop-blur-sm shadow-soft border-b border-brand-gray-200 dark:border-brand-gray-800';
   const textClasses = 'text-brand-gray-600 dark:text-brand-gray-300';
   const iconClasses = 'text-brand-gray-500 dark:text-brand-gray-400';
   
@@ -171,7 +171,7 @@ const Header: React.FC<HeaderProps> = ({ onNavigate, currentUser, onLogout, comp
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <button onClick={() => handleNavClick(ViewEnum.HOME)} className="flex-shrink-0 text-2xl font-bold tracking-tighter">
-               <span className="bg-gradient-to-r from-brand-blue to-brand-blue-dark bg-clip-text text-transparent">AutoVerse AI</span>
+               <span className="bg-gradient-to-r from-brand-blue to-brand-blue-dark bg-clip-text text-transparent dark:text-white/90 dark:animate-glow">AutoVerse AI</span>
             </button>
           </div>
           <div className="hidden md:block">

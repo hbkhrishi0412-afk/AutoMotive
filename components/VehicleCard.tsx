@@ -47,7 +47,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
   return (
     <div 
       onClick={() => onSelect(vehicle)}
-      className="bg-white dark:bg-brand-gray-800 rounded-xl shadow-soft-lg overflow-hidden transform hover:-translate-y-1 hover:shadow-soft-xl transition-all duration-300 flex flex-col cursor-pointer group"
+      className="bg-white dark:bg-brand-gray-800 rounded-xl shadow-soft-lg overflow-hidden transform hover:-translate-y-1 hover:shadow-soft-xl transition-all duration-300 flex flex-col cursor-pointer group hover:ring-2 ring-brand-blue ring-offset-2 dark:ring-offset-brand-gray-dark"
     >
       <div className="relative overflow-hidden">
         <img className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} />
@@ -58,13 +58,21 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
             Featured
           </div>
         )}
-        <div className="absolute top-3 right-3 flex items-center gap-2">
+         <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+            <button
+              onClick={handleCompareClick}
+              disabled={isCompareDisabled}
+              className={`p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-colors ${isSelectedForCompare ? 'bg-brand-blue' : ''} ${isCompareDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+              aria-label={isSelectedForCompare ? "Remove from comparison" : "Add to comparison"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+            </button>
             <button
               onClick={handleWishlistClick}
-              className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition-colors"
+              className="p-2 rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition-colors"
               aria-label={isInWishlist ? "Remove from wishlist" : "Add to wishlist"}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isInWishlist ? 'text-pink-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-colors ${isInWishlist ? 'text-pink-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
               </svg>
             </button>
@@ -80,47 +88,23 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
             <h3 className="text-xl font-bold text-brand-gray-800 dark:text-brand-gray-100">{vehicle.make} {vehicle.model} {vehicle.variant || ''}</h3>
             <span className="text-lg font-semibold text-brand-gray-500 dark:text-brand-gray-400 bg-brand-gray-100 dark:bg-brand-gray-700 px-2 py-0.5 rounded">{vehicle.year}</span>
         </div>
-        <div className="flex items-center gap-2 mt-2">
-            <StarRating rating={vehicle.averageRating || 0} readOnly size="sm"/>
-            <span className="text-xs text-brand-gray-500 dark:text-brand-gray-400">({vehicle.ratingCount || 0} reviews)</span>
-        </div>
-
-        <div className="flex items-center justify-between mt-2 text-xs">
-            {vehicle.sellerName && (
-                <p className="text-brand-gray-500 dark:text-brand-gray-400 truncate">
-                    Sold by: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue dark:text-brand-blue-light">{vehicle.sellerName}</button>
-                </p>
-            )}
-            {vehicle.sellerAverageRating !== undefined && vehicle.sellerAverageRating > 0 && (
-                <div className="flex items-center gap-1">
-                    <StarRating rating={vehicle.sellerAverageRating} readOnly size="sm" />
-                    <span className="text-brand-gray-500 dark:text-brand-gray-400">({vehicle.sellerRatingCount})</span>
-                </div>
-            )}
+        
+        <div className="mt-2 text-xs text-brand-gray-500 dark:text-brand-gray-500 truncate">
+           By: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue dark:text-brand-blue-light">{vehicle.sellerName}</button>
         </div>
         
         <div className="mt-4 pt-4 border-t border-brand-gray-100 dark:border-brand-gray-700 grid grid-cols-3 gap-2 text-center">
-            <SpecIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} text={`${vehicle.mileage.toLocaleString('en-IN')} kms`} />
-            <SpecIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.657 7.343A8 8 0 0117.657 18.657z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1014.12 11.88l-4.242 4.242z" /></svg>} text={vehicle.fuelType} />
-            <SpecIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>} text={vehicle.transmission} />
+            <SpecIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-blue" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.414-1.414L11 10.586V6z" clipRule="evenodd" /></svg>} text={`${vehicle.mileage.toLocaleString('en-IN')} kms`} />
+            <SpecIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-blue" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clipRule="evenodd" /></svg>} text={vehicle.fuelType} />
+            <SpecIcon icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-brand-blue" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z" /></svg>} text={vehicle.transmission} />
         </div>
 
         <div className="mt-auto pt-4 flex justify-between items-center">
              <p className="text-2xl font-extrabold text-brand-blue dark:text-brand-blue-light">₹{vehicle.price.toLocaleString('en-IN')}</p>
-             <label 
-              onClick={handleCompareClick} 
-              title={isCompareDisabled ? "Comparison limit reached (max 4)" : "Add to compare"}
-              className={`flex items-center bg-brand-gray-100 dark:bg-brand-gray-700 text-brand-gray-600 dark:text-brand-gray-300 text-xs font-bold px-3 py-2 rounded-lg transition-colors ${isCompareDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-brand-gray-200 dark:hover:bg-brand-gray-600'}`}
-            >
-              <input 
-                type="checkbox" 
-                checked={isSelectedForCompare}
-                readOnly
-                disabled={isCompareDisabled}
-                className="form-checkbox h-4 w-4 text-brand-blue bg-brand-gray-200 border-brand-gray-400 rounded focus:ring-brand-blue disabled:opacity-50"
-              />
-              <span className="ml-2">Compare</span>
-            </label>
+             <div className="flex items-center gap-2">
+                <StarRating rating={vehicle.averageRating || 0} readOnly size="sm"/>
+                <span className="text-xs text-brand-gray-500 dark:text-brand-gray-400">({vehicle.ratingCount || 0})</span>
+            </div>
         </div>
       </div>
     </div>
