@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { User, Vehicle } from '../types';
 import VehicleCard from './VehicleCard';
 import StarRating from './StarRating';
+import QuickViewModal from './QuickViewModal';
 
 interface SellerProfilePageProps {
     seller: User;
@@ -16,6 +17,8 @@ interface SellerProfilePageProps {
 }
 
 const SellerProfilePage: React.FC<SellerProfilePageProps> = ({ seller, vehicles, onSelectVehicle, comparisonList, onToggleCompare, wishlist, onToggleWishlist, onBack, onViewSellerProfile }) => {
+    const [quickViewVehicle, setQuickViewVehicle] = useState<Vehicle | null>(null);
+
     return (
         <div className="animate-fade-in container mx-auto px-4 py-8">
             <button onClick={onBack} className="mb-6 bg-white dark:bg-brand-gray-800 text-brand-gray-700 dark:text-brand-gray-200 font-bold py-2 px-4 rounded-lg hover:bg-brand-gray-100 dark:hover:bg-brand-gray-700 transition-colors shadow-soft">
@@ -55,6 +58,7 @@ const SellerProfilePage: React.FC<SellerProfilePageProps> = ({ seller, vehicles,
                             isInWishlist={wishlist.includes(vehicle.id)} 
                             isCompareDisabled={!comparisonList.includes(vehicle.id) && comparisonList.length >= 4}
                             onViewSellerProfile={onViewSellerProfile}
+                            onQuickView={setQuickViewVehicle}
                         />
                     ))
                 ) : (
@@ -64,6 +68,15 @@ const SellerProfilePage: React.FC<SellerProfilePageProps> = ({ seller, vehicles,
                     </div>
                 )}
             </div>
+            <QuickViewModal
+                vehicle={quickViewVehicle}
+                onClose={() => setQuickViewVehicle(null)}
+                onSelectVehicle={onSelectVehicle}
+                onToggleCompare={onToggleCompare}
+                onToggleWishlist={onToggleWishlist}
+                comparisonList={comparisonList}
+                wishlist={wishlist}
+            />
         </div>
     );
 };

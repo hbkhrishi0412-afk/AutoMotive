@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Vehicle, VehicleCategory, View } from '../types';
 import { View as ViewEnum, VehicleCategory as CategoryEnum } from '../types';
 import StarRating from './StarRating';
+import QuickViewModal from './QuickViewModal';
 
 interface HomeProps {
     onNavigate: (view: View) => void;
@@ -13,6 +14,8 @@ interface HomeProps {
     onToggleWishlist: (id: number) => void;
     wishlist: number[];
     onViewSellerProfile: (sellerEmail: string) => void;
+    recommendations: Vehicle[];
+    allVehicles: Vehicle[];
 }
 
 const categoryIcons: Record<VehicleCategory, React.ReactNode> = {
@@ -24,7 +27,7 @@ const categoryIcons: Record<VehicleCategory, React.ReactNode> = {
     [CategoryEnum.CONSTRUCTION]: <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M2 17L4 17M4 17L4.47143 16.1143C5.2381 14.6667 6.42857 14 8 14H12C14.6667 14 16.6667 12.3333 18 10L22 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 17L6 21H11L14 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M9.5 14L7.5 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>,
 };
 
-const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggleCompare' | 'comparisonList' | 'onToggleWishlist' | 'wishlist' | 'onViewSellerProfile'> & { vehicle: Vehicle }> = ({ vehicle, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile }) => {
+const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggleCompare' | 'comparisonList' | 'onToggleWishlist' | 'wishlist' | 'onViewSellerProfile'> & { vehicle: Vehicle; onQuickView: (vehicle: Vehicle) => void; }> = ({ vehicle, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile, onQuickView }) => {
     const isSelectedForCompare = comparisonList.includes(vehicle.id);
     const isInWishlist = wishlist.includes(vehicle.id);
     const isCompareDisabled = !isSelectedForCompare && comparisonList.length >= 4;
@@ -43,15 +46,20 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
       e.stopPropagation();
       onViewSellerProfile(vehicle.sellerEmail);
     }
+
+    const handleQuickViewClick = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onQuickView(vehicle);
+    }
   
     return (
       <div 
         onClick={() => onSelectVehicle(vehicle)}
-        className="bg-brand-gray-900/50 backdrop-blur-sm border border-brand-gray-700 rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-brand-blue hover:shadow-[0_0_20px_rgba(0,122,255,0.5)] hover:-translate-y-2"
+        className="bg-white dark:bg-brand-gray-900/50 backdrop-blur-sm border border-brand-gray-200 dark:border-brand-gray-700 rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-brand-blue hover:shadow-soft-xl dark:hover:shadow-[0_0_20px_rgba(0,122,255,0.5)] hover:-translate-y-2"
       >
         <div className="relative overflow-hidden">
           <img className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} />
-          <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/60 to-transparent"></div>
+          <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/40 to-transparent"></div>
           <div className="absolute top-3 right-3">
               <button
                 onClick={handleWishlistClick}
@@ -63,36 +71,41 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
                 </svg>
               </button>
           </div>
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <button onClick={handleQuickViewClick} className="bg-white/90 dark:bg-black/80 text-brand-gray-800 dark:text-white font-bold py-2 px-6 rounded-full transform hover:scale-105 transition-transform backdrop-blur-sm">
+                  Quick View
+              </button>
+          </div>
         </div>
         <div className="p-5 flex-grow flex flex-col">
           <div className="flex justify-between items-start">
-              <h3 className="text-xl font-bold text-brand-gray-100">{vehicle.make} {vehicle.model}</h3>
-              <span className="text-lg font-semibold text-brand-gray-400 bg-brand-gray-800 px-2 py-0.5 rounded">{vehicle.year}</span>
+              <h3 className="text-xl font-bold text-brand-gray-800 dark:text-brand-gray-100">{vehicle.make} {vehicle.model}</h3>
+              <span className="text-lg font-semibold text-brand-gray-500 dark:text-brand-gray-400 bg-brand-gray-100 dark:bg-brand-gray-800 px-2 py-0.5 rounded">{vehicle.year}</span>
           </div>
-           <p className="text-sm text-brand-gray-400 mt-1">{vehicle.variant || ''}</p>
-          <div className="mt-2 text-xs text-brand-gray-500 truncate">
-             Sold by: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue-light">{vehicle.sellerName}</button>
+           <p className="text-sm text-brand-gray-500 dark:text-brand-gray-400 mt-1">{vehicle.variant || ''}</p>
+          <div className="mt-2 text-xs text-brand-gray-500 dark:text-brand-gray-500 truncate">
+             Sold by: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue dark:text-brand-blue-light">{vehicle.sellerName}</button>
           </div>
           
-          <div className="mt-4 pt-4 border-t border-brand-gray-700 grid grid-cols-3 gap-2 text-center text-sm text-brand-gray-400">
+          <div className="mt-4 pt-4 border-t border-brand-gray-200 dark:border-brand-gray-700 grid grid-cols-3 gap-2 text-center text-sm text-brand-gray-600 dark:text-brand-gray-400">
              <span>{vehicle.mileage.toLocaleString('en-IN')} kms</span>
              <span>{vehicle.fuelType}</span>
              <span>{vehicle.transmission}</span>
           </div>
   
           <div className="mt-auto pt-4 flex justify-between items-center">
-               <p className="text-2xl font-extrabold bg-gradient-to-r from-brand-blue to-cyan-400 bg-clip-text text-transparent">₹{vehicle.price.toLocaleString('en-IN')}</p>
+               <p className="text-2xl font-extrabold text-brand-blue dark:text-brand-blue-light">₹{vehicle.price.toLocaleString('en-IN')}</p>
                <label 
                 onClick={handleCompareClick} 
                 title={isCompareDisabled ? "Comparison limit reached (max 4)" : "Add to compare"}
-                className={`flex items-center text-xs font-bold px-3 py-2 rounded-lg transition-colors ${isCompareDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-brand-gray-700'}`}
+                className={`flex items-center text-xs font-bold px-3 py-2 rounded-lg transition-colors text-brand-gray-600 dark:text-brand-gray-300 ${isCompareDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-brand-gray-100 dark:hover:bg-brand-gray-700'}`}
               >
                 <input 
                   type="checkbox" 
                   checked={isSelectedForCompare}
                   readOnly
                   disabled={isCompareDisabled}
-                  className="form-checkbox h-4 w-4 text-brand-blue bg-brand-gray-800 border-brand-gray-600 rounded focus:ring-brand-blue disabled:opacity-50"
+                  className="form-checkbox h-4 w-4 text-brand-blue bg-brand-gray-100 dark:bg-brand-gray-800 border-brand-gray-300 dark:border-brand-gray-600 rounded focus:ring-brand-blue disabled:opacity-50"
                 />
                 <span className="ml-2">Compare</span>
               </label>
@@ -102,9 +115,11 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
     );
 };
 
-const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehicles, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile }) => {
+const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehicles, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile, recommendations, allVehicles }) => {
     const [aiSearchQuery, setAiSearchQuery] = useState('');
     const [isAiSearching, setIsAiSearching] = useState(false);
+    const [quickViewVehicle, setQuickViewVehicle] = useState<Vehicle | null>(null);
+    const [recentlyViewed, setRecentlyViewed] = useState<Vehicle[]>([]);
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
@@ -122,6 +137,25 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
         return () => targets.forEach(target => observer.unobserve(target));
       }, []);
 
+    useEffect(() => {
+        const getViewedIds = (): number[] => {
+            try {
+                const viewedJson = localStorage.getItem('viewedVehicleIds');
+                return viewedJson ? JSON.parse(viewedJson) : [];
+            } catch (error) {
+                console.error("Failed to get viewed vehicle IDs:", error);
+                return [];
+            }
+        };
+
+        const viewedIds = getViewedIds();
+        if (viewedIds.length > 0) {
+            const vehicleMap = new Map(allVehicles.map(v => [v.id, v]));
+            const viewedVehiclesInOrder = viewedIds.map(id => vehicleMap.get(id)).filter((v): v is Vehicle => !!v);
+            setRecentlyViewed(viewedVehiclesInOrder);
+        }
+    }, [allVehicles]);
+
     const handleAiSearch = async () => {
         if (!aiSearchQuery.trim()) return;
         setIsAiSearching(true);
@@ -133,25 +167,24 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
     };
 
     return (
-        <div className="bg-black text-white">
+        <>
             {/* Hero Section */}
             <section className="relative h-screen flex items-center justify-center text-center px-4 overflow-hidden">
-                <video autoPlay loop muted playsInline className="absolute z-0 w-auto min-w-full min-h-full max-w-none object-cover">
-                    <source src="https://videos.pexels.com/video-files/3254003/3254003-hd_1920_1080_30fps.mp4" type="video/mp4" />
-                </video>
-                <div className="absolute inset-0 bg-black/60 z-10"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-gray-50 to-brand-gray-200 dark:from-brand-gray-900 dark:to-brand-gray-800 z-0"></div>
+                <div className="absolute inset-0 bg-gradient-radial from-transparent to-black/5 dark:to-black/30 z-10"></div>
+
                 <div className="relative z-20 space-y-6">
-                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight animate-glow">The Future of Motion</h1>
-                    <p className="text-lg md:text-xl max-w-3xl mx-auto text-brand-gray-300">Discover a curated collection of premium vehicles, powered by cutting-edge AI for a seamless journey.</p>
+                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-brand-gray-900 dark:text-white">The Future of Motion</h1>
+                    <p className="text-lg md:text-xl max-w-3xl mx-auto text-brand-gray-600 dark:text-brand-gray-300">Discover a curated collection of premium vehicles, powered by cutting-edge AI for a seamless journey.</p>
                     <div className="mt-8 max-w-xl mx-auto">
-                        <div className="flex rounded-full shadow-2xl bg-white/10 backdrop-blur-sm border border-white/20 p-2">
+                        <div className="flex rounded-full shadow-2xl bg-white/80 dark:bg-black/30 backdrop-blur-sm border border-brand-gray-300 dark:border-white/20 p-2">
                              <input
                                 type="text"
                                 placeholder="e.g., 'SUV under ₹15 lakhs with sunroof'"
                                 value={aiSearchQuery}
                                 onChange={(e) => setAiSearchQuery(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') handleAiSearch(); }}
-                                className="flex-grow bg-transparent text-white placeholder-gray-300 focus:outline-none px-4"
+                                className="flex-grow bg-transparent text-brand-gray-900 dark:text-white placeholder-brand-gray-500 dark:placeholder-gray-300 focus:outline-none px-4"
                             />
                             <button onClick={handleAiSearch} disabled={isAiSearching} className="bg-brand-blue text-white font-bold py-3 px-6 rounded-full hover:bg-brand-blue-dark transition-colors disabled:bg-brand-gray-400">
                                 {isAiSearching ? '...' : 'Search'}
@@ -159,36 +192,55 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
                         </div>
                     </div>
                 </div>
-                 <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
-                    <svg className="w-8 h-8 animate-bounce text-white/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                </div>
             </section>
             
             {/* Category Section */}
-            <section className="py-20 md:py-24 bg-black">
+            <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-black">
                 <div className="container mx-auto px-4 scroll-animate">
-                     <h2 className="text-4xl font-bold text-center mb-12">Browse by Category</h2>
+                     <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Browse by Category</h2>
                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                          {Object.values(CategoryEnum).map(category => (
                             <button
                                 key={category}
                                 onClick={() => onSelectCategory(category)}
-                                className="group p-4 bg-brand-gray-900/50 border border-brand-gray-700 rounded-lg text-center transition-all duration-300 transform hover:-translate-y-1 hover:border-brand-blue hover:shadow-[0_0_15px_rgba(0,122,255,0.4)]"
+                                className="group p-4 bg-white dark:bg-brand-gray-900/50 border border-brand-gray-200 dark:border-brand-gray-700 rounded-lg text-center transition-all duration-300 transform hover:-translate-y-1 hover:border-brand-blue hover:shadow-soft-lg dark:hover:shadow-[0_0_15px_rgba(0,122,255,0.4)]"
                             >
-                                <div className="text-brand-blue-light mx-auto mb-2 group-hover:text-white transition-colors">{categoryIcons[category]}</div>
-                                <span className="font-semibold text-brand-gray-300 group-hover:text-white transition-colors">{category}</span>
+                                <div className="text-brand-blue dark:text-brand-blue-light mx-auto mb-2 group-hover:text-brand-blue-dark dark:group-hover:text-white transition-colors">{categoryIcons[category]}</div>
+                                <span className="font-semibold text-brand-gray-700 dark:text-brand-gray-300 group-hover:text-brand-gray-900 dark:group-hover:text-white transition-colors">{category}</span>
                             </button>
                          ))}
                      </div>
                 </div>
             </section>
 
+            {/* Recommended For You */}
+            {recommendations.length > 0 && (
+                 <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-black">
+                    <div className="container mx-auto px-4 scroll-animate">
+                        <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Recommended For You</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+                            {recommendations.map(vehicle => (
+                                <FeaturedVehicleCard
+                                    key={vehicle.id} 
+                                    vehicle={vehicle} 
+                                    onSelectVehicle={onSelectVehicle} 
+                                    onToggleCompare={onToggleCompare} 
+                                    comparisonList={comparisonList} 
+                                    onToggleWishlist={onToggleWishlist} 
+                                    wishlist={wishlist} 
+                                    onViewSellerProfile={onViewSellerProfile}
+                                    onQuickView={setQuickViewVehicle}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {/* Featured Listings */}
-            <section className="py-20 md:py-24 bg-brand-gray-900/30">
+            <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-900/30">
                 <div className="container mx-auto px-4 scroll-animate">
-                    <h2 className="text-4xl font-bold text-center mb-12">Featured Collection</h2>
+                    <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Featured Collection</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
                         {featuredVehicles.map(vehicle => (
                             <FeaturedVehicleCard
@@ -200,6 +252,7 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
                                 onToggleWishlist={onToggleWishlist} 
                                 wishlist={wishlist} 
                                 onViewSellerProfile={onViewSellerProfile}
+                                onQuickView={setQuickViewVehicle}
                             />
                         ))}
                     </div>
@@ -210,18 +263,52 @@ const Home: React.FC<HomeProps> = ({ onNavigate, onSelectCategory, featuredVehic
                     </div>
                 </div>
             </section>
+
+            {/* Recently Viewed */}
+            {recentlyViewed.length > 0 && (
+                <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-900/30">
+                    <div className="container mx-auto px-4 scroll-animate">
+                        <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Recently Viewed</h2>
+                        <div className="flex overflow-x-auto space-x-8 pb-6 -mx-4 px-4 scrollbar-horizontal">
+                            {recentlyViewed.map(vehicle => (
+                                <div key={vehicle.id} className="flex-shrink-0 w-full max-w-sm sm:w-80">
+                                    <FeaturedVehicleCard
+                                        vehicle={vehicle} 
+                                        onSelectVehicle={onSelectVehicle} 
+                                        onToggleCompare={onToggleCompare} 
+                                        comparisonList={comparisonList} 
+                                        onToggleWishlist={onToggleWishlist} 
+                                        wishlist={wishlist} 
+                                        onViewSellerProfile={onViewSellerProfile}
+                                        onQuickView={setQuickViewVehicle}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
             
              {/* Seller CTA */}
-            <section className="bg-gradient-to-r from-brand-blue/20 via-black to-black">
+            <section className="bg-gradient-to-r from-brand-blue-lightest to-brand-gray-100 dark:from-brand-blue/20 dark:via-black dark:to-black">
                 <div className="container mx-auto px-4 py-20 text-center scroll-animate">
-                    <h2 className="text-4xl font-bold mb-4">Are You a Seller?</h2>
-                    <p className="max-w-2xl mx-auto mb-8 text-brand-gray-300">Join the most advanced vehicle marketplace today. Reach thousands of buyers and use our AI tools to sell faster.</p>
+                    <h2 className="text-4xl font-bold mb-4 text-brand-gray-900 dark:text-white">Are You a Seller?</h2>
+                    <p className="max-w-2xl mx-auto mb-8 text-brand-gray-600 dark:text-brand-gray-300">Join the most advanced vehicle marketplace today. Reach thousands of buyers and use our AI tools to sell faster.</p>
                      <button onClick={() => onNavigate(ViewEnum.LOGIN_PORTAL)} className="bg-white text-brand-blue font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-gray-200 transition-all transform hover:scale-105">
                         Start Selling Now
                     </button>
                 </div>
             </section>
-        </div>
+            <QuickViewModal
+                vehicle={quickViewVehicle}
+                onClose={() => setQuickViewVehicle(null)}
+                onSelectVehicle={onSelectVehicle}
+                onToggleCompare={onToggleCompare}
+                onToggleWishlist={onToggleWishlist}
+                comparisonList={comparisonList}
+                wishlist={wishlist}
+            />
+        </>
     );
 };
 

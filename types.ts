@@ -33,10 +33,25 @@ export interface Vehicle {
   views?: number;
   inquiriesCount?: number;
   isFlagged?: boolean;
+  flagReason?: string;
+  flaggedAt?: string;
   averageRating?: number;
   ratingCount?: number;
   sellerAverageRating?: number;
   sellerRatingCount?: number;
+  // New detailed fields
+  registrationYear: number;
+  insuranceValidity: string;
+  insuranceType: string;
+  rto: string;
+  noOfOwners: number;
+  displacement: string; // e.g., "1086 cc"
+  groundClearance: string; // e.g., "165 mm"
+  bootSpace: string; // e.g., "235 litres"
+  qualityReport?: {
+    summary: string;
+    fixesDone: string[];
+  };
 }
 
 export interface User {
@@ -75,6 +90,8 @@ export interface Conversation {
   isReadBySeller: boolean;
   isReadByCustomer: boolean;
   isFlagged?: boolean;
+  flagReason?: string;
+  flaggedAt?: string;
 }
 
 export interface Toast {
@@ -136,4 +153,20 @@ export interface Suggestion {
   description: string;
   targetId: number | string;
   priority: 'high' | 'medium' | 'low';
+}
+
+export interface PricingSuggestion {
+    minPrice: number;
+    maxPrice: number;
+    justification: string;
+}
+
+export interface Notification {
+  id: number;
+  recipientEmail: string;
+  message: string;
+  targetId: string | number;
+  targetType: 'vehicle' | 'conversation';
+  isRead: boolean;
+  timestamp: string; // ISO String
 }

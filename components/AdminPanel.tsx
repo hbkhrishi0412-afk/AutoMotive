@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
@@ -27,7 +27,7 @@ interface AdminPanelProps {
     onUpdateVehicleData: (newData: VehicleData) => void;
 }
 
-type AdminView = 'analytics' | 'users' | 'listings' | 'vehicleData';
+type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings';
 type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
 type SortConfig = {
     key: keyof User;
@@ -36,8 +36,8 @@ type SortConfig = {
 
 // --- Sub-components ---
 
-const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
-  <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md flex items-center">
+const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode, onClick?: () => void }> = ({ title, value, icon, onClick }) => (
+  <div className={`bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md flex items-center ${onClick ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-transform' : ''}`} onClick={onClick}>
     <div className="bg-brand-blue-light p-3 rounded-full mr-4">{icon}</div>
     <div>
       <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</h3>
@@ -240,6 +240,246 @@ const VehicleDataEditor: React.FC<{ vehicleData: VehicleData, onUpdate: (newData
     );
 };
 
+// --- Audit Log View Component ---
+const AuditLogView: React.FC<{ auditLog: AuditLogEntry[] }> = ({ auditLog }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredLog = useMemo(() => {
+    if (!searchTerm.trim()) return auditLog;
+    const lowercasedFilter = searchTerm.toLowerCase();
+    return auditLog.filter(entry =>
+      entry.actor.toLowerCase().includes(lowercasedFilter) ||
+      entry.action.toLowerCase().includes(lowercasedFilter) ||
+      entry.target.toLowerCase().includes(lowercasedFilter) ||
+      (entry.details && entry.details.toLowerCase().includes(lowercasedFilter))
+    );
+  }, [auditLog, searchTerm]);
+
+  const searchAction = (
+    <input
+      type="text"
+      placeholder="Search logs..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      className="flex-grow p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200 focus:ring-2 focus:ring-brand-blue-light focus:outline-none transition w-full sm:w-64"
+    />
+  );
+
+  return (
+    <TableContainer title="Audit Log" actions={searchAction}>
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Timestamp</th>
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actor</th>
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Action</th>
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Target</th>
+            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Details</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
+          {filteredLog.map(entry => (
+            <tr key={entry.id}>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(entry.timestamp).toLocaleString()}</td>
+              <td className="px-6 py-4 whitespace-nowrap font-medium">{entry.actor}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{entry.action}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{entry.target}</td>
+              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs" title={entry.details}>{entry.details}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {filteredLog.length === 0 && <p className="text-center py-8 text-gray-500 dark:text-gray-400">No log entries found matching your search.</p>}
+    </TableContainer>
+  );
+};
+
+// --- Platform Settings View ---
+const PlatformSettingsView: React.FC<{
+    settings: PlatformSettings;
+    onUpdate: (newSettings: PlatformSettings) => void;
+    onSendBroadcast: (message: string) => void;
+}> = ({ settings, onUpdate, onSendBroadcast }) => {
+    const [currentSettings, setCurrentSettings] = useState(settings);
+    const [broadcastMessage, setBroadcastMessage] = useState('');
+
+    useEffect(() => {
+        setCurrentSettings(settings);
+    }, [settings]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setCurrentSettings(prev => ({
+            ...prev,
+            [name]: name === 'listingFee' ? Number(value) : value,
+        }));
+    };
+
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        onUpdate(currentSettings);
+    };
+
+    const handleBroadcast = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (broadcastMessage.trim()) {
+            if (window.confirm("Are you sure you want to send this broadcast message to all users?")) {
+                onSendBroadcast(broadcastMessage.trim());
+                setBroadcastMessage('');
+            }
+        }
+    };
+
+    const formElementClass = "block w-full p-3 border border-brand-gray-300 dark:border-brand-gray-600 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:outline-none transition bg-brand-gray-50 dark:bg-brand-gray-800 dark:text-gray-200";
+
+    return (
+        <div className="space-y-8">
+            <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">General Settings</h2>
+                <form onSubmit={handleSave} className="space-y-6">
+                    <div>
+                        <label htmlFor="listingFee" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Listing Fee (₹)
+                        </label>
+                        <input
+                            type="number"
+                            id="listingFee"
+                            name="listingFee"
+                            value={currentSettings.listingFee}
+                            onChange={handleChange}
+                            min="0"
+                            className={formElementClass}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="siteAnnouncement" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Site Announcement Banner
+                        </label>
+                        <textarea
+                            id="siteAnnouncement"
+                            name="siteAnnouncement"
+                            value={currentSettings.siteAnnouncement}
+                            onChange={handleChange}
+                            rows={3}
+                            className={formElementClass}
+                            placeholder="e.g., Special weekend discount on all EVs!"
+                        />
+                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Leave empty to hide the banner.</p>
+                    </div>
+                    <div>
+                        <button type="submit" className="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark transition-colors">
+                            Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Communication</h2>
+                <form onSubmit={handleBroadcast} className="space-y-4">
+                    <div>
+                         <label htmlFor="broadcastMessage" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Send Broadcast Message
+                        </label>
+                        <textarea
+                            id="broadcastMessage"
+                            name="broadcastMessage"
+                            value={broadcastMessage}
+                            onChange={(e) => setBroadcastMessage(e.target.value)}
+                            rows={3}
+                            className={formElementClass}
+                            placeholder="This message will be sent to every user's chat inbox."
+                        />
+                    </div>
+                     <div>
+                        <button type="submit" className="bg-red-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50" disabled={!broadcastMessage.trim()}>
+                            Send Broadcast
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+// --- Moderation Queue View ---
+const ModerationQueueView: React.FC<{
+    vehicles: Vehicle[];
+    conversations: Conversation[];
+    onResolveFlag: (type: 'vehicle' | 'conversation', id: number | string) => void;
+    onToggleVehicleStatus: (vehicleId: number) => void;
+    onToggleUserStatus: (email: string) => void;
+}> = ({ vehicles, conversations, onResolveFlag, onToggleVehicleStatus, onToggleUserStatus }) => {
+    const flaggedVehicles = useMemo(() => vehicles.filter(v => v.isFlagged), [vehicles]);
+    const flaggedConversations = useMemo(() => conversations.filter(c => c.isFlagged), [conversations]);
+
+    return (
+        <div className="space-y-8">
+            <TableContainer title={`Flagged Vehicles (${flaggedVehicles.length})`}>
+                {flaggedVehicles.length > 0 ? (
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-800"><tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Seller</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Reason</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Reported On</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
+                        </tr></thead>
+                        <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
+                            {flaggedVehicles.map(v => (
+                                <tr key={v.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model}</td>
+                                    <td className="px-6 py-4">{v.sellerEmail}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-xs truncate" title={v.flagReason}>{v.flagReason || 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{v.flaggedAt ? new Date(v.flaggedAt).toLocaleString() : 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                        <button onClick={() => onResolveFlag('vehicle', v.id)} className="text-green-600 hover:text-green-900">Dismiss Flag</button>
+                                        <button onClick={() => { onToggleVehicleStatus(v.id); onResolveFlag('vehicle', v.id); }} className="text-yellow-600 hover:text-yellow-900">Unpublish</button>
+                                        <button onClick={() => onToggleUserStatus(v.sellerEmail)} className="text-red-600 hover:text-red-900">Ban Seller</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : <p className="text-center py-8 text-gray-500 dark:text-gray-400">No vehicles are currently flagged.</p>}
+            </TableContainer>
+
+            <TableContainer title={`Flagged Conversations (${flaggedConversations.length})`}>
+                {flaggedConversations.length > 0 ? (
+                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-800"><tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Participants</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Reason</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Reported On</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
+                        </tr></thead>
+                        <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
+                           {flaggedConversations.map(c => (
+                                <tr key={c.id}>
+                                    <td className="px-6 py-4 text-sm">
+                                        <div>C: {c.customerName}</div>
+                                        <div>S: {c.sellerId}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 max-w-sm truncate" title={c.flagReason}>
+                                        {c.flagReason || 'N/A'}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{c.flaggedAt ? new Date(c.flaggedAt).toLocaleString() : 'N/A'}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                        <button onClick={() => onResolveFlag('conversation', c.id)} className="text-green-600 hover:text-green-900">Dismiss</button>
+                                        <button onClick={() => onToggleUserStatus(c.customerId)} className="text-red-600 hover:text-red-900">Ban Customer</button>
+                                        <button onClick={() => onToggleUserStatus(c.sellerId)} className="text-red-600 hover:text-red-900">Ban Seller</button>
+                                    </td>
+                                </tr>
+                           ))}
+                        </tbody>
+                    </table>
+                ) : <p className="text-center py-8 text-gray-500 dark:text-gray-400">No conversations are currently flagged.</p>}
+            </TableContainer>
+        </div>
+    );
+};
+
+
 
 // --- Main Admin Panel Component ---
 
@@ -276,6 +516,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         
         const userRoleChartData = Object.entries(userRoleCounts).map(([label, value]) => ({ label: label.charAt(0).toUpperCase() + label.slice(1), value })).sort((a,b) => b.value - a.value);
         const listingsByMakeChartData = Object.entries(listingsByMake).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value);
+        const moderationQueueCount = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
+
 
         return {
             totalSalesValue,
@@ -283,8 +525,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
             mostPopularMake,
             userRoleChartData,
             listingsByMakeChartData,
+            moderationQueueCount,
         };
-    }, [users, vehicles]);
+    }, [users, vehicles, conversations]);
 
     // --- User Management Logic ---
     const requestSort = (key: keyof User) => {
@@ -341,9 +584,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
     };
 
     // --- Render Logic ---
-    const AdminNavItem: React.FC<{ view: AdminView, children: React.ReactNode }> = ({ view, children }) => (
-        <button onClick={() => setActiveView(view)} className={`w-full text-left px-4 py-3 rounded-lg transition-colors font-medium ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
+    const AdminNavItem: React.FC<{ view: AdminView, children: React.ReactNode, count?: number }> = ({ view, children, count }) => (
+        <button onClick={() => setActiveView(view)} className={`relative w-full text-left px-4 py-3 rounded-lg transition-colors font-medium ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
           {children}
+          {count && count > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{count}</span>}
         </button>
     );
     
@@ -354,9 +598,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard title="Total Users" value={users.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
-                            <StatCard title="Total Sales Value" value={`$${analyticsData.totalSalesValue.toLocaleString()}`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0-1V4m0 2.01v-2.01m-3.599 3.599A3.001 3.001 0 0012 10m-3.599 1.401a3.001 3.001 0 010 1.198m0 0A3.001 3.001 0 0112 14m-3.599-1.401H12m0 0h3.599m0 0A3.001 3.001 0 0012 12m3.599-1.401a3.001 3.001 0 010-1.198m0 0A3.001 3.001 0 0112 10m3.599 1.401H12m0 0V7m0 1v.01" /></svg>} />
-                            <StatCard title="Average Vehicle Price" value={`$${analyticsData.averagePrice.toLocaleString('en-US', { maximumFractionDigits: 0 })}`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
+                            <StatCard title="Total Vehicles" value={vehicles.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
                              <StatCard title="Most Popular Make" value={analyticsData.mostPopularMake} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>} />
+                             <StatCard title="Moderation Queue" value={analyticsData.moderationQueueCount} onClick={() => setActiveView('moderation')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>} />
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <BarChart title="Listings by Make" data={analyticsData.listingsByMakeChartData} />
@@ -447,7 +691,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                                 {vehicles.map(v => (
                                     <tr key={v.id}>
                                         <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model} {v.variant || ''}</td>
-                                        <td className="px-6 py-4">${v.price.toLocaleString()}</td>
+                                        <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${v.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{v.status}</span>
                                             {v.isFeatured && <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">Featured</span>}
@@ -465,8 +709,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                         </table>
                     </TableContainer>
                 );
+            case 'moderation':
+                return <ModerationQueueView vehicles={vehicles} conversations={conversations} onResolveFlag={onResolveFlag} onToggleVehicleStatus={onToggleVehicleStatus} onToggleUserStatus={onToggleUserStatus} />;
             case 'vehicleData':
                 return <VehicleDataEditor vehicleData={vehicleData} onUpdate={onUpdateVehicleData} />;
+            case 'auditLog':
+                return <AuditLogView auditLog={auditLog} />;
+            case 'settings':
+                return <PlatformSettingsView settings={platformSettings} onUpdate={onUpdateSettings} onSendBroadcast={onSendBroadcast} />;
         }
     };
     
@@ -479,7 +729,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                     <AdminNavItem view="analytics">Analytics</AdminNavItem>
                     <AdminNavItem view="users">User Management</AdminNavItem>
                     <AdminNavItem view="listings">Vehicle Listings</AdminNavItem>
+                    <AdminNavItem view="moderation" count={analyticsData.moderationQueueCount}>Moderation Queue</AdminNavItem>
                     <AdminNavItem view="vehicleData">Vehicle Data</AdminNavItem>
+                    <AdminNavItem view="auditLog">Audit Log</AdminNavItem>
+                    <AdminNavItem view="settings">Platform Settings</AdminNavItem>
                 </div>
             </aside>
             <main>

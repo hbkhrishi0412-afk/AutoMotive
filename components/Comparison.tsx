@@ -7,9 +7,9 @@ interface ComparisonProps {
   onToggleCompare: (id: number) => void;
 }
 
-// FIX: Added more fields for better comparison.
-const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'color', 'sellerName', 'averageRating', 'sellerAverageRating'];
-// FIX: Added missing properties `sellerAverageRating` and `sellerRatingCount` to satisfy `Record<keyof Vehicle, string>` type.
+// FIX: Added more vehicle properties to the comparison table for a more detailed view.
+const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'color', 'sellerName', 'averageRating', 'sellerAverageRating', 'registrationYear', 'noOfOwners', 'displacement'];
+// FIX: Added all missing properties from the Vehicle type to satisfy the Record<keyof Vehicle, string> type definition and fix the TypeScript error.
 const specLabels: Record<keyof Vehicle, string> = {
     price: 'Price',
     year: 'Year',
@@ -36,8 +36,19 @@ const specLabels: Record<keyof Vehicle, string> = {
     views: 'Views',
     inquiriesCount: 'Inquiries',
     isFlagged: 'Flagged',
+    flagReason: 'Flag Reason',
+    flaggedAt: 'Flagged At',
     sellerAverageRating: 'Seller Rating',
     sellerRatingCount: 'Seller Rating Count',
+    registrationYear: 'Registration Year',
+    insuranceValidity: 'Insurance Validity',
+    insuranceType: 'Insurance Type',
+    rto: 'RTO',
+    noOfOwners: 'No. of Owners',
+    displacement: 'Displacement',
+    groundClearance: 'Ground Clearance',
+    bootSpace: 'Boot Space',
+    qualityReport: 'Quality Report',
 };
 
 const CheckIcon: React.FC = () => (

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, memo } from 'react';
 import type { Conversation } from '../types';
+import ReadReceiptIcon from './ReadReceiptIcon';
 
 interface ChatWidgetProps {
   conversation: Conversation;
@@ -10,23 +11,10 @@ interface ChatWidgetProps {
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
-  onFlagContent: (type: 'vehicle' | 'conversation', id: number | string) => void;
+  onFlagContent: (type: 'vehicle' | 'conversation', id: number | string, reason: string) => void;
 }
 
 const EMOJIS = ['😀', '😂', '👍', '❤️', '🙏', '😊', '🔥', '🎉', '🚗', '🤔', '👋', '👀'];
-
-const ReadReceiptIcon: React.FC<{ isRead: boolean }> = ({ isRead }) => (
-    isRead ? (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-blue-400" viewBox="0 0 24 24" fill="none">
-            <path d="M1.5 12.5L5.5 16.5L11.5 10.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M8.5 12.5L12.5 16.5L22.5 6.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 inline-block ml-1 text-brand-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-        </svg>
-    )
-);
 
 const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
     <div className="flex items-start">
@@ -88,6 +76,18 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ conversation, currentUserRole, 
     setTimeout(onClose, 400); // Wait for animation
   };
 
+  const handleFlagClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (conversation && !conversation.isFlagged) {
+        if(window.confirm('Are you sure you want to report this conversation for review?')) {
+            const reason = window.prompt("Please provide a reason for reporting this conversation (optional):");
+            if (reason !== null) {
+                onFlagContent('conversation', conversation.id, reason || "No reason provided");
+            }
+        }
+    }
+  };
+
   const senderType = currentUserRole === 'customer' ? 'user' : 'seller';
   const otherUserRole = currentUserRole === 'customer' ? 'seller' : 'customer';
 
@@ -110,12 +110,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ conversation, currentUserRole, 
   return (
     <div className={`fixed bottom-0 right-4 md:right-8 z-50 w-full max-w-sm h-[60vh] flex flex-col bg-white dark:bg-brand-gray-800 rounded-t-lg shadow-2xl ${isExiting ? 'animate-slide-out-down' : 'animate-slide-in-up'}`}>
         {/* Header */}
-        <div className="p-3 border-b border-brand-gray-200 dark:border-brand-gray-700 flex justify-between items-center bg-brand-gray-50 dark:bg-brand-gray-800 rounded-t-lg cursor-pointer" onClick={() => setIsMinimized(true)}>
-            <div>
+        <div className="p-3 border-b border-brand-gray-200 dark:border-brand-gray-700 flex justify-between items-center bg-brand-gray-50 dark:bg-brand-gray-800 rounded-t-lg">
+            <div onClick={() => setIsMinimized(true)} className="cursor-pointer flex-grow">
                 <h3 className="text-sm font-bold text-brand-gray-800 dark:text-brand-gray-100 truncate">{conversation.vehicleName}</h3>
                 <p className="text-xs text-brand-gray-500 dark:text-brand-gray-400">Chat with {otherUserName}</p>
             </div>
             <div className="flex items-center gap-2">
+                <button onClick={handleFlagClick} disabled={conversation.isFlagged} className="disabled:opacity-50 p-1 text-brand-gray-500 hover:bg-black/10 dark:hover:bg-white/10 rounded-full" aria-label="Report conversation" title={conversation.isFlagged ? "This conversation has been reported" : "Report conversation"}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${conversation.isFlagged ? 'text-yellow-500' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 01-1-1V6z" clipRule="evenodd" /></svg>
+                </button>
                 <button onClick={(e) => { e.stopPropagation(); setIsMinimized(true); }} className="p-1 text-brand-gray-500 hover:bg-black/10 dark:hover:bg-white/10 rounded-full" aria-label="Minimize chat">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                 </button>

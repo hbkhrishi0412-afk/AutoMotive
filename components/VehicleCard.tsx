@@ -11,6 +11,7 @@ interface VehicleCardProps {
   isInWishlist: boolean;
   isCompareDisabled: boolean;
   onViewSellerProfile: (sellerEmail: string) => void;
+  onQuickView: (vehicle: Vehicle) => void;
 }
 
 const SpecIcon: React.FC<{ icon: React.ReactNode, text: string }> = ({ icon, text }) => (
@@ -20,7 +21,7 @@ const SpecIcon: React.FC<{ icon: React.ReactNode, text: string }> = ({ icon, tex
     </div>
 );
 
-const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCompare, isSelectedForCompare, onToggleWishlist, isInWishlist, isCompareDisabled, onViewSellerProfile }) => {
+const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCompare, isSelectedForCompare, onToggleWishlist, isInWishlist, isCompareDisabled, onViewSellerProfile, onQuickView }) => {
   
   const handleCompareClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -36,6 +37,11 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
   const handleSellerClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onViewSellerProfile(vehicle.sellerEmail);
+  }
+
+  const handleQuickViewClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onQuickView(vehicle);
   }
 
   return (
@@ -61,6 +67,11 @@ const VehicleCard: React.FC<VehicleCardProps> = ({ vehicle, onSelect, onToggleCo
               <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 ${isInWishlist ? 'text-pink-500' : 'text-white'}`} viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
               </svg>
+            </button>
+        </div>
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+             <button onClick={handleQuickViewClick} className="bg-white/90 dark:bg-black/80 text-brand-gray-800 dark:text-white font-bold py-2 px-6 rounded-full transform hover:scale-105 transition-transform backdrop-blur-sm">
+                Quick View
             </button>
         </div>
       </div>

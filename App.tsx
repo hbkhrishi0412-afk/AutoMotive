@@ -8,8 +8,8 @@ import Login from './components/Login';
 import AdminLogin from './components/AdminLogin';
 import Comparison from './components/Comparison';
 import { MOCK_VEHICLES, MOCK_USERS } from './constants';
-import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData } from './types';
-import { View, VehicleCategory } from './types';
+import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory } from './types';
+import { View, VehicleCategory as CategoryEnum } from './types';
 import { getRatings, addRating, getSellerRatings, addSellerRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
 import { getVehicles, saveVehicles } from './services/vehicleService';
@@ -29,6 +29,7 @@ import SellerProfilePage from './components/SellerProfilePage';
 import Home from './components/Home';
 import { getVehicleData, saveVehicleData } from './services/vehicleDataService';
 import ChatWidget from './components/ChatWidget';
+import { getVehicleRecommendations } from './services/geminiService';
 
 
 export type Theme = 'light' | 'dark' | 'sunset' | 'oceanic' | 'cyber';
@@ -43,12 +44,14 @@ const App: React.FC = () => {
     
     return initialVehicles.map(v => ({
       ...v,
-      category: v.category || VehicleCategory.FOUR_WHEELER,
+      category: v.category || CategoryEnum.FOUR_WHEELER,
       status: v.status || 'published',
       isFeatured: v.isFeatured || false,
       views: v.views || 0,
       inquiriesCount: v.inquiriesCount || 0,
       isFlagged: v.isFlagged || false,
+      flagReason: v.flagReason || undefined,
+      flaggedAt: v.flaggedAt || undefined,
     }));
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -63,10 +66,12 @@ const App: React.FC = () => {
   const [forgotPasswordRole, setForgotPasswordRole] = useState<'customer' | 'seller' | null>(null);
   const [typingStatus, setTypingStatus] = useState<{ conversationId: string; userRole: 'customer' | 'seller' } | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<VehicleCategory>(VehicleCategory.FOUR_WHEELER);
+  const [selectedCategory, setSelectedCategory] = useState<VehicleCategory | 'ALL'>(CategoryEnum.FOUR_WHEELER);
   const [publicSellerProfile, setPublicSellerProfile] = useState<User | null>(null);
   const prevConversationsRef = useRef<Conversation[] | null>(null);
   const [activeChat, setActiveChat] = useState<Conversation | null>(null);
+  const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
+  const [recommendations, setRecommendations] = useState<Vehicle[]>([]);
 
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = getUsers();
@@ -76,6 +81,18 @@ const App: React.FC = () => {
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => getSettings());
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(() => getAuditLog());
   const [vehicleData, setVehicleData] = useState<VehicleData>(() => getVehicleData());
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    try {
+        const notificationsJson = localStorage.getItem('autoVerseNotifications');
+        return notificationsJson ? JSON.parse(notificationsJson) : [];
+    } catch { return []; }
+  });
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('autoVerseNotifications', JSON.stringify(notifications));
+    } catch (error) { console.error("Failed to save notifications", error); }
+  }, [notifications]);
 
   const addToast = useCallback((message: string, type: ToastType['type']) => {
     setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -93,6 +110,80 @@ const App: React.FC = () => {
   
   const isHomePage = currentView === View.HOME;
 
+  /**
+   * Saves the viewed vehicle ID to localStorage under the key `viewedVehicleIds`.
+   * If the ID already exists, it's moved to the front of the list.
+   * The list is limited to the last 20 viewed vehicle IDs.
+   * @param vehicleId The ID of the vehicle that was viewed.
+   */
+  const logViewedVehicle = (vehicleId: number) => {
+      try {
+          const viewedJson = localStorage.getItem('viewedVehicleIds');
+          let viewedIds: number[] = viewedJson ? JSON.parse(viewedJson) : [];
+          // Remove if already exists to move it to the front
+          viewedIds = viewedIds.filter(id => id !== vehicleId);
+          // Add to the front and keep only the last 20
+          viewedIds.unshift(vehicleId);
+          localStorage.setItem('viewedVehicleIds', JSON.stringify(viewedIds.slice(0, 20)));
+      } catch (error) {
+          console.error("Failed to log viewed vehicle:", error);
+      }
+  };
+  
+  const getViewedVehicles = (): number[] => {
+      try {
+          const viewedJson = localStorage.getItem('viewedVehicleIds');
+          return viewedJson ? JSON.parse(viewedJson) : [];
+      } catch (error) {
+          console.error("Failed to get viewed vehicles:", error);
+          return [];
+      }
+  };
+
+  useEffect(() => {
+    // Fetch recommendations when user activity changes
+    const fetchRecommendations = async () => {
+        if (!currentUser) {
+            setRecommendations([]); // Clear recommendations if logged out
+            return;
+        }
+
+        const viewed = getViewedVehicles();
+        if (viewed.length === 0 && wishlist.length === 0 && comparisonList.length === 0) {
+            setRecommendations([]); // No activity, no recommendations
+            return;
+        }
+
+        const cachedRecs = sessionStorage.getItem('vehicleRecommendations');
+        if (cachedRecs) {
+            const { ids, timestamp } = JSON.parse(cachedRecs);
+            if (Date.now() - timestamp < 1000 * 60 * 30) { // 30 min cache
+                setRecommendations(vehicles.filter(v => ids.includes(v.id)));
+                return;
+            }
+        }
+        
+        const vehicleContext = vehicles
+          .filter(v => v.status === 'published')
+          .map(v => ({ id: v.id, make: v.make, model: v.model, year: v.year, price: v.price, features: v.features.slice(0, 5), fuelType: v.fuelType }));
+
+        const recommendedIds = await getVehicleRecommendations(
+            { viewed, wishlisted: wishlist, compared: comparisonList },
+            vehicleContext
+        );
+        
+        if (recommendedIds.length > 0) {
+            setRecommendations(vehicles.filter(v => recommendedIds.includes(v.id)));
+            sessionStorage.setItem('vehicleRecommendations', JSON.stringify({ ids: recommendedIds, timestamp: Date.now() }));
+        }
+    };
+
+    const debounceTimer = setTimeout(fetchRecommendations, 1000); // Debounce to avoid rapid calls
+    return () => clearTimeout(debounceTimer);
+
+  }, [currentUser, wishlist, comparisonList, vehicles]);
+
+
   useEffect(() => {
     if (isHomePage) {
       document.body.classList.add('homepage-active');
@@ -104,6 +195,13 @@ const App: React.FC = () => {
       document.body.classList.remove('homepage-active');
     };
   }, [isHomePage]);
+
+  useEffect(() => {
+    // Show the banner whenever a new announcement is set by the admin
+    if (platformSettings.siteAnnouncement) {
+        setIsAnnouncementVisible(true);
+    }
+  }, [platformSettings.siteAnnouncement]);
 
   useEffect(() => {
     const sessionUserJson = sessionStorage.getItem('currentUser');
@@ -129,6 +227,8 @@ const App: React.FC = () => {
       isReadByCustomer: c.isReadByCustomer ?? true,
       messages: c.messages.map(m => ({ ...m, isRead: m.isRead ?? true })),
       isFlagged: c.isFlagged || false,
+      flagReason: c.flagReason || undefined,
+      flaggedAt: c.flaggedAt || undefined,
     })));
 
     // Check for seller profile view from URL on initial load
@@ -594,6 +694,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleSelectVehicle = useCallback((vehicle: Vehicle) => {
+    logViewedVehicle(vehicle.id);
     setSelectedVehicle(vehicle);
     setCurrentView(View.DETAIL);
     setVehicles(prev => {
@@ -773,13 +874,21 @@ const App: React.FC = () => {
     console.log(`Password reset for ${email} as a ${forgotPasswordRole}. User exists: ${userExists}`);
   }, [users, forgotPasswordRole]);
 
-  const handleFlagContent = useCallback((type: 'vehicle' | 'conversation', id: number | string) => {
+  const handleFlagContent = useCallback((type: 'vehicle' | 'conversation', id: number | string, reason: string) => {
+    const flaggedAt = new Date().toISOString();
+    let newNotifications: Notification[] = [];
+    let sellerEmail: string | undefined;
+    let contentIdentifier: string = '';
+
     if (type === 'vehicle') {
         setVehicles(prev => {
             const index = prev.findIndex(v => v.id === id);
             if (index === -1) return prev;
             const newVehicles = [...prev];
-            newVehicles[index] = { ...prev[index], isFlagged: true };
+            const vehicle = newVehicles[index];
+            newVehicles[index] = { ...vehicle, isFlagged: true, flagReason: reason, flaggedAt };
+            sellerEmail = vehicle.sellerEmail;
+            contentIdentifier = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
             return newVehicles;
         });
     } else {
@@ -787,12 +896,45 @@ const App: React.FC = () => {
             const index = prev.findIndex(c => c.id === id);
             if (index === -1) return prev;
             const newConversations = [...prev];
-            newConversations[index] = { ...prev[index], isFlagged: true };
+            const conversation = newConversations[index];
+            newConversations[index] = { ...conversation, isFlagged: true, flagReason: reason, flaggedAt };
+            sellerEmail = conversation.sellerId;
+            contentIdentifier = `Conversation about ${conversation.vehicleName}`;
             return newConversations;
         });
     }
+
     addToast('Content has been reported for review. Thank you.', 'info');
-  }, [addToast]);
+
+    // Create notifications for admins
+    const admins = users.filter(u => u.role === 'admin');
+    admins.forEach(admin => {
+        newNotifications.push({
+            id: Date.now() + Math.random(),
+            recipientEmail: admin.email,
+            message: `A ${type} has been reported: "${contentIdentifier}"`,
+            targetId: id,
+            targetType: type,
+            isRead: false,
+            timestamp: flaggedAt,
+        });
+    });
+
+    // Create notification for the seller (if applicable)
+    if (sellerEmail) {
+        newNotifications.push({
+            id: Date.now() + Math.random(),
+            recipientEmail: sellerEmail,
+            message: `Your ${type} has been reported: "${contentIdentifier}"`,
+            targetId: id,
+            targetType: type,
+            isRead: false,
+            timestamp: flaggedAt,
+        });
+    }
+
+    setNotifications(prev => [...prev, ...newNotifications]);
+  }, [addToast, users]);
 
   const handleResolveFlag = useCallback((type: 'vehicle' | 'conversation', id: number | string) => {
       if (type === 'vehicle') {
@@ -801,7 +943,7 @@ const App: React.FC = () => {
               const index = prev.findIndex(v => v.id === id);
               if (index === -1) return prev;
               const newVehicles = [...prev];
-              newVehicles[index] = { ...prev[index], isFlagged: false };
+              newVehicles[index] = { ...prev[index], isFlagged: false, flagReason: undefined, flaggedAt: undefined };
               return newVehicles;
           });
       } else {
@@ -810,7 +952,7 @@ const App: React.FC = () => {
               const index = prev.findIndex(c => c.id === id);
               if (index === -1) return prev;
               const newConversations = [...prev];
-              newConversations[index] = { ...prev[index], isFlagged: false };
+              newConversations[index] = { ...prev[index], isFlagged: false, flagReason: undefined, flaggedAt: undefined };
               return newConversations;
           });
       }
@@ -910,7 +1052,7 @@ const App: React.FC = () => {
     }
     setSelectedVehicle(null);
     if (view === View.USED_CARS) {
-        setSelectedCategory(VehicleCategory.FOUR_WHEELER);
+        setSelectedCategory('ALL');
     }
     if (view === View.SELLER_DASHBOARD && currentUser?.role !== 'seller') {
         setCurrentView(View.LOGIN_PORTAL);
@@ -923,6 +1065,21 @@ const App: React.FC = () => {
         setCurrentView(view);
     }
   }, [currentView, currentUser]);
+
+  const handleMarkNotificationsAsRead = useCallback((ids: number[]) => {
+    setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n));
+  }, []);
+
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    handleMarkNotificationsAsRead([notification.id]);
+    if (currentUser?.role === 'admin') {
+        navigate(View.ADMIN_PANEL);
+        // Future enhancement: navigate to specific sub-view
+    } else if (currentUser?.role === 'seller') {
+        navigate(View.SELLER_DASHBOARD);
+        // Future enhancement: navigate to specific sub-view
+    }
+  }, [currentUser, navigate, handleMarkNotificationsAsRead]);
   
   const handleSelectCategory = useCallback((category: VehicleCategory) => {
     setSelectedCategory(category);
@@ -955,9 +1112,9 @@ const App: React.FC = () => {
       return vehiclesWithRatings.find(v => v.id === selectedVehicle.id) || selectedVehicle;
   }, [selectedVehicle, vehiclesWithRatings])
 
-  const publishedVehicles = useMemo(() => {
-    return vehiclesWithRatings.filter(v => v.status === 'published' && v.category === selectedCategory);
-  }, [vehiclesWithRatings, selectedCategory]);
+  const allPublishedVehicles = useMemo(() => {
+    return vehiclesWithRatings.filter(v => v.status === 'published');
+  }, [vehiclesWithRatings]);
 
   const featuredVehicles = useMemo(() => {
     return vehiclesWithRatings.filter(v => v.isFeatured && v.status === 'published').slice(0, 4);
@@ -1000,11 +1157,13 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToHome} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatings} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={handleBackToHome} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatings} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={usersWithRatings.find(u => u.email === currentUser.email)!}
+                  allVehicles={vehiclesWithRatings}
                   sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
+                  reportedVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email && v.isFlagged)}
                   onAddVehicle={handleAddVehicle} 
                   onUpdateVehicle={handleUpdateVehicle} 
                   onDeleteVehicle={handleDeleteVehicle}
@@ -1064,16 +1223,43 @@ const App: React.FC = () => {
       case View.WISHLIST:
         return <VehicleList categoryTitle="Your Wishlist" vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.USED_CARS:
-        return <VehicleList categoryTitle={selectedCategory} vehicles={publishedVehicles} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
+        return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
-        return <Home onNavigate={navigate} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} />;
+        return <Home onNavigate={navigate} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} />;
     }
   };
 
   return (
-    <div className={`flex flex-col min-h-screen ${isHomePage ? 'bg-black' : 'bg-brand-gray-50 dark:bg-brand-gray-900'} font-sans`}>
-      <Header onNavigate={navigate} currentUser={currentUser} onLogout={handleLogout} compareCount={comparisonList.length} wishlistCount={wishlist.length} inboxCount={inboxUnreadCount} theme={theme} onChangeTheme={handleChangeTheme} isHomePage={isHomePage} />
+    <div className="flex flex-col min-h-screen bg-brand-gray-50 dark:bg-brand-gray-900 font-sans">
+      <Header 
+        onNavigate={navigate} 
+        currentUser={currentUser} 
+        onLogout={handleLogout} 
+        compareCount={comparisonList.length} 
+        wishlistCount={wishlist.length} 
+        inboxCount={inboxUnreadCount} 
+        theme={theme} 
+        onChangeTheme={handleChangeTheme} 
+        isHomePage={isHomePage}
+        notifications={notifications.filter(n => n.recipientEmail === currentUser?.email)}
+        onNotificationClick={handleNotificationClick}
+        onMarkNotificationsAsRead={handleMarkNotificationsAsRead}
+      />
+      {platformSettings.siteAnnouncement && isAnnouncementVisible && (
+          <div className="bg-brand-blue text-white py-2 px-4 text-center text-sm relative animate-fade-in z-40">
+              <span>{platformSettings.siteAnnouncement}</span>
+              <button 
+                  onClick={() => setIsAnnouncementVisible(false)}
+                  className="absolute top-1/2 right-4 -translate-y-1/2 p-1 rounded-full hover:bg-white/20 transition-colors"
+                  aria-label="Dismiss announcement"
+              >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+              </button>
+          </div>
+      )}
       <main className="flex-grow">
         {renderContent()}
       </main>

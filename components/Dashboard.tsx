@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
-import type { Vehicle, User, Conversation, VehicleData } from '../types';
+import type { Vehicle, User, Conversation, VehicleData, PricingSuggestion } from '../types';
 import { VehicleCategory } from '../types';
-import { generateVehicleDescription, getVehicleSpecs } from '../services/geminiService';
+import { generateVehicleDescription, getVehicleSpecs, getPricingSuggestion } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
 import AiAssistant from './AiAssistant';
@@ -13,7 +13,9 @@ import { Bar, Line } from 'react-chartjs-2';
 
 interface DashboardProps {
   seller: User;
+  allVehicles: Vehicle[];
   sellerVehicles: Vehicle[];
+  reportedVehicles: Vehicle[];
   onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (vehicleId: number) => void;
@@ -28,7 +30,7 @@ interface DashboardProps {
   vehicleData: VehicleData;
 }
 
-type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile';
+type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile' | 'reports';
 
 const HelpTooltip: React.FC<{ text: string }> = memo(({ text }) => (
     <span className="group relative ml-1">
@@ -37,8 +39,8 @@ const HelpTooltip: React.FC<{ text: string }> = memo(({ text }) => (
     </span>
 ));
 
-const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; children?: React.ReactNode; disabled?: boolean }> = 
-  ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false, children, disabled = false }) => (
+const FormInput: React.FC<{ label: string; name: keyof Vehicle | 'summary'; type?: string; value: string | number; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void; onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void; error?: string; tooltip?: string; required?: boolean; children?: React.ReactNode; disabled?: boolean; placeholder?: string; rows?: number }> = 
+  ({ label, name, type = 'text', value, onChange, onBlur, error, tooltip, required = false, children, disabled = false, placeholder, rows }) => (
   <div>
     <label htmlFor={String(name)} className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
@@ -48,12 +50,15 @@ const FormInput: React.FC<{ label: string; name: keyof Vehicle; type?: string; v
         <select id={String(name)} name={String(name)} value={String(value)} onChange={onChange} required={required} disabled={disabled} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`}>
             {children}
         </select>
+    ) : type === 'textarea' ? (
+        <textarea id={String(name)} name={String(name)} value={String(value)} onChange={onChange} required={required} disabled={disabled} placeholder={placeholder} rows={rows} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
     ) : (
-        <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} disabled={disabled} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
+        <input type={type} id={String(name)} name={String(name)} value={value} onChange={onChange} onBlur={onBlur} required={required} disabled={disabled} placeholder={placeholder} className={`block w-full p-3 border rounded-lg focus:ring-2 focus:outline-none transition bg-white dark:bg-brand-gray-darker dark:text-gray-200 disabled:bg-gray-100 dark:disabled:bg-gray-800 ${error ? 'border-red-500 focus:ring-red-300' : 'border-brand-gray dark:border-gray-600 focus:ring-brand-blue-light'}`} />
     )}
     {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
   </div>
 );
+
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = memo(({ title, value, icon }) => (
   <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md flex items-center">
@@ -73,21 +78,53 @@ const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = 
   category: VehicleCategory.FOUR_WHEELER,
   status: 'published',
   isFeatured: false,
+  registrationYear: new Date().getFullYear(),
+  insuranceValidity: '',
+  insuranceType: 'Comprehensive',
+  rto: '',
+  noOfOwners: 1,
+  displacement: '',
+  groundClearance: '',
+  bootSpace: '',
+  qualityReport: {
+    summary: '',
+    fixesDone: [],
+  },
+};
+
+const FormFieldset: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+    const [isOpen, setIsOpen] = useState(true);
+    return (
+        <fieldset className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <legend className="px-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <button type="button" onClick={() => setIsOpen(!isOpen)} className="flex items-center gap-2">
+                    <span>{isOpen ? '▼' : '►'}</span>
+                    {title}
+                </button>
+            </legend>
+            {isOpen && <div className="mt-4 animate-fade-in">{children}</div>}
+        </fieldset>
+    );
 };
 
 const VehicleForm: React.FC<{
     editingVehicle: Vehicle | null;
+    allVehicles: Vehicle[];
     onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
     onUpdateVehicle: (vehicle: Vehicle) => void;
     onCancel: () => void;
     vehicleData: VehicleData;
-}> = memo(({ editingVehicle, onAddVehicle, onUpdateVehicle, onCancel, vehicleData }) => {
+}> = memo(({ editingVehicle, allVehicles, onAddVehicle, onUpdateVehicle, onCancel, vehicleData }) => {
     const [formData, setFormData] = useState(editingVehicle ? { ...initialFormState, ...editingVehicle, sellerEmail: editingVehicle.sellerEmail } : initialFormState);
     const [featureInput, setFeatureInput] = useState('');
+    const [fixInput, setFixInput] = useState('');
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, string>>>({});
     const [suggestedSpecs, setSuggestedSpecs] = useState<Record<string, string[]> | null>(null);
     const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
+    const [pricingSuggestion, setPricingSuggestion] = useState<PricingSuggestion | null>(null);
+    const [isGeneratingPrice, setIsGeneratingPrice] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
     const debounceTimeoutRef = useRef<number | null>(null);
 
     const availableMakes = useMemo(() => {
@@ -151,7 +188,7 @@ const VehicleForm: React.FC<{
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const { name, value } = e.target as { name: keyof typeof initialFormState; value: string };
       
-      const isNumeric = ['year', 'price', 'mileage'].includes(name);
+      const isNumeric = ['year', 'price', 'mileage', 'noOfOwners', 'registrationYear'].includes(name);
       const parsedValue = isNumeric ? parseInt(value, 10) || 0 : value;
 
       setFormData(prev => {
@@ -174,6 +211,17 @@ const VehicleForm: React.FC<{
       const error = validateField(name, parsedValue);
       setErrors(prev => ({...prev, [name]: error}));
     };
+
+    const handleQualityReportChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            qualityReport: {
+                ...(prev.qualityReport!),
+                [name]: value,
+            },
+        }));
+    };
     
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         const { name, value } = e.target as { name: keyof typeof initialFormState; value: string };
@@ -193,6 +241,29 @@ const VehicleForm: React.FC<{
       setFormData(prev => ({ ...prev, features: prev.features.filter(f => f !== featureToRemove) }));
     };
 
+    const handleAddFix = () => {
+        if (fixInput.trim() && !formData.qualityReport?.fixesDone.includes(fixInput.trim())) {
+            setFormData(prev => ({
+                ...prev,
+                qualityReport: {
+                    ...(prev.qualityReport!),
+                    fixesDone: [...(prev.qualityReport?.fixesDone || []), fixInput.trim()]
+                }
+            }));
+            setFixInput('');
+        }
+    };
+
+    const handleRemoveFix = (fixToRemove: string) => {
+        setFormData(prev => ({
+            ...prev,
+            qualityReport: {
+                ...(prev.qualityReport!),
+                fixesDone: (prev.qualityReport?.fixesDone || []).filter(f => f !== fixToRemove)
+            }
+        }));
+    };
+
     const handleSuggestedFeatureToggle = (feature: string) => {
         setFormData(prev => {
             const currentFeatures = prev.features;
@@ -203,20 +274,39 @@ const VehicleForm: React.FC<{
         });
     };
     
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files) {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            if (typeof reader.result === 'string') {
-              setFormData(prev => ({ ...prev, images: [...prev.images, reader.result as string] }));
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target;
+        if (input.files) {
+            setIsUploading(true);
+            const files = Array.from(input.files);
+            
+            const readPromises = files.map(file => {
+                return new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                            resolve(reader.result);
+                        } else {
+                            reject(new Error('Failed to read file as string.'));
+                        }
+                    };
+                    reader.onerror = (error) => reject(error);
+                    reader.readAsDataURL(file);
+                });
+            });
+
+            try {
+                const results = await Promise.all(readPromises);
+                setFormData(prev => ({ ...prev, images: [...prev.images, ...results] }));
+            } catch (error) {
+                console.error("Error reading one or more files:", error);
+            } finally {
+                setIsUploading(false);
+                if (input) {
+                    input.value = '';
+                }
             }
-          };
-          reader.readAsDataURL(file);
-        });
-        e.target.value = '';
-      }
+        }
     };
   
     const handleRemoveImageUrl = (urlToRemove: string) => {
@@ -236,6 +326,31 @@ const VehicleForm: React.FC<{
       } catch (error) { console.error(error); alert('There was an error generating the description.'); }
       finally { setIsGeneratingDesc(false); }
     };
+
+    const handleGetPriceSuggestion = async () => {
+        if (!formData.make || !formData.model || !formData.year) {
+            setErrors(prev => ({ ...prev, price: 'Please enter Make, Model, and Year to get a price suggestion.' }));
+            return;
+        }
+        setIsGeneratingPrice(true);
+        setPricingSuggestion(null);
+        try {
+            const marketContext = allVehicles.filter(v =>
+                v.make === formData.make &&
+                v.model === formData.model &&
+                Math.abs(v.year - formData.year) <= 2
+            ).map(({ make, model, year, mileage, price }) => ({ make, model, year, mileage, price }));
+            
+            const suggestion = await getPricingSuggestion(formData, marketContext);
+            setPricingSuggestion(suggestion);
+        } catch (error) {
+            console.error(error);
+            setErrors(prev => ({ ...prev, price: 'Could not generate a price suggestion at this time.' }));
+        } finally {
+            setIsGeneratingPrice(false);
+        }
+    };
+
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -262,19 +377,16 @@ const VehicleForm: React.FC<{
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Form Column */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <fieldset>
-                <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Core Details</legend>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            <FormFieldset title="Vehicle Overview">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                     <FormInput label="Category" name="category" type="select" value={formData.category} onChange={handleChange} required>
-                        {Object.values(VehicleCategory).map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
-                        ))}
+                        {Object.values(VehicleCategory).map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                     </FormInput>
-                    <FormInput label="Make" name="make" type="select" value={formData.make} onChange={handleChange} error={errors.make as string} disabled={!formData.category} required>
+                    <FormInput label="Make" name="make" type="select" value={formData.make} onChange={handleChange} error={errors.make} disabled={!formData.category} required>
                         <option value="" disabled>Select Make</option>
                         {availableMakes.map(make => <option key={make} value={make}>{make}</option>)}
                     </FormInput>
-                    <FormInput label="Model" name="model" type="select" value={formData.model} onChange={handleChange} error={errors.model as string} disabled={!formData.make} required>
+                    <FormInput label="Model" name="model" type="select" value={formData.model} onChange={handleChange} error={errors.model} disabled={!formData.make} required>
                         <option value="" disabled>Select Model</option>
                         {availableModels.map(model => <option key={model} value={model}>{model}</option>)}
                     </FormInput>
@@ -282,47 +394,110 @@ const VehicleForm: React.FC<{
                         <option value="">Select Variant (Optional)</option>
                         {availableVariants.map(variant => <option key={variant} value={variant}>{variant}</option>)}
                     </FormInput>
-                    <FormInput label="Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year as string} required />
-                    <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price as string} tooltip="Enter the listing price without commas or symbols." required />
-                    <FormInput label="Mileage (kms)" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage as string} />
-                    <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} onBlur={handleBlur} />
+                    <FormInput label="Make Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year} required />
+                    <FormInput label="Registration Year" name="registrationYear" type="number" value={formData.registrationYear} onChange={handleChange} required />
+                     <div>
+                        <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
+                         <button type="button" onClick={handleGetPriceSuggestion} disabled={isGeneratingPrice || !formData.make || !formData.model} className="text-xs mt-1 font-semibold text-indigo-600 disabled:opacity-50 flex items-center gap-1">
+                            {isGeneratingPrice ? 'Analyzing...' : '✨ Get AI Price Suggestion'}
+                         </button>
+                        {pricingSuggestion && !isGeneratingPrice && (
+                             <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-900/30 border-l-4 border-indigo-500 rounded-r-lg text-sm">
+                                 <p className="font-bold text-indigo-800 dark:text-indigo-300">Suggested Range: ₹{pricingSuggestion.minPrice.toLocaleString('en-IN')} - ₹{pricingSuggestion.maxPrice.toLocaleString('en-IN')}</p>
+                                 <p className="text-indigo-700 dark:text-indigo-400 mt-1">{pricingSuggestion.justification}</p>
+                                  <button type="button" onClick={() => setFormData(p => ({...p, price: Math.round((pricingSuggestion.minPrice + pricingSuggestion.maxPrice) / 2)}))} className="text-xs font-bold text-indigo-600 hover:underline mt-2">Apply Average</button>
+                             </div>
+                        )}
+                    </div>
+                    <FormInput label="Km Driven" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage} />
+                    <FormInput label="No. of Owners" name="noOfOwners" type="number" value={formData.noOfOwners} onChange={handleChange} />
+                    <FormInput label="RTO" name="rto" value={formData.rto} onChange={handleChange} placeholder="e.g., MH01" />
+                    <FormInput label="Insurance Type" name="insuranceType" type="select" value={formData.insuranceType} onChange={handleChange}>
+                        <option>Comprehensive</option>
+                        <option>Third Party</option>
+                        <option>Expired</option>
+                    </FormInput>
+                    <FormInput label="Insurance Validity" name="insuranceValidity" value={formData.insuranceValidity} onChange={handleChange} placeholder="e.g., Aug 2026" />
                 </div>
-            </fieldset>
-             <fieldset>
-                <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Specifications</legend>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+            </FormFieldset>
+            
+            <FormFieldset title="Vehicle Specifications">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                     <FormInput label="Engine" name="engine" value={formData.engine} onChange={handleChange} tooltip="e.g., 1.5L Petrol, 150kW Motor"/>
+                    <FormInput label="Displacement" name="displacement" value={formData.displacement} onChange={handleChange} placeholder="e.g., 1497 cc"/>
                     <FormInput label="Transmission" name="transmission" type="select" value={formData.transmission} onChange={handleChange}>
-                        <option>Automatic</option>
-                        <option>Manual</option>
-                        <option>CVT</option>
-                        <option>DCT</option>
+                        <option>Automatic</option><option>Manual</option><option>CVT</option><option>DCT</option>
                     </FormInput>
                     <FormInput label="Fuel Type" name="fuelType" type="select" value={formData.fuelType} onChange={handleChange}>
-                        <option>Petrol</option>
-                        <option>Diesel</option>
-                        <option>Electric</option>
-                        <option>CNG</option>
-                        <option>Hybrid</option>
+                        <option>Petrol</option><option>Diesel</option><option>Electric</option><option>CNG</option><option>Hybrid</option>
                     </FormInput>
-                    <FormInput label="Fuel Efficiency" name="fuelEfficiency" value={formData.fuelEfficiency} onChange={handleChange} tooltip="e.g., 18 KMPL or 300 km range"/>
-                </div>
-            </fieldset>
-            <fieldset>
-                <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Media & Features</legend>
+                    <FormInput label="Mileage / Range" name="fuelEfficiency" value={formData.fuelEfficiency} onChange={handleChange} tooltip="e.g., 18 KMPL or 300 km range"/>
+                    <FormInput label="Ground Clearance" name="groundClearance" value={formData.groundClearance} onChange={handleChange} placeholder="e.g., 190 mm"/>
+                    <FormInput label="Boot Space" name="bootSpace" value={formData.bootSpace} onChange={handleChange} placeholder="e.g., 433 litres"/>
+                    <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} onBlur={handleBlur} />
+                 </div>
+            </FormFieldset>
+
+            <FormFieldset title="Quality Report">
                 <div className="space-y-4">
+                    <FormInput label="Summary" name="summary" type="textarea" value={formData.qualityReport?.summary || ''} onChange={handleQualityReportChange} rows={3} placeholder="e.g., Excellent condition, single owner, full service history..."/>
                     <div>
-                        <label className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">Images</label>
-                        <div className="mt-1 p-5 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-md text-center">
-                            <label htmlFor="file-upload" className="cursor-pointer font-medium text-brand-blue hover:text-brand-blue-dark"><span>Upload files</span><input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/*" onChange={handleImageUpload} /></label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fixes Done / Upgrades</label>
+                        <div className="flex gap-2">
+                            <input type="text" value={fixInput} onChange={(e) => setFixInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddFix(); } }} placeholder="e.g., New tires installed" className="flex-grow p-3 border border-brand-gray dark:border-gray-600 rounded-lg" />
+                            <button type="button" onClick={handleAddFix} className="bg-gray-200 dark:bg-gray-600 font-bold py-2 px-4 rounded-lg">Add Fix</button>
                         </div>
-                        <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {formData.qualityReport?.fixesDone.map(fix => (
+                                <span key={fix} className="bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full flex items-center gap-2">
+                                    {fix}
+                                    <button type="button" onClick={() => handleRemoveFix(fix)}>&times;</button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </FormFieldset>
+            
+            <FormFieldset title="Media, Features & Description">
+                <div className="space-y-4">
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Images</label>
+                        <div className="mt-1">
+                            <label
+                                htmlFor="file-upload"
+                                className={`relative cursor-pointer bg-white dark:bg-brand-gray-darker rounded-lg border-2 border-gray-300 dark:border-gray-600 border-dashed hover:border-brand-blue dark:hover:border-brand-blue-light transition-colors duration-200 flex flex-col items-center justify-center text-center p-6 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span className="mt-2 block text-sm font-semibold text-brand-blue">
+                                    {isUploading ? 'Uploading...' : 'Upload images'}
+                                </span>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">or drag and drop</p>
+                                <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/png, image/jpeg, image/gif" onChange={handleImageUpload} disabled={isUploading} />
+                            </label>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                             {formData.images.map((url, index) => (
                                 <div key={index} className="relative group">
-                                    <img src={url} className="w-full h-16 object-cover rounded-md" alt="Vehicle thumbnail" />
-                                    <button type="button" onClick={() => handleRemoveImageUrl(url)} className="absolute top-0 right-0 bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100">&times;</button>
+                                    <img src={url} className="w-full h-24 object-cover rounded-lg shadow-sm" alt={`Vehicle thumbnail ${index + 1}`} />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 rounded-lg"></div>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveImageUrl(url)} 
+                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                        aria-label={`Remove image ${index + 1}`}
+                                    >
+                                        &times;
+                                    </button>
                                 </div>
                             ))}
+                            {isUploading && (
+                                <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                                    <div className="w-6 h-6 border-4 border-dashed rounded-full animate-spin border-brand-blue"></div>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <div>
@@ -333,17 +508,15 @@ const VehicleForm: React.FC<{
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">{formData.features.map(feature => ( <span key={feature} className="bg-brand-blue-light text-white text-sm font-semibold px-3 py-1 rounded-full flex items-center gap-2">{feature}<button type="button" onClick={() => handleRemoveFeature(feature)}>&times;</button></span> ))}</div>
                     </div>
+                     <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <label htmlFor="description" className="block text-sm font-medium">Vehicle Description</label>
+                            <button type="button" onClick={handleGenerateDescription} disabled={isGeneratingDesc || !formData.make || !formData.model} className="text-sm font-semibold text-indigo-600 disabled:opacity-50"> {isGeneratingDesc ? '...' : '✨ Generate with AI'}</button>
+                        </div>
+                        <textarea id="description" name="description" rows={4} value={formData.description} onChange={handleChange} className="block w-full p-3 border border-brand-gray dark:border-gray-600 rounded-lg" />
+                    </div>
                 </div>
-            </fieldset>
-          
-            <fieldset>
-                <legend className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Description</legend>
-                <div className="flex justify-between items-center mb-1">
-                    <label htmlFor="description" className="block text-sm font-medium">Vehicle Description</label>
-                    <button type="button" onClick={handleGenerateDescription} disabled={isGeneratingDesc || !formData.make || !formData.model} className="text-sm font-semibold text-indigo-600 disabled:opacity-50"> {isGeneratingDesc ? '...' : '✨ Generate with AI'}</button>
-                </div>
-                <textarea id="description" name="description" rows={4} value={formData.description} onChange={handleChange} className="block w-full p-3 border border-brand-gray dark:border-gray-600 rounded-lg" />
-            </fieldset>
+            </FormFieldset>
 
             <div className="pt-4 flex flex-col sm:flex-row items-center gap-4">
                 <button type="submit" className="w-full sm:w-auto flex-grow bg-brand-blue text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-brand-blue-dark"> {editingVehicle ? 'Update Vehicle' : 'List My Vehicle'} </button>
@@ -356,7 +529,7 @@ const VehicleForm: React.FC<{
                   <div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Live Preview</h3>
                       <div className="pointer-events-none">
-                         <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} isCompareDisabled={true} onViewSellerProfile={() => {}} />
+                         <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} isCompareDisabled={true} onViewSellerProfile={() => {}} onQuickView={() => {}} />
                       </div>
                   </div>
                   <div>
@@ -587,9 +760,41 @@ const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any
     );
 });
 
+const ReportsView: React.FC<{
+    reportedVehicles: Vehicle[];
+    onEditVehicle: (vehicle: Vehicle) => void;
+    onDeleteVehicle: (vehicleId: number) => void;
+}> = memo(({ reportedVehicles, onEditVehicle, onDeleteVehicle }) => (
+    <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Reported Listings</h2>
+        {reportedVehicles.length > 0 ? (
+            <div className="space-y-4">
+                {reportedVehicles.map(v => (
+                    <div key={v.id} className="border border-yellow-400 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg">
+                        <h3 className="font-bold text-gray-800 dark:text-gray-100">{v.year} {v.make} {v.model}</h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Reported on: {v.flaggedAt ? new Date(v.flaggedAt).toLocaleString() : 'N/A'}</p>
+                        <p className="mt-2 text-sm italic text-gray-700 dark:text-gray-200">Reason: "{v.flagReason || 'No reason provided.'}"</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">An administrator will review this report. You can edit the listing to correct any issues or delete it if it's no longer valid.</p>
+                        <div className="mt-3 space-x-4">
+                            <button onClick={() => onEditVehicle(v)} className="text-brand-blue font-semibold text-sm hover:underline">Edit Listing</button>
+                            <button onClick={() => onDeleteVehicle(v.id)} className="text-red-500 font-semibold text-sm hover:underline">Delete Listing</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        ) : (
+             <div className="text-center py-16 px-6">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-gray-100">All Clear!</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">You have no reported listings at this time.</p>
+            </div>
+        )}
+    </div>
+));
+
 
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData }) => {
+const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicles, reportedVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
@@ -634,11 +839,13 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
   const unreadCount = useMemo(() => conversations.filter(c => !c.isReadBySeller).length, [conversations]);
   const activeListings = useMemo(() => sellerVehicles.filter(v => v.status !== 'sold'), [sellerVehicles]);
   const soldListings = useMemo(() => sellerVehicles.filter(v => v.status === 'sold'), [sellerVehicles]);
+  const reportedCount = useMemo(() => reportedVehicles.length, [reportedVehicles]);
   
   const analyticsData = useMemo(() => {
+    const totalSalesValue = soldListings.reduce((sum, v) => sum + v.price, 0);
     const totalViews = activeListings.reduce((sum, v) => sum + (v.views || 0), 0);
     const totalInquiries = activeListings.reduce((sum, v) => sum + (v.inquiriesCount || 0), 0);
-    const chartLabels = activeListings.map(v => `${v.year} ${v.model} ${v.variant || ''}`.trim());
+    const chartLabels = activeListings.map(v => `${v.year} ${v.model} ${v.variant || ''}`.trim().slice(0, 25));
     const chartData = {
       labels: chartLabels,
       datasets: [
@@ -648,6 +855,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
           backgroundColor: 'rgba(59, 130, 246, 0.5)',
           borderColor: 'rgba(59, 130, 246, 1)',
           borderWidth: 1,
+          yAxisID: 'y',
         },
         {
           label: 'Inquiries',
@@ -655,11 +863,12 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
           backgroundColor: 'rgba(34, 197, 94, 0.5)',
           borderColor: 'rgba(34, 197, 94, 1)',
           borderWidth: 1,
+          yAxisID: 'y1',
         },
       ],
     };
-    return { totalViews, totalInquiries, chartData };
-  }, [activeListings]);
+    return { totalSalesValue, totalViews, totalInquiries, chartData };
+  }, [activeListings, soldListings]);
 
   const renderContent = () => {
     switch(activeView) {
@@ -667,8 +876,8 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
-              <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
+              <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+              <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
               <StatCard title="Your Seller Rating" value={`${seller.averageRating?.toFixed(1) || 'N/A'} (${seller.ratingCount || 0})`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.522 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.522 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.522-4.674a1 1 0 00-.363-1.118L2.98 8.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.522-4.674z" /></svg>} />
             </div>
             <AiAssistant
@@ -681,13 +890,56 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
         );
       case 'analytics':
         return (
-            <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
-                <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Performance Analytics</h2>
-                {activeListings.length > 0 ? (
-                    <Bar data={analyticsData.chartData} options={{ responsive: true, plugins: { legend: { position: 'top' }, title: { display: true, text: 'Listing Views vs. Inquiries' } } }} />
-                ) : (
-                    <p className="text-center text-gray-500 dark:text-gray-400 py-8">No active listings to analyze. Add a vehicle to see performance data.</p>
-                )}
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+                    <StatCard title="Total Sales Value" value={`₹${analyticsData.totalSalesValue.toLocaleString('en-IN')}`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
+                    <StatCard title="Total Views" value={analyticsData.totalViews.toLocaleString('en-IN')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>} />
+                    <StatCard title="Total Inquiries" value={analyticsData.totalInquiries.toLocaleString('en-IN')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
+                </div>
+                <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Listing Performance</h2>
+                    {activeListings.length > 0 ? (
+                        <Bar 
+                            data={analyticsData.chartData} 
+                            options={{ 
+                                responsive: true, 
+                                plugins: { 
+                                    legend: { position: 'top' }, 
+                                    title: { display: true, text: 'Views vs. Inquiries per Vehicle' } 
+                                },
+                                scales: {
+                                    y: {
+                                        type: 'linear',
+                                        display: true,
+                                        position: 'left',
+                                        title: {
+                                            display: true,
+                                            text: 'Views'
+                                        }
+                                    },
+                                    y1: {
+                                        type: 'linear',
+                                        display: true,
+                                        position: 'right',
+                                        title: {
+                                            display: true,
+                                            text: 'Inquiries'
+                                        },
+                                        grid: {
+                                            drawOnChartArea: false, // only want the grid lines for one axis to show up
+                                        },
+                                    },
+                                }
+                            }} 
+                        />
+                    ) : (
+                        <div className="text-center py-16 px-6">
+                            <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-gray-100">No Data to Display</h3>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Add a vehicle to see performance data.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         );
       case 'profile':
@@ -721,7 +973,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
             ) : (
                 <div className="text-center py-12 bg-gray-50 dark:bg-brand-gray-darker rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
                     <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2-2H5a2 2 0 01-2-2z" />
                     </svg>
                     <h3 className="mt-2 text-xl font-semibold text-gray-900 dark:text-gray-100">No vehicles listed yet</h3>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Ready to sell? Add your first vehicle to get started.</p>
@@ -761,13 +1013,19 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
           </div>
         );
       case 'form':
-        return <VehicleForm editingVehicle={editingVehicle} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} vehicleData={vehicleData} />;
+        return <VehicleForm editingVehicle={editingVehicle} allVehicles={allVehicles} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} vehicleData={vehicleData} />;
       case 'inquiries':
         return <InquiriesView 
                     conversations={conversations} 
                     onMarkConversationAsReadBySeller={onMarkConversationAsReadBySeller} 
                     onMarkMessagesAsRead={onMarkMessagesAsRead}
                     onSelectConv={setSelectedConv}
+                />;
+      case 'reports':
+        return <ReportsView
+                    reportedVehicles={reportedVehicles}
+                    onEditVehicle={handleEditClick}
+                    onDeleteVehicle={onDeleteVehicle}
                 />;
     }
   }
@@ -786,6 +1044,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, onAddVehi
             <NavItem view="overview">Overview</NavItem>
             <NavItem view="analytics">Analytics</NavItem>
             <NavItem view="listings">My Listings</NavItem>
+            <NavItem view="reports" count={reportedCount}>Reports</NavItem>
             <NavItem view="salesHistory">Sales History</NavItem>
             <NavItem view="form">Add Vehicle</NavItem>
             <NavItem view="inquiries" count={unreadCount}>Inquiries</NavItem>

@@ -1,4 +1,3 @@
-
 import type { Vehicle, User } from './types';
 import { VehicleCategory } from './types';
 
@@ -30,7 +29,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     price: 1650000,
     mileage: 15000,
     images: ['https://picsum.photos/seed/nexon1/800/600', 'https://picsum.photos/seed/nexon2/800/600'],
-    features: ['Sunroof', 'Touchscreen Infotainment', 'Automatic Climate Control', 'Ziptron Technology'],
+    features: ['Sunroof', 'Touchscreen Infotainment', 'Automatic Climate Control', 'Ziptron Technology', 'Alloy Wheels'],
     description: 'A stylish and powerful compact electric SUV, perfect for city driving and weekend getaways.',
     sellerEmail: 'seller@test.com',
     engine: 'Permanent Magnet Synchronous Motor',
@@ -43,6 +42,18 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 1850,
     inquiriesCount: 22,
     isFlagged: false,
+    registrationYear: 2023,
+    insuranceValidity: 'Aug 2026',
+    insuranceType: 'Comprehensive',
+    rto: 'MH01',
+    noOfOwners: 1,
+    displacement: 'N/A',
+    groundClearance: '205 mm',
+    bootSpace: '350 litres',
+    qualityReport: {
+      summary: 'This vehicle has undergone a 200-point inspection and is in excellent condition. All core structures are intact, and it has passed all mechanical and electrical checks. Minor cosmetic scratches on the rear bumper have been professionally repainted.',
+      fixesDone: ['Full interior and exterior detailing', 'AC filter replaced', 'Brake pads checked and cleaned'],
+    },
   },
   {
     id: 2,
@@ -67,6 +78,18 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 2200,
     inquiriesCount: 18,
     isFlagged: false,
+    registrationYear: 2022,
+    insuranceValidity: 'Mar 2025',
+    insuranceType: 'Third Party',
+    rto: 'DL3C',
+    noOfOwners: 1,
+    displacement: '1497 cc',
+    groundClearance: '190 mm',
+    bootSpace: '433 litres',
+    qualityReport: {
+      summary: 'Well-maintained vehicle with a clean service record. Passed all major inspection points. The tires have approximately 70% life remaining.',
+      fixesDone: ['Oil and filter change recently done', 'Wheel alignment and balancing'],
+    },
   },
   {
     id: 3,
@@ -91,6 +114,18 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 1100,
     inquiriesCount: 15,
     isFlagged: true,
+    registrationYear: 2023,
+    insuranceValidity: 'Oct 2026',
+    insuranceType: 'Comprehensive',
+    rto: 'KA05',
+    noOfOwners: 1,
+    displacement: '1197 cc',
+    groundClearance: '163 mm',
+    bootSpace: '268 litres',
+    qualityReport: {
+      summary: 'Almost brand new condition. No mechanical issues found. The interior is spotless and non-smoker owned. First service completed at an authorized service center.',
+      fixesDone: ['Teflon coating applied'],
+    },
   },
   {
     id: 4,
@@ -115,6 +150,18 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 1950,
     inquiriesCount: 25,
     isFlagged: false,
+    registrationYear: 2022,
+    insuranceValidity: 'Jan 2025',
+    insuranceType: 'Comprehensive',
+    rto: 'TN10',
+    noOfOwners: 1,
+    displacement: '1999 cc',
+    groundClearance: '200 mm',
+    bootSpace: 'N/A (3rd row up)',
+    qualityReport: {
+      summary: 'Excellent condition with full company service history. ADAS features fully functional. No major dents or scratches on the body. A perfect family SUV.',
+      fixesDone: ['Software update for infotainment system completed', 'New floor mats installed'],
+    },
   },
   {
     id: 5,
@@ -139,6 +186,18 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 1650,
     inquiriesCount: 11,
     isFlagged: false,
+    registrationYear: 2023,
+    insuranceValidity: 'Jun 2026',
+    insuranceType: 'Comprehensive',
+    rto: 'MH12',
+    noOfOwners: 1,
+    displacement: '1493 cc',
+    groundClearance: '190 mm',
+    bootSpace: '433 litres',
+    qualityReport: {
+      summary: 'Like-new condition. The vehicle is under manufacturer warranty. All features are working perfectly. A great opportunity to own a top-end model.',
+      fixesDone: [],
+    },
   },
   {
     id: 6,
@@ -163,6 +222,18 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 980,
     inquiriesCount: 9,
     isFlagged: false,
+    registrationYear: 2024,
+    insuranceValidity: 'Feb 2027',
+    insuranceType: 'Comprehensive',
+    rto: 'UP16',
+    noOfOwners: 1,
+    displacement: '1498 cc',
+    groundClearance: '165 mm',
+    bootSpace: '506 litres',
+    qualityReport: {
+      summary: 'Showroom condition vehicle with very low mileage. Still has the new car smell. No issues whatsoever. Ready for immediate delivery.',
+      fixesDone: [],
+    },
   },
   {
     id: 7,
@@ -187,9 +258,21 @@ export const MOCK_VEHICLES: Vehicle[] = [
     views: 3500,
     inquiriesCount: 40,
     isFlagged: false,
+    registrationYear: 2021,
+    insuranceValidity: 'Expired',
+    insuranceType: 'Comprehensive',
+    rto: 'HR26',
+    noOfOwners: 2,
+    displacement: '2755 cc',
+    groundClearance: '225 mm',
+    bootSpace: '296 litres',
+    qualityReport: {
+      summary: 'A rugged and reliable Fortuner. Mechanically sound with some signs of wear and tear consistent with its age and mileage. The 4x4 system is fully operational.',
+      fixesDone: ['New battery installed', 'Replaced front brake pads'],
+    },
   },
 
-  // Two Wheelers
+  // Two Wheelers - Adding new fields to a few for demonstration
   ...Array.from({ length: 10 }, (_, i) => {
     const bikes = [
         { make: 'Hero', model: 'Splendor Plus', price: 75000, mileage: 8000, fuel: '65 KMPL', features: ['i3S Technology', 'Alloy Wheels'] },
@@ -223,9 +306,23 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Various',
         status: 'published' as 'published',
         isFeatured: i < 2,
+        // Adding new fields only to the first two bikes for brevity
+        registrationYear: 2022,
+        insuranceValidity: i < 2 ? 'Dec 2024' : 'N/A',
+        insuranceType: i < 2 ? 'Third Party' : 'N/A',
+        rto: i < 2 ? 'MH14' : 'N/A',
+        noOfOwners: 1,
+        displacement: i === 0 ? '97.2 cc' : '124 cc',
+        groundClearance: 'N/A',
+        bootSpace: 'N/A',
+        qualityReport: {
+          summary: 'Good condition for daily use.',
+          fixesDone: i === 0 ? ['Regular servicing done'] : [],
+        },
     };
   }),
 
+  // Other vehicle types with default new fields for brevity
   // Three Wheelers
   ...Array.from({ length: 10 }, (_, i) => {
     const autos = [
@@ -260,6 +357,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Yellow/Green',
         status: 'published' as 'published',
         isFeatured: false,
+        registrationYear: 2021, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 2, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 
@@ -297,6 +395,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Red/Blue/Green',
         status: 'published' as 'published',
         isFeatured: i === 0,
+        registrationYear: 2020, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 
@@ -334,6 +433,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'White',
         status: 'published' as 'published',
         isFeatured: false,
+        registrationYear: 2022, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 
@@ -371,6 +471,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
         color: 'Yellow',
         status: 'published' as 'published',
         isFeatured: i === 0,
+        registrationYear: 2019, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
     };
   }),
 ];

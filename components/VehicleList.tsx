@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import VehicleCard from './VehicleCard';
-import type { Vehicle } from '../types';
+import type { Vehicle, VehicleCategory } from '../types';
+import { VehicleCategory as CategoryEnum } from '../types';
 import { parseSearchQuery, getSearchSuggestions } from '../services/geminiService';
+import QuickViewModal from './QuickViewModal';
 
 interface VehicleListProps {
   vehicles: Vehicle[];
@@ -12,7 +14,8 @@ interface VehicleListProps {
   onClearCompare: () => void;
   wishlist: number[];
   onToggleWishlist: (id: number) => void;
-  categoryTitle: string;
+  categoryTitle?: string;
+  initialCategory?: VehicleCategory | 'ALL';
   isWishlistMode?: boolean;
   onViewSellerProfile: (sellerEmail: string) => void;
 }
@@ -51,7 +54,7 @@ const sortOptions = {
 const MIN_PRICE = 50000;
 const MAX_PRICE = 5000000;
 
-const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, isLoading, comparisonList, onToggleCompare, onClearCompare, wishlist, onToggleWishlist, categoryTitle, isWishlistMode = false, onViewSellerProfile }) => {
+const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, isLoading, comparisonList, onToggleCompare, onClearCompare, wishlist, onToggleWishlist, categoryTitle, initialCategory = 'ALL', isWishlistMode = false, onViewSellerProfile }) => {
   // AI Search State
   const [aiSearchQuery, setAiSearchQuery] = useState('');
   const [isAiSearching, setIsAiSearching] = useState(false);
@@ -65,9 +68,15 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   const [yearFilter, setYearFilter] = useState('0');
   const [colorFilter, setColorFilter] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [featureSearch, setFeatureSearch] = useState('');
+  const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState('YEAR_DESC');
+  const [quickViewVehicle, setQuickViewVehicle] = useState<Vehicle | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<VehicleCategory | 'ALL'>(initialCategory);
 
   const aiSearchRef = useRef<HTMLDivElement>(null);
+  const featuresFilterRef = useRef<HTMLDivElement>(null);
+  const featuresSearchInputRef = useRef<HTMLInputElement>(null);
   const suggestionDebounceRef = useRef<number | null>(null);
 
   const uniqueMakes = useMemo(() => [...new Set(vehicles.map(v => v.make))].sort(), [vehicles]);
@@ -78,11 +87,22 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   const uniqueYears = useMemo(() => [...new Set(vehicles.map(v => v.year))].sort((a, b) => b - a), [vehicles]);
   const uniqueColors = useMemo(() => [...new Set(vehicles.map(v => v.color))].sort(), [vehicles]);
   const allFeatures = useMemo(() => [...new Set(vehicles.flatMap(v => v.features))].sort(), [vehicles]);
+  
+  const filteredFeatures = useMemo(() => {
+      return allFeatures.filter(feature => feature.toLowerCase().includes(featureSearch.toLowerCase()));
+  }, [allFeatures, featureSearch]);
+
+  useEffect(() => {
+    setCategoryFilter(initialCategory);
+  }, [initialCategory]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
         if (aiSearchRef.current && !aiSearchRef.current.contains(event.target as Node)) {
             setShowSuggestions(false);
+        }
+        if (featuresFilterRef.current && !featuresFilterRef.current.contains(event.target as Node)) {
+            setIsFeaturesOpen(false);
         }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -93,6 +113,13 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
         }
     };
   }, []);
+
+  useEffect(() => {
+    if (isFeaturesOpen) {
+        // Use a timeout to allow the element to render before focusing
+        setTimeout(() => featuresSearchInputRef.current?.focus(), 0);
+    }
+  }, [isFeaturesOpen]);
 
   const handleAiSearch = async (queryOverride?: string) => {
     const query = typeof queryOverride === 'string' ? queryOverride : aiSearchQuery;
@@ -191,12 +218,14 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
 
   const handleResetFilters = () => {
     setAiSearchQuery('');
+    setCategoryFilter('ALL');
     setMakeFilter('');
     setModelFilter('');
     setPriceRange({ min: MIN_PRICE, max: MAX_PRICE });
     setYearFilter('0');
     setColorFilter('');
     setSelectedFeatures([]);
+    setFeatureSearch('');
     setSortOrder('YEAR_DESC');
     onClearCompare();
   };
@@ -207,6 +236,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
       : vehicles;
 
     const filtered = sourceVehicles.filter(vehicle => {
+        const matchesCategory = categoryFilter === 'ALL' || vehicle.category === categoryFilter;
         const matchesMake = !makeFilter || vehicle.make === makeFilter;
         const matchesModel = !modelFilter || vehicle.model === modelFilter;
         const matchesPrice = vehicle.price >= priceRange.min && vehicle.price <= priceRange.max;
@@ -214,7 +244,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
         const matchesColor = !colorFilter || vehicle.color === colorFilter;
         const matchesFeatures = selectedFeatures.every(feature => vehicle.features.includes(feature));
         
-        return matchesMake && matchesModel && matchesPrice && matchesYear && matchesFeatures && matchesColor;
+        return matchesCategory && matchesMake && matchesModel && matchesPrice && matchesYear && matchesFeatures && matchesColor;
     });
 
     return [...filtered].sort((a, b) => {
@@ -228,7 +258,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             default: return b.year - a.year;
         }
     });
-  }, [vehicles, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist, colorFilter]);
+  }, [vehicles, categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist, colorFilter]);
   
   if (isWishlistMode) {
      return (
@@ -239,7 +269,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             Array.from({ length: 3 }).map((_, index) => <VehicleCardSkeleton key={index} />)
           ) : processedVehicles.length > 0 ? (
             processedVehicles.map(vehicle => (
-              <VehicleCard key={vehicle.id} vehicle={vehicle} onSelect={onSelectVehicle} onToggleCompare={onToggleCompare} isSelectedForCompare={comparisonList.includes(vehicle.id)} onToggleWishlist={onToggleWishlist} isInWishlist={wishlist.includes(vehicle.id)} isCompareDisabled={!comparisonList.includes(vehicle.id) && comparisonList.length >= 4} onViewSellerProfile={onViewSellerProfile} />
+              <VehicleCard key={vehicle.id} vehicle={vehicle} onSelect={onSelectVehicle} onToggleCompare={onToggleCompare} isSelectedForCompare={comparisonList.includes(vehicle.id)} onToggleWishlist={onToggleWishlist} isInWishlist={wishlist.includes(vehicle.id)} isCompareDisabled={!comparisonList.includes(vehicle.id) && comparisonList.length >= 4} onViewSellerProfile={onViewSellerProfile} onQuickView={setQuickViewVehicle} />
             ))
           ) : (
             <div className="col-span-full text-center py-16 bg-white dark:bg-brand-gray-800 rounded-xl shadow-soft-lg">
@@ -248,6 +278,15 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             </div>
           )}
         </div>
+        <QuickViewModal
+            vehicle={quickViewVehicle}
+            onClose={() => setQuickViewVehicle(null)}
+            onSelectVehicle={onSelectVehicle}
+            onToggleCompare={onToggleCompare}
+            onToggleWishlist={onToggleWishlist}
+            comparisonList={comparisonList}
+            wishlist={wishlist}
+        />
       </div>
     );
   }
@@ -255,185 +294,240 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   const formElementClass = "block w-full p-3 border border-brand-gray-300 dark:border-brand-gray-600 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:outline-none transition bg-brand-gray-50 dark:bg-brand-gray-800 dark:text-gray-200 disabled:bg-brand-gray-200 dark:disabled:bg-brand-gray-700 disabled:cursor-not-allowed";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 container mx-auto px-4 py-8">
-      <aside className="lg:sticky top-24 self-start space-y-6">
-          <div className="bg-white dark:bg-brand-gray-800 p-6 rounded-xl shadow-soft-lg">
-            <h2 className="text-xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-4">Find Your Vehicle</h2>
-            <div className="flex flex-col gap-4">
-                 <label htmlFor="make-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300">Make</label>
-                 <select id="make-filter" value={makeFilter} onChange={handleMakeChange} className={formElementClass}>
-                     <option value="">Any Make</option>
-                     {uniqueMakes.map(make => <option key={make} value={make}>{make}</option>)}
-                 </select>
-                
-                 <label htmlFor="model-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300">Model</label>
-                 <select 
-                    id="model-filter" 
-                    value={modelFilter} 
-                    onChange={(e) => setModelFilter(e.target.value)} 
-                    disabled={!makeFilter || availableModels.length === 0}
-                    className={formElementClass}
-                 >
-                     <option value="">Any Model</option>
-                     {availableModels.map(model => <option key={model} value={model}>{model}</option>)}
-                 </select>
-
-                <div>
-                  <label className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-2">Price Range</label>
-                  <div className="flex justify-between items-center text-xs text-brand-gray-600 dark:text-brand-gray-400">
-                    <span>₹{priceRange.min.toLocaleString('en-IN')}</span>
-                    <span>₹{priceRange.max.toLocaleString('en-IN')}</span>
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8 container mx-auto px-4 py-8">
+        <aside className="lg:sticky top-24 self-start space-y-6">
+            <div className="bg-white dark:bg-brand-gray-800 p-6 rounded-xl shadow-soft-lg">
+              <h2 className="text-xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-4">Filters</h2>
+              <div className="space-y-4">
+                  <div>
+                      <label htmlFor="make-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Make</label>
+                      <select id="make-filter" value={makeFilter} onChange={handleMakeChange} className={formElementClass}>
+                          <option value="">Any Make</option>
+                          {uniqueMakes.map(make => <option key={make} value={make}>{make}</option>)}
+                      </select>
                   </div>
-                  <div className="relative h-8 flex items-center">
-                    <input name="min" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={priceRange.min} onChange={handlePriceChange} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
-                    <input name="max" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={priceRange.max} onChange={handlePriceChange} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
-                    <div className="relative w-full h-1.5 bg-brand-gray-200 dark:bg-brand-gray-600 rounded-full">
-                        <div className="absolute h-1.5 bg-brand-blue rounded-full" style={{ left: `${((priceRange.min - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%`, right: `${100 - ((priceRange.max - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%` }}></div>
+                  
+                  <div>
+                      <label htmlFor="model-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Model</label>
+                      <select 
+                          id="model-filter" 
+                          value={modelFilter} 
+                          onChange={(e) => setModelFilter(e.target.value)} 
+                          disabled={!makeFilter || availableModels.length === 0}
+                          className={formElementClass}
+                      >
+                          <option value="">Any Model</option>
+                          {availableModels.map(model => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-2">Price Range</label>
+                    <div className="flex justify-between items-center text-xs text-brand-gray-600 dark:text-brand-gray-400">
+                      <span>₹{priceRange.min.toLocaleString('en-IN')}</span>
+                      <span>₹{priceRange.max.toLocaleString('en-IN')}</span>
                     </div>
+                    <div className="relative h-8 flex items-center">
+                      <input name="min" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={priceRange.min} onChange={handlePriceChange} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                      <input name="max" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={priceRange.max} onChange={handlePriceChange} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                      <div className="relative w-full h-1.5 bg-brand-gray-200 dark:bg-brand-gray-600 rounded-full">
+                          <div className="absolute h-1.5 bg-brand-blue rounded-full" style={{ left: `${((priceRange.min - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%`, right: `${100 - ((priceRange.max - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%` }}></div>
+                      </div>
+                    </div>
+                    <style>{`
+                      .slider-thumb { -webkit-appearance: none; appearance: none; background-color: transparent; pointer-events: none; }
+                      .slider-thumb::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background-color: #007AFF; border: 3px solid white; box-shadow: 0 0 0 1px #9CA3AF; border-radius: 50%; cursor: pointer; pointer-events: auto; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+                      html.dark .slider-thumb::-webkit-slider-thumb { border-color: #1F2937; box-shadow: 0 0 0 1px #4B5563; }
+                      .slider-thumb:hover::-webkit-slider-thumb, .slider-thumb:focus::-webkit-slider-thumb { transform: scale(1.15); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+                      .slider-thumb::-moz-range-thumb { width: 20px; height: 20px; background-color: #007AFF; border: 3px solid white; box-shadow: 0 0 0 1px #9CA3AF; border-radius: 50%; cursor: pointer; pointer-events: auto; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+                      html.dark .slider-thumb::-moz-range-thumb { border-color: #1F2937; box-shadow: 0 0 0 1px #4B5563; }
+                      .slider-thumb:hover::-moz-range-thumb, .slider-thumb:focus::-moz-range-thumb { transform: scale(1.15); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+                    `}</style>
                   </div>
-                  <style>{`
-                    .slider-thumb {
-                        -webkit-appearance: none;
-                        appearance: none;
-                        background-color: transparent;
-                        pointer-events: none;
-                    }
-                    .slider-thumb::-webkit-slider-thumb {
-                        -webkit-appearance: none;
-                        appearance: none;
-                        width: 20px;
-                        height: 20px;
-                        background-color: #007AFF;
-                        border: 3px solid white;
-                        box-shadow: 0 0 0 1px #9CA3AF;
-                        border-radius: 50%;
-                        cursor: pointer;
-                        pointer-events: auto;
-                        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-                    }
-                    html.dark .slider-thumb::-webkit-slider-thumb {
-                        border-color: #1F2937;
-                        box-shadow: 0 0 0 1px #4B5563;
-                    }
-                    .slider-thumb:hover::-webkit-slider-thumb, .slider-thumb:focus::-webkit-slider-thumb {
-                        transform: scale(1.15);
-                        box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3);
-                    }
-                    .slider-thumb::-moz-range-thumb {
-                        width: 20px;
-                        height: 20px;
-                        background-color: #007AFF;
-                        border: 3px solid white;
-                        box-shadow: 0 0 0 1px #9CA3AF;
-                        border-radius: 50%;
-                        cursor: pointer;
-                        pointer-events: auto;
-                        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-                    }
-                    html.dark .slider-thumb::-moz-range-thumb {
-                        border-color: #1F2937;
-                        box-shadow: 0 0 0 1px #4B5563;
-                    }
-                    .slider-thumb:hover::-moz-range-thumb, .slider-thumb:focus::-moz-range-thumb {
-                        transform: scale(1.15);
-                        box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3);
-                    }
-                  `}</style>
-                </div>
-
-                 <label htmlFor="year-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300">Year</label>
-                 <select id="year-filter" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className={formElementClass}>
-                     <option value="0">Any Year</option>
-                     {uniqueYears.map(year => <option key={year} value={year}>{year}</option>)}
-                 </select>
-
-                 <label htmlFor="color-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300">Color</label>
-                 <select id="color-filter" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} className={formElementClass}>
-                     <option value="">Any Color</option>
-                     {uniqueColors.map(color => <option key={color} value={color}>{color}</option>)}
-                 </select>
-                
-                <div>
-                  <label className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-2">Features</label>
-                  <div className="max-h-40 overflow-y-auto space-y-1 p-1 border border-brand-gray-200 dark:border-brand-gray-700 rounded-md bg-brand-gray-50 dark:bg-brand-gray-900">
-                    {allFeatures.map(feature => (
-                      <label key={feature} className="flex items-center space-x-3 cursor-pointer group p-2 rounded-md transition-colors hover:bg-brand-gray-100 dark:hover:bg-brand-gray-700">
-                        <input type="checkbox" checked={selectedFeatures.includes(feature)} onChange={() => handleFeatureToggle(feature)} className="h-4 w-4 text-brand-blue rounded border-brand-gray-300 dark:border-brand-gray-600 focus:ring-brand-blue focus:ring-offset-brand-gray-50 dark:focus:ring-offset-brand-gray-900 bg-transparent dark:bg-transparent"/>
-                        <span className="text-sm text-brand-gray-700 dark:text-brand-gray-300 group-hover:text-brand-gray-900 dark:group-hover:text-brand-gray-100">{feature}</span>
-                      </label>
-                    ))}
+                  
+                  <div>
+                    <label htmlFor="year-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Year</label>
+                    <select id="year-filter" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className={formElementClass}>
+                        <option value="0">Any Year</option>
+                        {uniqueYears.map(year => <option key={year} value={year}>{year}</option>)}
+                    </select>
                   </div>
-                </div>
-
-                 <button onClick={handleResetFilters} className="w-full bg-brand-gray-200 dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 font-bold py-3 px-4 rounded-lg hover:bg-brand-gray-300 dark:hover:bg-brand-gray-600 transition-colors mt-2">Reset Filters</button>
-            </div>
-          </div>
-      </aside>
-
-      <main className="space-y-6">
-        <h1 className="text-4xl font-extrabold text-brand-gray-800 dark:text-brand-gray-100">{categoryTitle}</h1>
-        <div className="bg-white dark:bg-brand-gray-800 p-4 rounded-xl shadow-soft-lg">
-            <label htmlFor="ai-search" className="text-lg font-bold text-brand-gray-800 dark:text-brand-gray-100">✨ Intelligent Search</label>
-            <p className="text-sm text-brand-gray-500 dark:text-brand-gray-400 mb-2">Describe what you're looking for, e.g., "a white Tata Nexon under ₹15 lakhs with a sunroof"</p>
-            <div className="relative" ref={aiSearchRef}>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        id="ai-search"
-                        placeholder="Let our AI find your perfect vehicle..."
-                        value={aiSearchQuery}
-                        onChange={handleAiQueryChange}
-                        onFocus={() => setShowSuggestions(suggestions.length > 0)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleAiSearch(); }}
-                        autoComplete="off"
-                        className={formElementClass}
-                    />
-                    <button onClick={() => handleAiSearch()} disabled={isAiSearching} className="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark transition-colors disabled:bg-brand-gray-400 disabled:cursor-wait">
-                        {isAiSearching ? '...' : 'Search'}
+                  
+                  <div>
+                    <label htmlFor="color-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Color</label>
+                    <select id="color-filter" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} className={formElementClass}>
+                        <option value="">Any Color</option>
+                        {uniqueColors.map(color => <option key={color} value={color}>{color}</option>)}
+                    </select>
+                  </div>
+                  
+                  <div className="relative" ref={featuresFilterRef}>
+                    <label htmlFor="features-filter-button" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Features</label>
+                    <button
+                        id="features-filter-button"
+                        type="button"
+                        onClick={() => setIsFeaturesOpen(prev => !prev)}
+                        className={`${formElementClass} flex justify-between items-center text-left min-h-[50px]`}
+                    >
+                        <div className="flex flex-wrap gap-1 items-center">
+                            {selectedFeatures.length > 0 ? (
+                                selectedFeatures.slice(0, 2).map(feature => (
+                                    <span key={feature} className="bg-brand-blue text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1.5">
+                                        {feature}
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent dropdown from opening/closing
+                                                handleFeatureToggle(feature);
+                                            }}
+                                            className="bg-white/20 hover:bg-white/40 rounded-full h-4 w-4 flex items-center justify-center text-white"
+                                            aria-label={`Remove ${feature}`}
+                                        >
+                                            &times;
+                                        </button>
+                                    </span>
+                                ))
+                            ) : (
+                                <span className="text-brand-gray-500 dark:text-brand-gray-400">Select features...</span>
+                            )}
+                            {selectedFeatures.length > 2 && (
+                                <span className="text-xs font-semibold text-brand-gray-500 dark:text-brand-gray-400">
+                                    +{selectedFeatures.length - 2} more
+                                </span>
+                            )}
+                        </div>
+                        <svg className={`w-5 h-5 text-brand-gray-400 transition-transform flex-shrink-0 ${isFeaturesOpen ? 'transform rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
                     </button>
-                </div>
-                {showSuggestions && suggestions.length > 0 && (
-                    <div className="absolute top-full mt-2 w-full bg-white dark:bg-brand-gray-700 rounded-lg shadow-soft-xl border border-brand-gray-200 dark:border-brand-gray-600 z-10 overflow-hidden">
-                        <ul className="divide-y divide-brand-gray-100 dark:divide-brand-gray-600">
-                            {suggestions.map((suggestion, index) => (
-                                <li key={index}>
-                                    <button
-                                        onClick={() => handleSuggestionClick(suggestion)}
-                                        className="w-full text-left px-4 py-2 text-brand-gray-800 dark:text-brand-gray-200 hover:bg-brand-gray-100 dark:hover:bg-brand-gray-600 transition-colors"
-                                    >
-                                        {suggestion}
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-        </div>
 
-        <div className="flex justify-between items-center">
-            <p className="text-sm text-brand-gray-600 dark:text-brand-gray-400">Showing <span className="font-bold">{processedVehicles.length}</span> of <span className="font-bold">{vehicles.length}</span> vehicles</p>
-            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className={formElementClass + ' w-auto'}>
-                {Object.entries(sortOptions).map(([key, value]) => <option key={key} value={key}>{value}</option>)}
-            </select>
-        </div>
+                    {isFeaturesOpen && (
+                        <div className="absolute top-full mt-2 w-full bg-white dark:bg-brand-gray-700 rounded-lg shadow-soft-xl border border-brand-gray-200 dark:border-brand-gray-600 z-20 overflow-hidden animate-fade-in">
+                            <div className="p-2">
+                                <input
+                                    ref={featuresSearchInputRef}
+                                    type="text"
+                                    placeholder="Search features..."
+                                    value={featureSearch}
+                                    onChange={e => setFeatureSearch(e.target.value)}
+                                    className="block w-full p-2 border border-brand-gray-300 dark:border-brand-gray-500 rounded-md bg-white dark:bg-brand-gray-800 text-sm focus:ring-2 focus:ring-brand-blue focus:outline-none"
+                                />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                                {filteredFeatures.map(feature => (
+                                    <label key={feature} className="flex items-center space-x-3 cursor-pointer group p-3 transition-colors hover:bg-brand-gray-100 dark:hover:bg-brand-gray-600">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedFeatures.includes(feature)}
+                                            onChange={() => handleFeatureToggle(feature)}
+                                            className="h-4 w-4 text-brand-blue rounded border-brand-gray-300 dark:border-brand-gray-500 focus:ring-brand-blue bg-transparent"
+                                        />
+                                        <span className="text-sm text-brand-gray-800 dark:text-brand-gray-200">{feature}</span>
+                                    </label>
+                                ))}
+                                {filteredFeatures.length === 0 && (
+                                    <p className="p-3 text-sm text-center text-brand-gray-500 dark:text-brand-gray-400">No features found.</p>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                  </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {isLoading || isAiSearching ? (
-            Array.from({ length: 6 }).map((_, index) => <VehicleCardSkeleton key={index} />)
-          ) : processedVehicles.length > 0 ? (
-            processedVehicles.map(vehicle => (
-              <VehicleCard key={vehicle.id} vehicle={vehicle} onSelect={onSelectVehicle} onToggleCompare={onToggleCompare} isSelectedForCompare={comparisonList.includes(vehicle.id)} onToggleWishlist={onToggleWishlist} isInWishlist={wishlist.includes(vehicle.id)} isCompareDisabled={!comparisonList.includes(vehicle.id) && comparisonList.length >= 4} onViewSellerProfile={onViewSellerProfile} />
-            ))
-          ) : (
-            <div className="col-span-full text-center py-16 bg-white dark:bg-brand-gray-800 rounded-xl shadow-soft-lg">
-              <h3 className="text-xl font-semibold text-brand-gray-700 dark:text-brand-gray-200">No Vehicles Found</h3>
-              <p className="text-brand-gray-500 dark:text-brand-gray-400 mt-2">Try adjusting your filters or using the AI search to find your perfect vehicle.</p>
+
+                   <button onClick={handleResetFilters} className="w-full bg-brand-gray-200 dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 font-bold py-3 px-4 rounded-lg hover:bg-brand-gray-300 dark:hover:bg-brand-gray-600 transition-colors mt-2">Reset Filters</button>
+              </div>
             </div>
-          )}
-        </div>
-      </main>
-    </div>
+        </aside>
+
+        <main className="space-y-6">
+          <h1 className="text-4xl font-extrabold text-brand-gray-800 dark:text-brand-gray-100">{categoryFilter === 'ALL' ? 'Browse Vehicles' : categoryFilter}</h1>
+          <div>
+              <label htmlFor="category-select" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-2">Filter by Category</label>
+              <select
+                  id="category-select"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value as VehicleCategory | 'ALL')}
+                  className="w-full sm:w-auto p-3 border border-brand-gray-300 dark:border-brand-gray-600 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:outline-none transition bg-white dark:bg-brand-gray-800 dark:text-gray-200"
+              >
+                  <option value="ALL">All Categories</option>
+                  {Object.values(CategoryEnum).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                  ))}
+              </select>
+          </div>
+          <div className="bg-white dark:bg-brand-gray-800 p-4 rounded-xl shadow-soft-lg">
+              <label htmlFor="ai-search" className="text-lg font-bold text-brand-gray-800 dark:text-brand-gray-100">✨ Intelligent Search</label>
+              <p className="text-sm text-brand-gray-500 dark:text-brand-gray-400 mb-2">Describe what you're looking for, e.g., "a white Tata Nexon under ₹15 lakhs with a sunroof"</p>
+              <div className="relative" ref={aiSearchRef}>
+                  <div className="flex gap-2">
+                      <input
+                          type="text"
+                          id="ai-search"
+                          placeholder="Let our AI find your perfect vehicle..."
+                          value={aiSearchQuery}
+                          onChange={handleAiQueryChange}
+                          onFocus={() => setShowSuggestions(suggestions.length > 0)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleAiSearch(); }}
+                          autoComplete="off"
+                          className={formElementClass}
+                      />
+                      <button onClick={() => handleAiSearch()} disabled={isAiSearching} className="bg-brand-blue text-white font-bold py-2 px-6 rounded-lg hover:bg-brand-blue-dark transition-colors disabled:bg-brand-gray-400 disabled:cursor-wait">
+                          {isAiSearching ? '...' : 'Search'}
+                      </button>
+                  </div>
+                  {showSuggestions && suggestions.length > 0 && (
+                      <div className="absolute top-full mt-2 w-full bg-white dark:bg-brand-gray-700 rounded-lg shadow-soft-xl border border-brand-gray-200 dark:border-brand-gray-600 z-10 overflow-hidden">
+                          <ul className="divide-y divide-brand-gray-100 dark:divide-brand-gray-600">
+                              {suggestions.map((suggestion, index) => (
+                                  <li key={index}>
+                                      <button
+                                          onClick={() => handleSuggestionClick(suggestion)}
+                                          className="w-full text-left px-4 py-2 text-brand-gray-800 dark:text-brand-gray-200 hover:bg-brand-gray-100 dark:hover:bg-brand-gray-600 transition-colors"
+                                      >
+                                          {suggestion}
+                                      </button>
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                  )}
+              </div>
+          </div>
+
+          <div className="flex justify-between items-center">
+              <p className="text-sm text-brand-gray-600 dark:text-brand-gray-400">Showing <span className="font-bold">{processedVehicles.length}</span> results</p>
+              <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} className={`${formElementClass} w-auto text-sm`}>
+                  {Object.entries(sortOptions).map(([key, value]) => <option key={key} value={key}>{value}</option>)}
+              </select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            {isLoading || isAiSearching ? (
+              Array.from({ length: 6 }).map((_, index) => <VehicleCardSkeleton key={index} />)
+            ) : processedVehicles.length > 0 ? (
+              processedVehicles.map(vehicle => (
+                <VehicleCard key={vehicle.id} vehicle={vehicle} onSelect={onSelectVehicle} onToggleCompare={onToggleCompare} isSelectedForCompare={comparisonList.includes(vehicle.id)} onToggleWishlist={onToggleWishlist} isInWishlist={wishlist.includes(vehicle.id)} isCompareDisabled={!comparisonList.includes(vehicle.id) && comparisonList.length >= 4} onViewSellerProfile={onViewSellerProfile} onQuickView={setQuickViewVehicle} />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-16 bg-white dark:bg-brand-gray-800 rounded-xl shadow-soft-lg">
+                <h3 className="text-xl font-semibold text-brand-gray-700 dark:text-brand-gray-200">No Vehicles Found</h3>
+                <p className="text-brand-gray-500 dark:text-brand-gray-400 mt-2">Try adjusting your filters or using the AI search to find your perfect vehicle.</p>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+      <QuickViewModal
+          vehicle={quickViewVehicle}
+          onClose={() => setQuickViewVehicle(null)}
+          onSelectVehicle={onSelectVehicle}
+          onToggleCompare={onToggleCompare}
+          onToggleWishlist={onToggleWishlist}
+          comparisonList={comparisonList}
+          wishlist={wishlist}
+      />
+    </>
   );
 };
 

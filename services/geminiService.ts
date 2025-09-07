@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import type { Vehicle, ProsAndCons, ChatMessage, Conversation, Suggestion } from '../types';
+import type { Vehicle, ProsAndCons, ChatMessage, Conversation, Suggestion, PricingSuggestion } from '../types';
 import type { SearchFilters } from "../types";
 
 if (!process.env.API_KEY) {
@@ -195,16 +195,14 @@ export const generateSellerSuggestions = async (vehicles: Vehicle[], conversatio
         status: v.status,
     })).filter(v => v.status === 'published');
 
-    // FIX: Corrected a property access error in the filter logic. The mapped object
-    // has an `isRead` property, not `isReadBySeller`.
     const conversationSummary = conversations.map(c => ({
         id: c.id,
         vehicleName: c.vehicleName,
-        isRead: c.isReadBySeller,
+        isReadBySeller: c.isReadBySeller,
         lastMessageTimestamp: c.lastMessageAt,
         lastMessageText: c.messages[c.messages.length - 1].text,
         lastMessageSender: c.messages[c.messages.length - 1].sender,
-    })).filter(c => c.lastMessageSender !== 'seller' && !c.isRead);
+    })).filter(c => c.lastMessageSender !== 'seller' && !c.isReadBySeller);
 
     const prompt = `You are an expert AI Sales Assistant for a used vehicle marketplace. Your goal is to provide actionable suggestions to a seller to help them sell their vehicles faster and improve customer communication.
 Analyze the following JSON data which contains the seller's current vehicle listings and un-replied customer inquiries.
@@ -246,9 +244,6 @@ If there is no data or no meaningful suggestions can be made, return an empty ar
                                     type: { type: Type.STRING },
                                     title: { type: Type.STRING },
                                     description: { type: Type.STRING },
-// FIX: Replaced invalid `Type.ANY` with `Type.STRING`. The Gemini API schema
-// does not support an 'ANY' type. `STRING` is the most flexible choice for
-// a value that can be a string or a number, as the subsequent logic can parse it correctly.
                                     targetId: { type: Type.STRING },
                                     priority: { type: Type.STRING },
                                 }
@@ -267,6 +262,91 @@ If there is no data or no meaningful suggestions can be made, return an empty ar
         }));
     } catch (error) {
         console.error("Error generating seller suggestions with Gemini:", error);
+        return [];
+    }
+};
+
+export const getPricingSuggestion = async (
+    vehicleDetails: Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage'>,
+    marketVehicles: Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage' | 'price'>[]
+): Promise<PricingSuggestion | null> => {
+    const prompt = `You are a vehicle pricing expert for the Indian used car market.
+Given the details of a vehicle a user wants to sell, and a list of similar vehicles currently on the market, provide a suggested price range.
+
+**Vehicle to Price:**
+- Make: ${vehicleDetails.make}
+- Model: ${vehicleDetails.model}
+- Year: ${vehicleDetails.year}
+- Mileage: ${vehicleDetails.mileage.toLocaleString('en-IN')} kms
+
+**Comparable Market Listings:**
+${JSON.stringify(marketVehicles, null, 2)}
+
+Analyze the market data. Consider the year, mileage, and prices of comparable vehicles.
+Provide a fair, competitive price range (minPrice and maxPrice) in INR for the "Vehicle to Price".
+Also, provide a brief, one-sentence justification for your suggestion.
+Respond ONLY with a JSON object matching the provided schema.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        minPrice: { type: Type.NUMBER },
+                        maxPrice: { type: Type.NUMBER },
+                        justification: { type: Type.STRING }
+                    }
+                }
+            }
+        });
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error("Error generating pricing suggestion with Gemini:", error);
+        return null;
+    }
+};
+
+export const getVehicleRecommendations = async (
+    activity: { viewed: number[], wishlisted: number[], compared: number[] },
+    allVehicles: Pick<Vehicle, 'id' | 'make' | 'model' | 'year' | 'price' | 'features' | 'fuelType'>[]
+): Promise<number[]> => {
+    const interactedIds = [...new Set([...activity.viewed, ...activity.wishlisted, ...activity.compared])];
+    const prompt = `You are a vehicle recommendation engine. A user has shown interest in certain vehicles.
+Their activity is summarized below:
+- Viewed Vehicle IDs: [${activity.viewed.join(', ')}]
+- Wishlisted Vehicle IDs: [${activity.wishlisted.join(', ')}]
+- Compared Vehicle IDs: [${activity.compared.join(', ')}]
+
+Here is the full list of available vehicles:
+${JSON.stringify(allVehicles, null, 2)}
+
+Analyze the user's activity to understand their preferences (e.g., brand, price range, vehicle type, features).
+Based on their preferences, recommend up to 5 vehicle IDs from the full list that they might be interested in.
+**Crucially, do not recommend any vehicle IDs that are already in this list of interacted IDs: [${interactedIds.join(', ')}].**
+
+Respond ONLY with a JSON array of recommended vehicle IDs (numbers). For example: [10, 25, 3]. If no suitable recommendations are found, return an empty array.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.NUMBER }
+                }
+            }
+        });
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText);
+    } catch (error) {
+        console.error("Error generating vehicle recommendations with Gemini:", error);
         return [];
     }
 };

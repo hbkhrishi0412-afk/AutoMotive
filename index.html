@@ -201,6 +201,19 @@
       .homepage-active ::-webkit-scrollbar-thumb:hover {
         background: hsl(var(--color-brand-blue-dark));
       }
+      .scrollbar-horizontal::-webkit-scrollbar {
+        height: 8px;
+      }
+      .scrollbar-horizontal::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .homepage-active .scrollbar-horizontal::-webkit-scrollbar-thumb {
+        background: hsl(var(--color-brand-blue-DEFAULT) / 0.5);
+        border-radius: 10px;
+      }
+      .homepage-active .scrollbar-horizontal::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--color-brand-blue-dark) / 0.8);
+      }
 
       /* Scroll-triggered animations */
       .scroll-animate {
