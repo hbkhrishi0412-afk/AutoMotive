@@ -9,6 +9,14 @@ export enum VehicleCategory {
   CONSTRUCTION = 'Construction Vehicle',
 }
 
+export type BadgeType = 'verified' | 'top_seller' | 'high_rating';
+
+export interface Badge {
+    type: BadgeType;
+    label: string;
+    description: string;
+}
+
 export interface Vehicle {
   id: number;
   category: VehicleCategory;
@@ -39,6 +47,7 @@ export interface Vehicle {
   ratingCount?: number;
   sellerAverageRating?: number;
   sellerRatingCount?: number;
+  sellerBadges?: Badge[];
   // New detailed fields
   registrationYear: number;
   insuranceValidity: string;
@@ -63,12 +72,14 @@ export interface User {
   role: 'seller' | 'customer' | 'admin';
   status: 'active' | 'inactive';
   createdAt: string; // ISO String
+  isVerified?: boolean;
   // Seller-specific profile info
   dealershipName?: string;
   bio?: string;
   logoUrl?: string;
   averageRating?: number;
   ratingCount?: number;
+  badges?: Badge[];
 }
 
 export interface ChatMessage {

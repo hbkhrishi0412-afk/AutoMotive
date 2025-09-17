@@ -25,6 +25,7 @@ interface AdminPanelProps {
     onExportSales: () => void;
     vehicleData: VehicleData;
     onUpdateVehicleData: (newData: VehicleData) => void;
+    onToggleVerifiedStatus: (email: string) => void;
 }
 
 type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings';
@@ -107,138 +108,261 @@ const BarChart: React.FC<{ title: string; data: { label: string; value: number }
 
 // --- Vehicle Data Editor Component ---
 const VehicleDataEditor: React.FC<{ vehicleData: VehicleData, onUpdate: (newData: VehicleData) => void }> = ({ vehicleData, onUpdate }) => {
-    const [newItem, setNewItem] = useState<{ path: string[], value: string } | null>(null);
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+    const [selectedMake, setSelectedMake] = useState<string | null>(null);
+    const [selectedModel, setSelectedModel] = useState<string | null>(null);
 
-    const handleUpdate = (updater: (draft: VehicleData) => void) => {
+    const [editingItem, setEditingItem] = useState<{ path: string[], value: string } | null>(null);
+    const [addingAt, setAddingAt] = useState<{ path: string[], type: string } | null>(null);
+    const [newItemValue, setNewItemValue] = useState('');
+    const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
+    const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (selectedCategory && !vehicleData[selectedCategory]) setSelectedCategory(null);
+        if (selectedMake && (!selectedCategory || !vehicleData[selectedCategory]?.[selectedMake])) setSelectedMake(null);
+        if (selectedModel && (!selectedCategory || !selectedMake || !vehicleData[selectedCategory]?.[selectedMake]?.[selectedModel])) setSelectedModel(null);
+    }, [vehicleData, selectedCategory, selectedMake, selectedModel]);
+
+    const handleAction = (updater: (draft: VehicleData) => void) => {
         const draft = JSON.parse(JSON.stringify(vehicleData));
         updater(draft);
         onUpdate(draft);
     };
 
     const handleDelete = (path: string[]) => {
-        if (!window.confirm(`Are you sure you want to delete "${path[path.length - 1]}"? This cannot be undone.`)) return;
-        handleUpdate(draft => {
-            let current: any = draft;
-            for (let i = 0; i < path.length - 1; i++) {
-                current = current[path[i]];
-            }
-            delete current[path[path.length - 1]];
+        if (!window.confirm(`Are you sure you want to delete "${path[path.length - 1]}"? This action cannot be undone.`)) return;
+        handleAction(draft => {
+            let parent: any = draft;
+            for (let i = 0; i < path.length - 1; i++) parent = parent[path[i]];
+            const key = path[path.length - 1];
+            if (Array.isArray(parent)) parent.splice(parent.indexOf(key), 1);
+            else delete parent[key];
         });
+        if (path.length === 1 && path[0] === selectedCategory) setSelectedCategory(null);
+        if (path.length === 2 && path[1] === selectedMake) setSelectedMake(null);
+        if (path.length === 3 && path[2] === selectedModel) setSelectedModel(null);
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingItem || !editingItem.value.trim()) return setEditingItem(null);
+        handleAction(draft => {
+            let parent: any = draft;
+            for (let i = 0; i < editingItem.path.length - 1; i++) parent = parent[editingItem.path[i]];
+            const oldKey = editingItem.path[editingItem.path.length - 1];
+            const newKey = editingItem.value.trim();
+            if (oldKey === newKey) return;
+
+            if (!Array.isArray(parent)) {
+                 if (parent.hasOwnProperty(newKey)) {
+                    alert(`"${newKey}" already exists.`);
+                    return;
+                }
+                parent[newKey] = parent[oldKey];
+                delete parent[oldKey];
+            } else {
+                const index = parent.indexOf(oldKey);
+                 if (parent.includes(newKey)) {
+                    alert(`"${newKey}" already exists.`);
+                    return;
+                }
+                if (index > -1) parent[index] = newKey;
+            }
+        });
+        setEditingItem(null);
+    };
+
+    const handleSaveNewItem = () => {
+        if (!addingAt || !newItemValue.trim()) {
+            setAddingAt(null);
+            setNewItemValue('');
+            return;
+        }
+        const newValue = newItemValue.trim();
+        
+        // Perform case-insensitive duplicate check first
+        let parent: any = vehicleData;
+        for (const key of addingAt.path) {
+            parent = parent[key];
+        }
+    
+        let isDuplicate = false;
+        if (Array.isArray(parent)) {
+            isDuplicate = parent.some(item => item.toLowerCase() === newValue.toLowerCase());
+        } else {
+            isDuplicate = Object.keys(parent).some(key => key.toLowerCase() === newValue.toLowerCase());
+        }
+    
+        if (isDuplicate) {
+            alert(`"${newValue}" already exists.`);
+            return; // Stop execution
+        }
+    
+        // If not a duplicate, proceed with adding
+        handleAction(draft => {
+            let draftParent: any = draft;
+            for (const key of addingAt.path) {
+                draftParent = draftParent[key];
+            }
+            if (Array.isArray(draftParent)) {
+                draftParent.push(newValue);
+            } else {
+                draftParent[newValue] = addingAt.type === 'Model' ? [] : {};
+            }
+        });
+    
+        setAddingAt(null);
+        setNewItemValue('');
+    
+        // Auto-select the newly added item to activate the next column
+        if (addingAt.path.length === 0) {
+            setSelectedCategory(newValue);
+            setSelectedMake(null);
+            setSelectedModel(null);
+        } else if (addingAt.path.length === 1) {
+            setSelectedMake(newValue);
+            setSelectedModel(null);
+        } else if (addingAt.path.length === 2) {
+            setSelectedModel(newValue);
+        }
+    };
+
+    const handleSelectCategory = (item: string | null) => {
+        if (item === selectedCategory) {
+            setSelectedCategory(null); setSelectedMake(null); setSelectedModel(null);
+        } else {
+            setSelectedCategory(item); setSelectedMake(null); setSelectedModel(null);
+        }
+    };
+    const handleSelectMake = (item: string | null) => {
+        if (item === selectedMake) {
+            setSelectedMake(null); setSelectedModel(null);
+        } else {
+            setSelectedMake(item); setSelectedModel(null);
+        }
+    };
+    const handleSelectModel = (item: string | null) => {
+        setSelectedModel(item === selectedModel ? null : item);
+    };
+
+    // Drag and Drop handlers for Categories
+    const handleDragStart = (e: React.DragEvent<HTMLLIElement>, category: string) => {
+        setDraggedCategory(category);
+        e.dataTransfer.effectAllowed = 'move';
+        e.currentTarget.classList.add('opacity-50');
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLLIElement>, targetCategory: string) => {
+        e.preventDefault();
+        if (draggedCategory && draggedCategory !== targetCategory) {
+            setDragOverTarget(targetCategory);
+        }
     };
     
-    const handleAdd = (path: string[]) => {
-      const value = newItem?.value.trim();
-      if (!value) {
-        setNewItem(null);
-        return;
-      }
-      handleUpdate(draft => {
-        let current: any = draft;
-        for (const key of path) {
-            current = current[key];
-        }
-        if (path.length === 2) { // Adding a model
-            current[value] = [];
-        } else if (path.length === 3) { // Adding a variant
-            if (!Array.isArray(current)) return;
-            if (!current.includes(value)) {
-                (current as string[]).push(value);
-            }
-        } else { // Adding category or make
-            current[value] = {};
-        }
-      });
-      setNewItem(null);
+    const handleDragLeave = (e: React.DragEvent<HTMLLIElement>) => {
+        e.preventDefault();
+        setDragOverTarget(null);
     };
 
-    const renderTree = (data: any, path: string[] = []) => {
+    const handleDrop = (e: React.DragEvent<HTMLLIElement>, targetCategory: string) => {
+        e.preventDefault();
+        if (!draggedCategory || draggedCategory === targetCategory) return;
+        
+        const currentKeys = Object.keys(vehicleData);
+        const draggedIndex = currentKeys.indexOf(draggedCategory);
+        currentKeys.splice(draggedIndex, 1);
+        const targetIndex = currentKeys.indexOf(targetCategory);
+        currentKeys.splice(targetIndex, 0, draggedCategory);
+
+        const reorderedData: VehicleData = {};
+        for (const key of currentKeys) {
+            reorderedData[key] = vehicleData[key];
+        }
+        onUpdate(reorderedData);
+        setDragOverTarget(null);
+    };
+
+    const handleDragEnd = (e: React.DragEvent<HTMLLIElement>) => {
+        e.currentTarget.classList.remove('opacity-50');
+        setDraggedCategory(null);
+        setDragOverTarget(null);
+    };
+
+
+    const renderColumn = (title: string, items: string[], pathPrefix: string[], selectedItem: string | null, onSelect: (item: string | null) => void, itemType: string, disabled: boolean = false) => {
+        const isDraggable = title === 'Categories';
         return (
-            <ul className={path.length > 0 ? "pl-6 border-l border-gray-200 dark:border-gray-700" : ""}>
-                {Object.entries(data).map(([key, value]) => (
-                    <li key={key} className="my-2">
-                        <div className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
-                            <span className="font-semibold text-gray-800 dark:text-gray-200">{key}</span>
-                            <button onClick={() => handleDelete([...path, key])} className="text-xs text-red-500 hover:text-red-700">Delete</button>
-                        </div>
+            <div className={`bg-brand-gray-50 dark:bg-brand-gray-darker p-3 rounded-lg border dark:border-gray-700 flex flex-col transition-opacity ${disabled ? 'opacity-50' : ''}`}>
+                <h3 className="text-md font-bold text-gray-800 dark:text-gray-100 mb-2 px-1 flex items-center gap-1">{title} {isDraggable && <span className="text-xs font-normal text-gray-400">(Draggable)</span>}</h3>
+                <ul className="space-y-1 overflow-y-auto flex-grow min-h-[200px] max-h-[400px]">
+                    {items.map(item => {
+                        const path = [...pathPrefix, item];
+                        const isEditing = editingItem?.path.join() === path.join();
+                        const isDragOver = isDraggable && dragOverTarget === item && draggedCategory !== item;
 
-                        {/* Add new item form */}
-                        {newItem?.path.join(',') === [...path, key].join(',') && (
-                            <div className="pl-6 my-2 flex gap-2">
-                                <input
-                                    type="text"
-                                    value={newItem.value}
-                                    onChange={(e) => setNewItem({ ...newItem, value: e.target.value })}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleAdd([...path, key])}
-                                    autoFocus
-                                    className="p-1 text-sm border rounded bg-white dark:bg-gray-900"
-                                />
-                                <button onClick={() => handleAdd([...path, key])} className="text-xs px-2 py-1 bg-green-500 text-white rounded">Save</button>
-                                <button onClick={() => setNewItem(null)} className="text-xs px-2 py-1 bg-gray-500 text-white rounded">Cancel</button>
-                            </div>
-                        )}
-
-                        {value && typeof value === 'object' && !Array.isArray(value) && renderTree(value, [...path, key])}
-
-                        {Array.isArray(value) && (
-                            <ul className="pl-6 border-l border-gray-200 dark:border-gray-700">
-                                {value.map((variant: string) => (
-                                    <li key={variant} className="my-2">
-                                        <div className="flex items-center gap-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">{variant}</span>
-                                            <button onClick={() => {
-                                                if (!window.confirm(`Delete variant "${variant}"?`)) return;
-                                                handleUpdate(draft => {
-                                                    const model = draft[path[0]][path[1]][key];
-                                                    const index = model.indexOf(variant);
-                                                    if (index > -1) model.splice(index, 1);
-                                                });
-                                            }} className="text-xs text-red-500 hover:text-red-700">Delete</button>
+                        return (
+                            <li key={item}
+                                draggable={isDraggable}
+                                onDragStart={isDraggable ? (e) => handleDragStart(e, item) : undefined}
+                                onDragOver={isDraggable ? (e) => handleDragOver(e, item) : undefined}
+                                onDragLeave={isDraggable ? (e) => handleDragLeave(e) : undefined}
+                                onDrop={isDraggable ? (e) => handleDrop(e, item) : undefined}
+                                onDragEnd={isDraggable ? (e) => handleDragEnd(e) : undefined}
+                                className={`rounded-md transition-all ${isDragOver ? 'border-t-2 border-brand-blue pt-1' : ''}`}
+                            >
+                                {isEditing ? (
+                                    <div className="flex items-center gap-2 p-2">
+                                        <input type="text" value={editingItem.value} onChange={e => setEditingItem(prev => ({ ...prev!, value: e.target.value }))} autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveEdit()} onBlur={handleSaveEdit} className="w-full text-sm p-1 border rounded bg-white dark:bg-gray-900" />
+                                        <button onClick={handleSaveEdit} className="p-1 text-green-500 hover:text-green-700">&#x2713;</button>
+                                        <button onClick={() => setEditingItem(null)} className="p-1 text-red-500 hover:text-red-700">&times;</button>
+                                    </div>
+                                ) : (
+                                    <div onClick={() => !disabled && onSelect(item)} className={`group flex justify-between items-center p-2 rounded-md ${!disabled ? (isDraggable ? 'cursor-grab' : 'cursor-pointer') : 'cursor-default'} ${selectedItem === item ? 'bg-brand-blue text-white' : !disabled ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : ''}`}>
+                                        <span className="text-sm">{item}</span>
+                                        <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${selectedItem === item ? '!opacity-100' : ''}`}>
+                                            <button onClick={e => { e.stopPropagation(); if (!disabled) setEditingItem({ path, value: item }); }} disabled={disabled} className="p-1 hover:bg-white/20 rounded-md">&#x270E;</button>
+                                            <button onClick={e => { e.stopPropagation(); if (!disabled) handleDelete(path); }} disabled={disabled} className="p-1 hover:bg-white/20 rounded-md">&times;</button>
                                         </div>
-                                    </li>
-                                ))}
-                                <li>
-                                    <button onClick={() => setNewItem({ path: [...path, key], value: ''})} className="text-xs text-blue-500 hover:underline p-2">+ Add Variant</button>
-                                </li>
-                            </ul>
-                        )}
-
-                        {path.length < 2 && (
-                             <button onClick={() => setNewItem({ path: [...path, key], value: '' })} className="text-xs text-blue-500 hover:underline p-2">+ Add {path.length === 0 ? 'Make' : 'Model'}</button>
-                        )}
-                    </li>
-                ))}
-            </ul>
-        );
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
+                    {!disabled && items.length === 0 && <div className="text-center text-sm text-gray-500 py-4 px-2">No items yet. Add one below.</div>}
+                    {disabled && <div className="text-center text-sm text-gray-500 py-4 px-2">Select an item from the previous column to continue.</div>}
+                </ul>
+                <div className="mt-2 pt-2 border-t dark:border-gray-700">
+                    {addingAt?.path.join() === pathPrefix.join() ? (
+                        <div className="flex items-center gap-2 p-1">
+                            <input type="text" value={newItemValue} onChange={e => setNewItemValue(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveNewItem()} placeholder={`New ${itemType}...`} className="w-full text-sm p-1 border rounded bg-white dark:bg-gray-900" />
+                            <button onClick={handleSaveNewItem} className="p-1 text-green-500 hover:text-green-700">&#x2713;</button>
+                            <button onClick={() => { setAddingAt(null); setNewItemValue(''); }} className="p-1 text-red-500 hover:text-red-700">&times;</button>
+                        </div>
+                    ) : (
+                        <button onClick={() => !disabled && setAddingAt({ path: pathPrefix, type: itemType })} disabled={disabled} className="w-full text-sm p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-brand-blue dark:text-brand-blue-light disabled:opacity-50 disabled:cursor-not-allowed">+ Add New {itemType}</button>
+                    )}
+                </div>
+            </div>
+        )
     };
 
     return (
         <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Manage Vehicle Data</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Add, edit, or remove the vehicle options available to sellers in their dashboard dropdowns.</p>
-            <div>
-                {renderTree(vehicleData)}
-                 {newItem?.path.length === 0 && (
-                    <div className="my-2 flex gap-2">
-                        <input
-                            type="text"
-                            value={newItem.value}
-                            onChange={(e) => setNewItem({ ...newItem, value: e.target.value })}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAdd([])}
-                            autoFocus
-                            className="p-1 text-sm border rounded bg-white dark:bg-gray-900"
-                            placeholder="New Category Name"
-                        />
-                        <button onClick={() => handleAdd([])} className="text-xs px-2 py-1 bg-green-500 text-white rounded">Save</button>
-                        <button onClick={() => setNewItem(null)} className="text-xs px-2 py-1 bg-gray-500 text-white rounded">Cancel</button>
-                    </div>
-                )}
-                <button onClick={() => setNewItem({ path: [], value: ''})} className="mt-4 bg-blue-500 text-white font-semibold py-2 px-4 rounded-md hover:bg-blue-600 text-sm">
-                    + Add New Category
-                </button>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Manage the vehicle options available to sellers in their dashboard dropdowns. Click an item to view its children.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {renderColumn("Categories", Object.keys(vehicleData), [], selectedCategory, handleSelectCategory, "Category")}
+                
+                {renderColumn("Makes", selectedCategory ? Object.keys(vehicleData[selectedCategory] || {}).sort() : [], selectedCategory ? [selectedCategory] : [], selectedMake, handleSelectMake, "Make", !selectedCategory)}
+                
+                {renderColumn("Models", selectedCategory && selectedMake ? Object.keys(vehicleData[selectedCategory]?.[selectedMake] || {}).sort() : [], selectedCategory && selectedMake ? [selectedCategory, selectedMake] : [], selectedModel, handleSelectModel, "Model", !selectedMake)}
+                
+                {renderColumn("Variants", selectedCategory && selectedMake && selectedModel ? (vehicleData[selectedCategory]?.[selectedMake]?.[selectedModel] || []).sort() : [], selectedCategory && selectedMake && selectedModel ? [selectedCategory, selectedMake, selectedModel] : [], null, () => {}, "Variant", !selectedModel)}
             </div>
         </div>
     );
 };
+
 
 // --- Audit Log View Component ---
 const AuditLogView: React.FC<{ auditLog: AuditLogEntry[] }> = ({ auditLog }) => {
@@ -483,7 +607,7 @@ const ModerationQueueView: React.FC<{
 
 // --- Main Admin Panel Component ---
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData, onToggleVerifiedStatus }) => {
     const [activeView, setActiveView] = useState<AdminView>('analytics');
     
     // State for User Management
@@ -649,7 +773,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400"><tr>
                                 <SortableHeader title="Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
-                                <SortableHeader title="Email / Role" sortKey="email" sortConfig={sortConfig} requestSort={requestSort} />
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Email / Role</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Password</th>
                                 <SortableHeader title="Status" sortKey="status" sortConfig={sortConfig} requestSort={requestSort} />
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
@@ -660,13 +784,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                                     const isPasswordVisible = visiblePasswords.has(user.email);
                                     return (
                                         <tr key={user.email}>
-                                            <td className="px-6 py-4">{user.name}</td>
+                                            <td className="px-6 py-4">{user.name}{user.isVerified && ' ✅'}</td>
                                             <td className="px-6 py-4"><div className="font-medium">{user.email}</div><div className="text-sm text-gray-500 capitalize">{user.role}</div></td>
-                                            <td className="px-6 py-4 text-gray-500 font-mono tracking-widest"><div className="flex items-center gap-2"><span>{isPasswordVisible ? user.password : '••••••••'}</span><button onClick={() => togglePasswordVisibility(user.email)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}>{isPasswordVisible ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}</button></div></td>
+                                            <td className="px-6 py-4 text-gray-500 font-mono tracking-widest"><div className="flex items-center gap-2"><span>{isPasswordVisible ? user.password : '••••••••'}</span><button onClick={() => togglePasswordVisibility(user.email)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}>{isPasswordVisible ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274-4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}</button></div></td>
                                             <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>{user.status}</span></td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button onClick={() => handleEditUserClick(user)} disabled={isCurrentUser} className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed">Edit</button>
                                                 <button onClick={() => onToggleUserStatus(user.email)} disabled={isCurrentUser} className={`ml-3 ${user.status === 'active' ? 'text-yellow-600 hover:text-yellow-900' : 'text-green-600 hover:text-green-900'} disabled:opacity-50 disabled:cursor-not-allowed`}>{user.status === 'active' ? 'Deactivate' : 'Reactivate'}</button>
+                                                {user.role === 'seller' && (
+                                                    <button onClick={() => onToggleVerifiedStatus(user.email)} disabled={isCurrentUser} className="ml-3 text-cyan-600 hover:text-cyan-900 disabled:opacity-50 disabled:cursor-not-allowed">
+                                                        {user.isVerified ? 'Un-verify' : 'Verify'}
+                                                    </button>
+                                                )}
                                                 <button onClick={() => onDeleteUser(user.email)} disabled={isCurrentUser} className="ml-3 text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed">Delete</button>
                                             </td>
                                         </tr>

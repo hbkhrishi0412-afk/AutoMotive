@@ -3,6 +3,7 @@ import type { User, Vehicle } from '../types';
 import VehicleCard from './VehicleCard';
 import StarRating from './StarRating';
 import QuickViewModal from './QuickViewModal';
+import BadgeDisplay from './BadgeDisplay';
 
 interface SellerProfilePageProps {
     seller: User;
@@ -33,7 +34,10 @@ const SellerProfilePage: React.FC<SellerProfilePageProps> = ({ seller, vehicles,
                 />
                 <div>
                     <h1 className="text-4xl font-extrabold text-brand-gray-800 dark:text-brand-gray-100">{seller.dealershipName || seller.name}</h1>
-                    {seller.bio && <p className="mt-2 text-brand-gray-600 dark:text-brand-gray-300 max-w-2xl">{seller.bio}</p>}
+                    <div className="mt-2">
+                        <BadgeDisplay badges={seller.badges || []} />
+                    </div>
+                    {seller.bio && <p className="mt-4 text-brand-gray-600 dark:text-brand-gray-300 max-w-2xl">{seller.bio}</p>}
                     <div className="flex items-center gap-2 mt-4">
                         <StarRating rating={seller.averageRating || 0} readOnly />
                         <span className="text-brand-gray-600 dark:text-brand-gray-400 font-semibold">
@@ -45,7 +49,7 @@ const SellerProfilePage: React.FC<SellerProfilePageProps> = ({ seller, vehicles,
 
             <h2 className="text-3xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-6">Listings from this Seller ({vehicles.length})</h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {vehicles.length > 0 ? (
                     vehicles.map(vehicle => (
                         <VehicleCard 

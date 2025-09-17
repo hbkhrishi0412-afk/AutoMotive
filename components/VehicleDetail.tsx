@@ -6,6 +6,7 @@ import VehicleCard from './VehicleCard';
 import EMICalculator from './EMICalculator';
 import Benefits from './Benefits';
 import QuickViewModal from './QuickViewModal';
+import BadgeDisplay from './BadgeDisplay';
 
 interface VehicleDetailProps {
   vehicle: Vehicle;
@@ -261,7 +262,12 @@ const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, onBack: onBackTo
                                   <img src={seller.logoUrl || `https://i.pravatar.cc/100?u=${seller.email}`} alt="Seller logo" className="w-16 h-16 rounded-full object-cover"/>
                                   <div className="flex-1">
                                       <p className="font-bold text-brand-gray-900 dark:text-brand-gray-100">{seller.dealershipName || seller.name}</p>
-                                      <button onClick={() => onViewSellerProfile(seller.email)} className="text-sm font-medium text-brand-blue hover:underline focus:outline-none">
+                                      {vehicle.sellerBadges && vehicle.sellerBadges.length > 0 && (
+                                          <div className="my-2">
+                                              <BadgeDisplay badges={vehicle.sellerBadges} />
+                                          </div>
+                                      )}
+                                      <button onClick={() => onViewSellerProfile(seller.email)} className="text-sm font-medium text-brand-blue hover:underline focus:outline-none mt-1">
                                           View Seller's Profile
                                       </button>
                                       <div className="flex items-center gap-2 mt-2">

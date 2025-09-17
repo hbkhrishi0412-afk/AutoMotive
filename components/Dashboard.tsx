@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
 import type { Vehicle, User, Conversation, VehicleData, PricingSuggestion } from '../types';
 import { VehicleCategory } from '../types';

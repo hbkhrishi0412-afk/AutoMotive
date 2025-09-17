@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -8,7 +9,7 @@ import Login from './components/Login';
 import AdminLogin from './components/AdminLogin';
 import Comparison from './components/Comparison';
 import { MOCK_VEHICLES, MOCK_USERS } from './constants';
-import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory } from './types';
+import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory, Badge } from './types';
 import { View, VehicleCategory as CategoryEnum } from './types';
 import { getRatings, addRating, getSellerRatings, addSellerRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
@@ -30,6 +31,7 @@ import Home from './components/Home';
 import { getVehicleData, saveVehicleData } from './services/vehicleDataService';
 import ChatWidget from './components/ChatWidget';
 import { getVehicleRecommendations } from './services/geminiService';
+import { getSellerBadges } from './services/badgeService';
 
 
 export type Theme = 'light' | 'dark' | 'sunset' | 'oceanic' | 'cyber';
@@ -558,7 +560,7 @@ const App: React.FC = () => {
     });
   }, []);
 
-  const usersWithRatings = useMemo(() => {
+  const usersWithRatingsAndBadges = useMemo(() => {
     return users.map(user => {
       if (user.role !== 'seller') return user;
       const sellerRatingsList = sellerRatings[user.email] || [];
@@ -566,9 +568,13 @@ const App: React.FC = () => {
       const averageRating = ratingCount > 0
         ? sellerRatingsList.reduce((acc, curr) => acc + curr, 0) / ratingCount
         : 0;
-      return { ...user, averageRating, ratingCount };
+      
+      const allSellerVehicles = vehicles.filter(v => v.sellerEmail === user.email);
+      const badges: Badge[] = getSellerBadges({ ...user, averageRating, ratingCount }, allSellerVehicles);
+
+      return { ...user, averageRating, ratingCount, badges };
     });
-  }, [users, sellerRatings]);
+  }, [users, sellerRatings, vehicles]);
 
   const vehiclesWithRatings = useMemo(() => {
     return vehicles.map(vehicle => {
@@ -577,13 +583,14 @@ const App: React.FC = () => {
       const averageRating = ratingCount > 0
         ? vehicleRatings.reduce((acc, curr) => acc + curr, 0) / ratingCount
         : 0;
-      const seller = usersWithRatings.find(u => u.email === vehicle.sellerEmail);
+      const seller = usersWithRatingsAndBadges.find(u => u.email === vehicle.sellerEmail);
       const sellerName = seller?.dealershipName || seller?.name || 'Private Seller';
       const sellerAverageRating = seller?.averageRating;
       const sellerRatingCount = seller?.ratingCount;
-      return { ...vehicle, averageRating, ratingCount, sellerName, sellerAverageRating, sellerRatingCount };
+      const sellerBadges = seller?.badges;
+      return { ...vehicle, averageRating, ratingCount, sellerName, sellerAverageRating, sellerRatingCount, sellerBadges };
     });
-  }, [vehicles, ratings, usersWithRatings]);
+  }, [vehicles, ratings, usersWithRatingsAndBadges]);
   
   const handleAddVehicle = useCallback((vehicleData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount' | 'status' | 'isFeatured'>) => {
     const newVehicle: Vehicle = {
@@ -1045,6 +1052,23 @@ const App: React.FC = () => {
     saveVehicleData(newData);
     addToast('Vehicle dropdown data has been updated.', 'success');
   }, [addToast]);
+  
+  const handleToggleVerifiedStatus = useCallback((userEmail: string) => {
+    setUsers(prev => {
+        const index = prev.findIndex(u => u.email === userEmail);
+        if (index === -1) return prev;
+        
+        const newUsers = [...prev];
+        const user = newUsers[index];
+        const newIsVerified = !user.isVerified;
+        newUsers[index] = { ...user, isVerified: newIsVerified };
+        
+        addToast(`Seller has been ${newIsVerified ? 'verified' : 'un-verified'}.`, 'info');
+        addLogEntry(newIsVerified ? 'Verified Seller' : 'Un-verified Seller', userEmail);
+        
+        return newUsers;
+    });
+  }, [addLogEntry, addToast]);
 
   const navigate = useCallback((view: View) => {
     if (currentView === View.SELLER_PROFILE && view !== View.SELLER_PROFILE) {
@@ -1095,7 +1119,7 @@ const App: React.FC = () => {
   }, []);
   
   const handleViewSellerProfile = useCallback((sellerEmail: string) => {
-    const sellerUser = usersWithRatings.find(u => u.email === sellerEmail && u.role === 'seller');
+    const sellerUser = usersWithRatingsAndBadges.find(u => u.email === sellerEmail && u.role === 'seller');
     if (sellerUser) {
         setPreviousView(currentView);
         setPublicSellerProfile(sellerUser);
@@ -1104,7 +1128,7 @@ const App: React.FC = () => {
     } else {
         addToast('Seller profile not found.', 'error');
     }
-  }, [currentView, usersWithRatings, addToast]);
+  }, [currentView, usersWithRatingsAndBadges, addToast]);
 
   const vehiclesToCompare = useMemo(() => {
     return vehiclesWithRatings.filter(v => comparisonList.includes(v.id));
@@ -1153,7 +1177,7 @@ const App: React.FC = () => {
     switch (currentView) {
       case View.SELLER_PROFILE:
         return publicSellerProfile && <SellerProfilePage 
-                  seller={usersWithRatings.find(u => u.email === publicSellerProfile.email)!}
+                  seller={usersWithRatingsAndBadges.find(u => u.email === publicSellerProfile.email)!}
                   vehicles={vehiclesWithRatings.filter(v => v.sellerEmail === publicSellerProfile.email && v.status === 'published')}
                   onSelectVehicle={handleSelectVehicle}
                   comparisonList={comparisonList}
@@ -1164,10 +1188,10 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatings} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
-                  seller={usersWithRatings.find(u => u.email === currentUser.email)!}
+                  seller={usersWithRatingsAndBadges.find(u => u.email === currentUser.email)!}
                   allVehicles={vehiclesWithRatings}
                   sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
                   reportedVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email && v.isFlagged)}
@@ -1186,7 +1210,7 @@ const App: React.FC = () => {
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.ADMIN_PANEL:
         return currentUser?.role === 'admin' ? <AdminPanel 
-                  users={usersWithRatings}
+                  users={usersWithRatingsAndBadges}
                   currentUser={currentUser}
                   vehicles={vehiclesWithRatings}
                   conversations={conversations}
@@ -1207,6 +1231,7 @@ const App: React.FC = () => {
                   onExportSales={handleExportSales}
                   vehicleData={vehicleData}
                   onUpdateVehicleData={handleUpdateVehicleData}
+                  onToggleVerifiedStatus={handleToggleVerifiedStatus}
                 /> : <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
       case View.PROFILE:
         return currentUser ? <Profile 
@@ -1219,7 +1244,7 @@ const App: React.FC = () => {
                   conversations={conversations.filter(c => c.customerId === currentUser.email)}
                   onSendMessage={handleCustomerSendMessage}
                   onMarkAsRead={handleMarkConversationAsReadByCustomer}
-                  users={usersWithRatings}
+                  users={usersWithRatingsAndBadges}
                   onUserTyping={handleUserTyping}
                   typingStatus={typingStatus}
                   onMarkMessagesAsRead={handleMarkMessagesAsRead}
@@ -1233,7 +1258,7 @@ const App: React.FC = () => {
         return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
-        return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} />;
+        return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} onNavigate={navigate} />;
     }
   };
 

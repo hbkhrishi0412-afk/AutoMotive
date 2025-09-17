@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { Vehicle, VehicleCategory, View } from '../types';
 import { View as ViewEnum, VehicleCategory as CategoryEnum } from '../types';
@@ -16,6 +17,7 @@ interface HomeProps {
     onViewSellerProfile: (sellerEmail: string) => void;
     recommendations: Vehicle[];
     allVehicles: Vehicle[];
+    onNavigate: (view: View) => void;
 }
 
 const categoryIcons: Record<VehicleCategory, React.ReactNode> = {
@@ -58,7 +60,7 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
         className="bg-white dark:bg-brand-gray-dark/50 backdrop-blur-sm border border-brand-gray-200 dark:border-brand-gray-700 rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-brand-blue hover:shadow-glow hover:-translate-y-2"
       >
         <div className="relative overflow-hidden">
-          <img className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} />
+          <img className="w-full h-48 sm:h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} />
           <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/40 to-transparent"></div>
           <div className="absolute top-3 right-3">
               <button
@@ -77,24 +79,24 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
               </button>
           </div>
         </div>
-        <div className="p-5 flex-grow flex flex-col">
+        <div className="p-3 sm:p-5 flex-grow flex flex-col">
           <div className="flex justify-between items-start">
-              <h3 className="text-xl font-bold text-brand-gray-800 dark:text-brand-gray-100">{vehicle.make} {vehicle.model}</h3>
-              <span className="text-lg font-semibold text-brand-gray-500 dark:text-brand-gray-400 bg-brand-gray-100 dark:bg-brand-gray-800 px-2 py-0.5 rounded">{vehicle.year}</span>
+              <h3 className="text-base sm:text-xl font-bold text-brand-gray-800 dark:text-brand-gray-100">{vehicle.make} {vehicle.model}</h3>
+              <span className="text-sm sm:text-lg font-semibold text-brand-gray-500 dark:text-brand-gray-400 bg-brand-gray-100 dark:bg-brand-gray-800 px-2 py-0.5 rounded">{vehicle.year}</span>
           </div>
-           <p className="text-sm text-brand-gray-500 dark:text-brand-gray-400 mt-1">{vehicle.variant || ''}</p>
+           <p className="text-xs sm:text-sm text-brand-gray-500 dark:text-brand-gray-400 mt-1">{vehicle.variant || ''}</p>
           <div className="mt-2 text-xs text-brand-gray-500 dark:text-brand-gray-500 truncate">
              By: <button onClick={handleSellerClick} className="font-semibold hover:underline focus:outline-none text-brand-blue dark:text-brand-blue-light">{vehicle.sellerName}</button>
           </div>
           
-          <div className="mt-4 pt-4 border-t border-brand-gray-200 dark:border-brand-gray-700 grid grid-cols-3 gap-2 text-center text-sm text-brand-gray-600 dark:text-brand-gray-400">
+          <div className="mt-3 pt-3 sm:mt-4 sm:pt-4 border-t border-brand-gray-200 dark:border-brand-gray-700 grid grid-cols-3 gap-2 text-center text-xs sm:text-sm text-brand-gray-600 dark:text-brand-gray-400">
              <span>{vehicle.mileage.toLocaleString('en-IN')} kms</span>
              <span>{vehicle.fuelType}</span>
              <span>{vehicle.transmission}</span>
           </div>
   
-          <div className="mt-auto pt-4 flex justify-between items-center">
-               <p className="text-2xl font-extrabold text-brand-blue dark:text-brand-blue-light">₹{vehicle.price.toLocaleString('en-IN')}</p>
+          <div className="mt-auto pt-3 sm:pt-4 flex justify-between items-center">
+               <p className="text-xl sm:text-2xl font-extrabold text-brand-blue dark:text-brand-blue-light">₹{vehicle.price.toLocaleString('en-IN')}</p>
                <label 
                 onClick={handleCompareClick} 
                 title={isCompareDisabled ? "Comparison limit reached (max 4)" : "Add to compare"}
@@ -115,7 +117,7 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
     );
 };
 
-const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicles, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile, recommendations, allVehicles }) => {
+const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicles, onSelectVehicle, onToggleCompare, comparisonList, onToggleWishlist, wishlist, onViewSellerProfile, recommendations, allVehicles, onNavigate }) => {
     const [aiSearchQuery, setAiSearchQuery] = useState('');
     const [isAiSearching, setIsAiSearching] = useState(false);
     const [quickViewVehicle, setQuickViewVehicle] = useState<Vehicle | null>(null);
@@ -152,7 +154,7 @@ const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicle
         if (viewedIds.length > 0) {
             const vehicleMap = new Map(allVehicles.map(v => [v.id, v]));
             const viewedVehiclesInOrder = viewedIds.map(id => vehicleMap.get(id)).filter((v): v is Vehicle => !!v);
-            setRecentlyViewed(viewedVehiclesInOrder);
+            setRecentlyViewed(viewedVehiclesInOrder.slice(0, 5));
         }
     }, [allVehicles]);
 
@@ -218,7 +220,7 @@ const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicle
                  <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-dark">
                     <div className="container mx-auto px-4 scroll-animate">
                         <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Recommended For You</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {recommendations.map(vehicle => (
                                 <FeaturedVehicleCard
                                     key={vehicle.id} 
@@ -241,7 +243,7 @@ const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicle
             <section className="py-20 md:py-24 bg-brand-gray-100 dark:bg-brand-gray-darker">
                 <div className="container mx-auto px-4 scroll-animate">
                     <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Featured Collection</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {featuredVehicles.map(vehicle => (
                             <FeaturedVehicleCard
                                 key={vehicle.id} 
@@ -268,10 +270,15 @@ const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicle
             {recentlyViewed.length > 0 && (
                 <section className="py-20 md:py-24 bg-brand-gray-50 dark:bg-brand-gray-dark">
                     <div className="container mx-auto px-4 scroll-animate">
-                        <h2 className="text-4xl font-bold text-center mb-12 text-brand-gray-900 dark:text-white">Recently Viewed</h2>
-                        <div className="flex overflow-x-auto space-x-8 pb-6 -mx-4 px-4">
+                        <div className="flex justify-between items-center mb-12">
+                            <h2 className="text-4xl font-bold text-brand-gray-900 dark:text-white text-left">Recently Viewed Vehicles</h2>
+                            <button onClick={() => onNavigate(ViewEnum.WISHLIST)} className="bg-brand-blue text-white font-bold py-2 px-6 rounded-full hover:bg-brand-blue-dark transition-colors whitespace-nowrap">
+                                View All
+                            </button>
+                        </div>
+                        <div className="flex overflow-x-auto space-x-6 pb-6 -mx-4 px-4">
                             {recentlyViewed.map(vehicle => (
-                                <div key={vehicle.id} className="flex-shrink-0 w-full max-w-sm sm:w-80">
+                                <div key={vehicle.id} className="flex-shrink-0 w-11/12 max-w-xs sm:w-80">
                                     <FeaturedVehicleCard
                                         vehicle={vehicle} 
                                         onSelectVehicle={onSelectVehicle} 
@@ -294,7 +301,7 @@ const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicle
                 <div className="container mx-auto px-4 py-20 text-center scroll-animate">
                     <h2 className="text-4xl font-bold mb-4 text-brand-gray-900 dark:text-white">Are You a Seller?</h2>
                     <p className="max-w-2xl mx-auto mb-8 text-brand-gray-600 dark:text-brand-gray-300">Join the most advanced vehicle marketplace today. Reach thousands of buyers and use our AI tools to sell faster.</p>
-                     <button onClick={() => onSearch('')} className="bg-white dark:bg-brand-gray-100 text-brand-blue font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-gray-200 dark:hover:bg-white dark:text-brand-blue-darker transition-all transform hover:scale-105">
+                     <button onClick={() => onNavigate(ViewEnum.SELLER_LOGIN)} className="bg-white dark:bg-brand-gray-100 text-brand-blue font-bold py-3 px-8 rounded-full text-lg hover:bg-brand-gray-200 dark:hover:bg-white dark:text-brand-blue-darker transition-all transform hover:scale-105">
                         Start Selling Now
                     </button>
                 </div>

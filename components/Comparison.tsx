@@ -39,6 +39,8 @@ const specLabels: Record<keyof Vehicle, string> = {
     flaggedAt: 'Flagged At',
     sellerAverageRating: 'Seller Rating',
     sellerRatingCount: 'Seller Rating Count',
+    // FIX: Added missing 'sellerBadges' property to satisfy the Record<keyof Vehicle, string> type.
+    sellerBadges: 'Seller Badges',
     registrationYear: 'Registration Year',
     insuranceValidity: 'Insurance Validity',
     insuranceType: 'Insurance Type',
