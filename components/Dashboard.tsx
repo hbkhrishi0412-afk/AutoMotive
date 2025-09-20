@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
 import type { Vehicle, User, Conversation, VehicleData, PricingSuggestion } from '../types';
 import { VehicleCategory } from '../types';
@@ -175,10 +173,7 @@ const VehicleForm: React.FC<{
                                 const specValue = structuredSpecs[specKey];
                                 // Only update if AI provided a value and the form field is empty
                                 if (specValue && specValue !== "N/A" && !formData[specKey]) {
-                                    // FIX: Changed assignment to avoid TypeScript error where the indexed property on `updates`
-                                    // resolves to `never` due to key type widening. Using `any` on the object is a safe
-                                    // way to perform this dynamic assignment.
-                                    (updates as any)[specKey] = specValue;
+                                    updates[specKey] = specValue;
                                 }
                             });
                             

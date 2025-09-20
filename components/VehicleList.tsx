@@ -213,7 +213,6 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
     setIsFilterModalOpen(true);
   };
   
-  // FIX: Added handleCloseFilterModal function
   const handleCloseFilterModal = () => {
     setIsFilterModalOpen(false);
   };

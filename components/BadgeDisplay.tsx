@@ -1,7 +1,6 @@
 import React from 'react';
 import type { Badge } from '../types';
 
-// FIX: Changed icon type to be more specific for better type safety with React.cloneElement.
 const badgeStyles: Record<Badge['type'], { icon: React.ReactElement<{ className?: string }>; colors: string }> = {
     verified: {
         icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5.002c-.149.066-.288.136-.422.21.036-.09.07-.18.106-.27.436-1.12 1.05-2.124 1.83-2.996C4.524 1.173 5.424.5 6.425.245c.222-.056.447-.1.675-.14a12.022 12.022 0 012.222-.205c.34.004.678.01.996.022.25.01.5.024.746.042.12.008.238.018.355.03.11.01.22.02.328.032.128.012.256.026.383.042a1.99 1.99 0 01.442.128c.135.05.267.103.398.16.12.05.237.102.352.158.128.06.255.123.379.19a11.954 11.954 0 012.833 2.833 11.954 11.954 0 01-8.216 14.707c-3.17.31-6.24-.83-8.216-3.22a11.954 11.954 0 014.12-11.854zM9 13.189l-2.436-2.437a1 1 0 011.414-1.414L9 10.36l3.022-3.022a1 1 0 011.414 1.414L9 13.189z" clipRule="evenodd" /></svg>,
@@ -36,7 +35,6 @@ const BadgeDisplay: React.FC<BadgeDisplayProps> = ({ badges, size = 'md' }) => {
             {badges.map(badge => (
                 <div key={badge.type} className="group relative">
                     <span className={`inline-flex items-center gap-1.5 font-semibold rounded-full border ${sizeClasses} ${badgeStyles[badge.type].colors}`}>
-                        {/* FIX: The type of the `icon` property was made more specific to allow `React.cloneElement` to pass the `className` prop without a TypeScript error. */}
                         {React.cloneElement(badgeStyles[badge.type].icon, { className: iconSizeClasses })}
                         {badge.label}
                     </span>

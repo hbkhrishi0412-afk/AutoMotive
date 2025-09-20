@@ -1,13 +1,42 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import type { Vehicle, ProsAndCons, ChatMessage, Conversation, Suggestion, PricingSuggestion } from '../types';
+import { Type } from "@google/genai";
+import type { Vehicle, ProsAndCons, Conversation, Suggestion, PricingSuggestion } from '../types';
 import type { SearchFilters } from "../types";
 
-if (!process.env.API_KEY) {
-  console.warn("Gemini API key is not set in environment variables. AI features will not work.");
+/**
+ * A helper function to call our secure backend proxy for the Gemini API.
+ * @param payload - The complete request object for the Gemini API (model, contents, config).
+ * @returns The text result from the Gemini API.
+ */
+async function callGeminiAPI(payload: any): Promise<string> {
+    try {
+        const response = await fetch('/api/gemini', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ payload }),
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({ error: `API error: ${response.statusText}` }));
+            throw new Error(errorBody.error || `API error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.result;
+    } catch (error) {
+        console.error("Error calling Gemini proxy API:", error);
+        // Return a default value that won't break the UI.
+        const isJson = payload.config?.responseMimeType === "application/json";
+        if (isJson) {
+            // Check if the expected response is an array or object
+            return payload.config?.responseSchema?.type === Type.ARRAY ? "[]" : "{}";
+        }
+        return `Error: ${error instanceof Error ? error.message : "Could not connect to AI service."}`;
+    }
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
 export const parseSearchQuery = async (query: string): Promise<SearchFilters> => {
     const prompt = `Parse the user's vehicle search query and extract structured filter criteria.
@@ -18,32 +47,33 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
     - The 'model' is the specific model of the car.
     Respond only with JSON matching the provided schema. If a value is not present, omit the key.`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        make: { type: Type.STRING, description: "The make of the car, e.g., Tata, Hyundai." },
-                        model: { type: Type.STRING, description: "The model of the car, e.g., Nexon, Creta." },
-                        minPrice: { type: Type.NUMBER, description: "The minimum price in INR." },
-                        maxPrice: { type: Type.NUMBER, description: "The maximum price in INR." },
-                        features: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                            description: "An array of requested vehicle features, e.g., Sunroof, ADAS."
-                        },
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    make: { type: Type.STRING, description: "The make of the car, e.g., Tata, Hyundai." },
+                    model: { type: Type.STRING, description: "The model of the car, e.g., Nexon, Creta." },
+                    minPrice: { type: Type.NUMBER, description: "The minimum price in INR." },
+                    maxPrice: { type: Type.NUMBER, description: "The maximum price in INR." },
+                    features: {
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING },
+                        description: "An array of requested vehicle features, e.g., Sunroof, ADAS."
                     },
                 },
             },
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        },
+    };
+
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Error parsing search query with Gemini:", error);
+        console.error("Error parsing search query from proxy:", error);
         return {};
     }
 };
@@ -55,31 +85,26 @@ The car has run ${vehicle.mileage} kms. Its fuel efficiency is ${vehicle.fuelEff
 Key features include: ${vehicle.features.join(', ')}.
 Provide the output in JSON format with two keys: "pros" and "cons", each containing an array of strings.`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        pros: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING }
-                        },
-                        cons: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING }
-                        }
-                    }
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                    cons: { type: Type.ARRAY, items: { type: Type.STRING } }
                 }
             }
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        }
+    };
+
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Failed to generate pros and cons:", error);
+        console.error("Failed to generate pros and cons from proxy:", error);
         return { pros: ['AI analysis unavailable.'], cons: ['Could not generate suggestions at this time.'] };
     }
 };
@@ -98,16 +123,16 @@ Key features: ${vehicle.features?.slice(0, 3).join(', ')}.
 The description should be concise, appealing, and highlight the vehicle's best qualities.
 Do not start with "This is a..." or "For sale is a...". Just provide the single sentence description.`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-        });
-        return response.text.trim();
-    } catch (error) {
-        console.error("Failed to generate vehicle description:", error);
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+    };
+    
+    const descriptionText = await callGeminiAPI(requestPayload);
+    if (descriptionText.startsWith("Error:")) {
         return "Failed to generate AI description. Please write one manually.";
     }
+    return descriptionText.trim();
 };
 
 export const getVehicleSpecs = async (vehicle: { make: string, model: string, year: number }): Promise<Record<string, string[]>> => {
@@ -116,27 +141,28 @@ Categorize the features into "Comfort & Convenience", "Safety", "Entertainment",
 Return the result as a JSON object where keys are the categories and values are arrays of feature strings.
 Example: { "Safety": ["ABS", "Airbags"], "Comfort & Convenience": ["Automatic Climate Control"] }`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json',
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
-                        "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
-                    }
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
+                    "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
+                    "Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
+                    "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
                 }
             }
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        }
+    };
+    
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Error fetching vehicle specs from Gemini:", error);
+        console.error("Error fetching vehicle specs from proxy:", error);
         return { "Error": ["Could not fetch suggestions."] };
     }
 };
@@ -154,31 +180,32 @@ Respond ONLY with a JSON object with these keys: "engine", "transmission", "fuel
 - groundClearance: e.g., "165 mm".
 - bootSpace: e.g., "506 litres".
 If a value is not applicable or commonly available, return "N/A".`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        engine: { type: Type.STRING },
-                        transmission: { type: Type.STRING },
-                        fuelType: { type: Type.STRING },
-                        fuelEfficiency: { type: Type.STRING },
-                        displacement: { type: Type.STRING },
-                        groundClearance: { type: Type.STRING },
-                        bootSpace: { type: Type.STRING },
-                    }
+    
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    engine: { type: Type.STRING },
+                    transmission: { type: Type.STRING },
+                    fuelType: { type: Type.STRING },
+                    fuelEfficiency: { type: Type.STRING },
+                    displacement: { type: Type.STRING },
+                    groundClearance: { type: Type.STRING },
+                    bootSpace: { type: Type.STRING },
                 }
             }
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        }
+    };
+
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Error fetching structured vehicle specs from Gemini:", error);
+        console.error("Error fetching structured vehicle specs from proxy:", error);
         return {};
     }
 };
@@ -205,22 +232,23 @@ Available features: ${features.slice(0, 20).join(', ')}
 
 Return the suggestions as a JSON array of strings. For example: ["Hyundai Creta", "Sunroof", "under 15 lakhs"].`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                }
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING }
             }
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        }
+    };
+    
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Error fetching search suggestions from Gemini:", error);
+        console.error("Error fetching search suggestions from proxy:", error);
         return [];
     }
 };
@@ -270,41 +298,42 @@ Respond ONLY with a JSON object containing a "suggestions" key, which is an arra
 
 If there is no data or no meaningful suggestions can be made, return an empty array for "suggestions".`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        suggestions: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.OBJECT,
-                                properties: {
-                                    type: { type: Type.STRING },
-                                    title: { type: Type.STRING },
-                                    description: { type: Type.STRING },
-                                    targetId: { type: Type.STRING },
-                                    priority: { type: Type.STRING },
-                                }
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    suggestions: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                type: { type: Type.STRING },
+                                title: { type: Type.STRING },
+                                description: { type: Type.STRING },
+                                targetId: { type: Type.STRING },
+                                priority: { type: Type.STRING },
                             }
                         }
                     }
                 }
             }
-        });
-        const jsonText = response.text.trim();
-        const result = JSON.parse(jsonText);
+        }
+    };
+    
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        const result = JSON.parse(jsonText.trim());
         
         return result.suggestions.map((s: any) => ({
             ...s,
             targetId: s.type === 'urgent_inquiry' ? String(s.targetId) : Number(s.targetId)
         }));
     } catch (error) {
-        console.error("Error generating seller suggestions with Gemini:", error);
+        console.error("Error generating seller suggestions from proxy:", error);
         return [];
     }
 };
@@ -330,26 +359,27 @@ Provide a fair, competitive price range (minPrice and maxPrice) in INR for the "
 Also, provide a brief, one-sentence justification for your suggestion.
 Respond ONLY with a JSON object matching the provided schema.`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        minPrice: { type: Type.NUMBER },
-                        maxPrice: { type: Type.NUMBER },
-                        justification: { type: Type.STRING }
-                    }
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    minPrice: { type: Type.NUMBER },
+                    maxPrice: { type: Type.NUMBER },
+                    justification: { type: Type.STRING }
                 }
             }
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        }
+    };
+    
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Error generating pricing suggestion with Gemini:", error);
+        console.error("Error generating pricing suggestion from proxy:", error);
         return null;
     }
 };
@@ -374,22 +404,23 @@ Based on their preferences, recommend up to 5 vehicle IDs from the full list tha
 
 Respond ONLY with a JSON array of recommended vehicle IDs (numbers). For example: [10, 25, 3]. If no suitable recommendations are found, return an empty array.`;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.ARRAY,
-                    items: { type: Type.NUMBER }
-                }
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.ARRAY,
+                items: { type: Type.NUMBER }
             }
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText);
+        }
+    };
+
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
     } catch (error) {
-        console.error("Error generating vehicle recommendations with Gemini:", error);
+        console.error("Error generating vehicle recommendations from proxy:", error);
         return [];
     }
 };
