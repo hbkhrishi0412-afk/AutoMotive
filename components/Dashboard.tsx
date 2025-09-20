@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
-import type { Vehicle, User, Conversation, VehicleData, PricingSuggestion } from '../types';
+import type { Vehicle, User, Conversation, VehicleData } from '../types';
 import { VehicleCategory } from '../types';
-import { generateVehicleDescription, getVehicleSpecs, getPricingSuggestion, getStructuredVehicleSpecs } from '../services/geminiService';
+import { generateVehicleDescription, getAiVehicleSuggestions } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
 import AiAssistant from './AiAssistant';
@@ -122,12 +122,13 @@ const VehicleForm: React.FC<{
     const [fixInput, setFixInput] = useState('');
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, string>>>({});
-    const [suggestedSpecs, setSuggestedSpecs] = useState<Record<string, string[]> | null>(null);
-    const [isGeneratingSpecs, setIsGeneratingSpecs] = useState(false);
-    const [pricingSuggestion, setPricingSuggestion] = useState<PricingSuggestion | null>(null);
-    const [isGeneratingPrice, setIsGeneratingPrice] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
-    const debounceTimeoutRef = useRef<number | null>(null);
+    
+    const [aiSuggestions, setAiSuggestions] = useState<{
+        structuredSpecs: Partial<Pick<Vehicle, 'engine' | 'transmission' | 'fuelType' | 'fuelEfficiency' | 'displacement' | 'groundClearance' | 'bootSpace'>>;
+        featureSuggestions: Record<string, string[]>;
+    } | null>(null);
+    const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
     const availableMakes = useMemo(() => {
         if (!formData.category || !vehicleData[formData.category]) return [];
@@ -144,63 +145,39 @@ const VehicleForm: React.FC<{
         return vehicleData[formData.category][formData.make][formData.model].sort();
     }, [formData.category, formData.make, formData.model, vehicleData]);
 
-    useEffect(() => {
+    const handleGetAiSuggestions = async () => {
         const { make, model, year, variant } = formData;
-        if (make.trim().length > 1 && model.trim().length > 1 && year >= 1900 && year <= new Date().getFullYear() + 1) {
-            if (debounceTimeoutRef.current) {
-                clearTimeout(debounceTimeoutRef.current);
-            }
-            debounceTimeoutRef.current = window.setTimeout(() => {
-                const fetchAllSpecs = async () => {
-                    setIsGeneratingSpecs(true);
-                    setSuggestedSpecs(null);
-                    try {
-                        // Using Promise.all to fetch both in parallel
-                        const [features, structuredSpecs] = await Promise.all([
-                            getVehicleSpecs({ make, model, year }),
-                            getStructuredVehicleSpecs({ make, model, variant, year })
-                        ]);
-
-                        // Set suggested features for checkboxes
-                        setSuggestedSpecs(features);
-
-                        // Auto-fill specification fields if they are empty
-                        if (structuredSpecs && Object.keys(structuredSpecs).length > 0) {
-                            const updates: Partial<Vehicle> = {};
-                            const specsToUpdate: (keyof typeof structuredSpecs)[] = ['engine', 'transmission', 'fuelType', 'fuelEfficiency', 'displacement', 'groundClearance', 'bootSpace'];
-                            
-                            specsToUpdate.forEach(specKey => {
-                                const specValue = structuredSpecs[specKey];
-                                // Only update if AI provided a value and the form field is empty
-                                if (specValue && specValue !== "N/A" && !formData[specKey]) {
-                                    updates[specKey] = specValue;
-                                }
-                            });
-                            
-                            if (Object.keys(updates).length > 0) {
-                                setFormData(prev => ({ ...prev, ...updates }));
-                            }
-                        }
-
-                    } catch (error) {
-                        console.error("Failed to fetch vehicle specs:", error);
-                        setSuggestedSpecs({ "Error": ["Could not fetch suggestions."] });
-                    } finally {
-                        setIsGeneratingSpecs(false);
-                    }
-                };
-                fetchAllSpecs();
-            }, 1000); // Debounce for 1 second
-        } else {
-            setSuggestedSpecs(null);
+        if (!make || !model || !year) {
+            alert('Please select a Make, Model, and Year first.');
+            return;
         }
+        
+        setIsGeneratingSuggestions(true);
+        setAiSuggestions(null);
+        try {
+            const suggestions = await getAiVehicleSuggestions({ make, model, year, variant });
+            setAiSuggestions(suggestions);
 
-        return () => {
-            if (debounceTimeoutRef.current) {
-                clearTimeout(debounceTimeoutRef.current);
+            // Auto-apply structured specs if the fields are empty
+            if (suggestions.structuredSpecs) {
+                const updates: Partial<Vehicle> = {};
+                for (const key in suggestions.structuredSpecs) {
+                    const specKey = key as keyof typeof suggestions.structuredSpecs;
+                    if (!formData[specKey] || formData[specKey] === 'N/A') {
+                        updates[specKey] = suggestions.structuredSpecs[specKey];
+                    }
+                }
+                if (Object.keys(updates).length > 0) {
+                    setFormData(prev => ({ ...prev, ...updates }));
+                }
             }
-        };
-    }, [formData.make, formData.model, formData.year, formData.variant]);
+        } catch (error) {
+            console.error("Failed to fetch AI suggestions:", error);
+            setAiSuggestions({ structuredSpecs: {}, featureSuggestions: { "Error": ["Could not fetch suggestions."] } });
+        } finally {
+            setIsGeneratingSuggestions(false);
+        }
+    };
     
     const validateField = (name: keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, value: any): string => {
       switch(name) {
@@ -221,15 +198,10 @@ const VehicleForm: React.FC<{
       setFormData(prev => {
         const newState = { ...prev, [name]: parsedValue };
         if (name === 'category') {
-            newState.make = '';
-            newState.model = '';
-            newState.variant = '';
-        }
-        if (name === 'make') {
-            newState.model = '';
-            newState.variant = '';
-        }
-        if (name === 'model') {
+            newState.make = ''; newState.model = ''; newState.variant = '';
+        } else if (name === 'make') {
+            newState.model = ''; newState.variant = '';
+        } else if (name === 'model') {
             newState.variant = '';
         }
         return newState;
@@ -354,31 +326,6 @@ const VehicleForm: React.FC<{
       finally { setIsGeneratingDesc(false); }
     };
 
-    const handleGetPriceSuggestion = async () => {
-        if (!formData.make || !formData.model || !formData.year) {
-            setErrors(prev => ({ ...prev, price: 'Please enter Make, Model, and Year to get a price suggestion.' }));
-            return;
-        }
-        setIsGeneratingPrice(true);
-        setPricingSuggestion(null);
-        try {
-            const marketContext = allVehicles.filter(v =>
-                v.make === formData.make &&
-                v.model === formData.model &&
-                Math.abs(v.year - formData.year) <= 2
-            ).map(({ make, model, year, mileage, price }) => ({ make, model, year, mileage, price }));
-            
-            const suggestion = await getPricingSuggestion(formData, marketContext);
-            setPricingSuggestion(suggestion);
-        } catch (error) {
-            console.error(error);
-            setErrors(prev => ({ ...prev, price: 'Could not generate a price suggestion at this time.' }));
-        } finally {
-            setIsGeneratingPrice(false);
-        }
-    };
-
-
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if (editingVehicle) {
@@ -396,6 +343,12 @@ const VehicleForm: React.FC<{
         images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/800x600/E5E7EB/374151?text=Your+Image+Here'],
     };
 
+    const applyAiSpec = (specKey: keyof typeof aiSuggestions.structuredSpecs) => {
+        if (aiSuggestions?.structuredSpecs[specKey]) {
+            setFormData(prev => ({ ...prev, [specKey]: aiSuggestions.structuredSpecs[specKey] }));
+        }
+    };
+
     return (
       <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6 border-b dark:border-gray-700 pb-4">
@@ -405,6 +358,12 @@ const VehicleForm: React.FC<{
           {/* Form Column */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <FormFieldset title="Vehicle Overview">
+                <div className="flex justify-between items-center mb-4 -mt-4">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Enter core details about your vehicle.</p>
+                    <button type="button" onClick={handleGetAiSuggestions} disabled={isGeneratingSuggestions || !formData.make || !formData.model || !formData.year} className="text-sm font-semibold text-indigo-600 disabled:opacity-50 flex items-center gap-1">
+                        {isGeneratingSuggestions ? (<><div className="w-4 h-4 border-2 border-dashed rounded-full animate-spin border-current"></div><span>Generating...</span></>) : '✨ Auto-fill with AI'}
+                    </button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
                     <FormInput label="Category" name="category" type="select" value={formData.category} onChange={handleChange} required>
                         {Object.values(VehicleCategory).map(cat => (<option key={cat} value={cat}>{cat}</option>))}
@@ -423,19 +382,7 @@ const VehicleForm: React.FC<{
                     </FormInput>
                     <FormInput label="Make Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year} required />
                     <FormInput label="Registration Year" name="registrationYear" type="number" value={formData.registrationYear} onChange={handleChange} required />
-                     <div>
-                        <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
-                         <button type="button" onClick={handleGetPriceSuggestion} disabled={isGeneratingPrice || !formData.make || !formData.model} className="text-xs mt-1 font-semibold text-indigo-600 disabled:opacity-50 flex items-center gap-1">
-                            {isGeneratingPrice ? 'Analyzing...' : '✨ Get AI Price Suggestion'}
-                         </button>
-                        {pricingSuggestion && !isGeneratingPrice && (
-                             <div className="mt-2 p-3 bg-indigo-50 dark:bg-indigo-900/30 border-l-4 border-indigo-500 rounded-r-lg text-sm">
-                                 <p className="font-bold text-indigo-800 dark:text-indigo-300">Suggested Range: ₹{pricingSuggestion.minPrice.toLocaleString('en-IN')} - ₹{pricingSuggestion.maxPrice.toLocaleString('en-IN')}</p>
-                                 <p className="text-indigo-700 dark:text-indigo-400 mt-1">{pricingSuggestion.justification}</p>
-                                  <button type="button" onClick={() => setFormData(p => ({...p, price: Math.round((pricingSuggestion.minPrice + pricingSuggestion.maxPrice) / 2)}))} className="text-xs font-bold text-indigo-600 hover:underline mt-2">Apply Average</button>
-                             </div>
-                        )}
-                    </div>
+                    <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
                     <FormInput label="Km Driven" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage} />
                     <FormInput label="No. of Owners" name="noOfOwners" type="number" value={formData.noOfOwners} onChange={handleChange} />
                     <FormInput label="RTO" name="rto" value={formData.rto} onChange={handleChange} placeholder="e.g., MH01" />
@@ -450,19 +397,39 @@ const VehicleForm: React.FC<{
             </FormFieldset>
             
             <FormFieldset title="Vehicle Specifications">
-                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 -mt-2">✨ Select a make, model, and year to auto-fill specs with AI.</p>
                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
-                    <FormInput label="Engine" name="engine" value={formData.engine} onChange={handleChange} tooltip="e.g., 1.5L Petrol, 150kW Motor"/>
-                    <FormInput label="Displacement" name="displacement" value={formData.displacement} onChange={handleChange} placeholder="e.g., 1497 cc"/>
-                    <FormInput label="Transmission" name="transmission" type="select" value={formData.transmission} onChange={handleChange}>
-                        <option>Automatic</option><option>Manual</option><option>CVT</option><option>DCT</option>
-                    </FormInput>
-                    <FormInput label="Fuel Type" name="fuelType" type="select" value={formData.fuelType} onChange={handleChange}>
-                        <option>Petrol</option><option>Diesel</option><option>Electric</option><option>CNG</option><option>Hybrid</option>
-                    </FormInput>
-                    <FormInput label="Mileage / Range" name="fuelEfficiency" value={formData.fuelEfficiency} onChange={handleChange} tooltip="e.g., 18 KMPL or 300 km range"/>
-                    <FormInput label="Ground Clearance" name="groundClearance" value={formData.groundClearance} onChange={handleChange} placeholder="e.g., 190 mm"/>
-                    <FormInput label="Boot Space" name="bootSpace" value={formData.bootSpace} onChange={handleChange} placeholder="e.g., 433 litres"/>
+                    <div>
+                        <FormInput label="Engine" name="engine" value={formData.engine} onChange={handleChange} tooltip="e.g., 1.5L Petrol, 150kW Motor"/>
+                        {aiSuggestions?.structuredSpecs.engine && formData.engine !== aiSuggestions.structuredSpecs.engine && (<button type="button" onClick={() => applyAiSpec('engine')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.engine}"</button>)}
+                    </div>
+                    <div>
+                        <FormInput label="Displacement" name="displacement" value={formData.displacement} onChange={handleChange} placeholder="e.g., 1497 cc"/>
+                        {aiSuggestions?.structuredSpecs.displacement && formData.displacement !== aiSuggestions.structuredSpecs.displacement && (<button type="button" onClick={() => applyAiSpec('displacement')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.displacement}"</button>)}
+                    </div>
+                     <div>
+                        <FormInput label="Transmission" name="transmission" type="select" value={formData.transmission} onChange={handleChange}>
+                            <option>Automatic</option><option>Manual</option><option>CVT</option><option>DCT</option>
+                        </FormInput>
+                        {aiSuggestions?.structuredSpecs.transmission && formData.transmission !== aiSuggestions.structuredSpecs.transmission && (<button type="button" onClick={() => applyAiSpec('transmission')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.transmission}"</button>)}
+                    </div>
+                    <div>
+                        <FormInput label="Fuel Type" name="fuelType" type="select" value={formData.fuelType} onChange={handleChange}>
+                            <option>Petrol</option><option>Diesel</option><option>Electric</option><option>CNG</option><option>Hybrid</option>
+                        </FormInput>
+                         {aiSuggestions?.structuredSpecs.fuelType && formData.fuelType !== aiSuggestions.structuredSpecs.fuelType && (<button type="button" onClick={() => applyAiSpec('fuelType')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.fuelType}"</button>)}
+                    </div>
+                    <div>
+                        <FormInput label="Mileage / Range" name="fuelEfficiency" value={formData.fuelEfficiency} onChange={handleChange} tooltip="e.g., 18 KMPL or 300 km range"/>
+                         {aiSuggestions?.structuredSpecs.fuelEfficiency && formData.fuelEfficiency !== aiSuggestions.structuredSpecs.fuelEfficiency && (<button type="button" onClick={() => applyAiSpec('fuelEfficiency')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.fuelEfficiency}"</button>)}
+                    </div>
+                     <div>
+                        <FormInput label="Ground Clearance" name="groundClearance" value={formData.groundClearance} onChange={handleChange} placeholder="e.g., 190 mm"/>
+                        {aiSuggestions?.structuredSpecs.groundClearance && formData.groundClearance !== aiSuggestions.structuredSpecs.groundClearance && (<button type="button" onClick={() => applyAiSpec('groundClearance')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.groundClearance}"</button>)}
+                    </div>
+                    <div>
+                        <FormInput label="Boot Space" name="bootSpace" value={formData.bootSpace} onChange={handleChange} placeholder="e.g., 433 litres"/>
+                        {aiSuggestions?.structuredSpecs.bootSpace && formData.bootSpace !== aiSuggestions.structuredSpecs.bootSpace && (<button type="button" onClick={() => applyAiSpec('bootSpace')} className="text-xs text-indigo-500 hover:underline mt-1">Apply: "{aiSuggestions.structuredSpecs.bootSpace}"</button>)}
+                    </div>
                     <FormInput label="Color" name="color" value={formData.color} onChange={handleChange} onBlur={handleBlur} />
                  </div>
             </FormFieldset>
@@ -561,29 +528,11 @@ const VehicleForm: React.FC<{
                          <VehicleCard vehicle={previewVehicle} onSelect={() => {}} onToggleCompare={() => {}} isSelectedForCompare={false} onToggleWishlist={() => {}} isInWishlist={false} isCompareDisabled={true} onViewSellerProfile={() => {}} onQuickView={() => {}} />
                       </div>
                   </div>
-                  <div>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
-                           <span>✨ Suggested Features</span>
-                           {isGeneratingSpecs && <div className="w-4 h-4 border-2 border-dashed rounded-full animate-spin border-brand-blue"></div>}
-                        </h3>
+                   {aiSuggestions && Object.keys(aiSuggestions.featureSuggestions).length > 0 && (
+                     <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">✨ Suggested Features</h3>
                         <div className="bg-brand-gray-light dark:bg-brand-gray-darker p-4 rounded-lg border dark:border-gray-700 max-h-96 overflow-y-auto">
-                            {isGeneratingSpecs && !suggestedSpecs && (
-                                <div className="space-y-4">
-                                    <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-1/3 animate-pulse"></div>
-                                    <div className="space-y-2 pl-2">
-                                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-full animate-pulse"></div>
-                                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-5/6 animate-pulse"></div>
-                                    </div>
-                                    <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-1/3 animate-pulse mt-4"></div>
-                                    <div className="space-y-2 pl-2">
-                                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-full animate-pulse"></div>
-                                    </div>
-                                </div>
-                            )}
-                            {!isGeneratingSpecs && !suggestedSpecs && (
-                                <p className="text-sm text-center text-gray-500 dark:text-gray-400 py-4">Enter Make, Model, and Year above to get AI-powered suggestions.</p>
-                            )}
-                            {suggestedSpecs && Object.entries(suggestedSpecs).map(([category, features]) => {
+                            {Object.entries(aiSuggestions.featureSuggestions).map(([category, features]) => {
                                 if (features.length === 0) return null;
                                 return (
                                     <div key={category} className="mb-4 last:mb-0">
@@ -591,12 +540,7 @@ const VehicleForm: React.FC<{
                                         <div className="space-y-2">
                                             {features.map(feature => (
                                                 <label key={feature} className="flex items-center space-x-3 cursor-pointer group">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.features.includes(feature)}
-                                                        onChange={() => handleSuggestedFeatureToggle(feature)}
-                                                        className="h-4 w-4 text-brand-blue rounded border-gray-300 dark:border-gray-500 focus:ring-brand-blue-light bg-transparent"
-                                                    />
+                                                    <input type="checkbox" checked={formData.features.includes(feature)} onChange={() => handleSuggestedFeatureToggle(feature)} className="h-4 w-4 text-brand-blue rounded border-gray-300 dark:border-gray-500 focus:ring-brand-blue-light bg-transparent" />
                                                     <span className="text-sm text-gray-800 dark:text-gray-300 group-hover:text-brand-blue dark:group-hover:text-brand-blue-light">{feature}</span>
                                                 </label>
                                             ))}
@@ -606,6 +550,7 @@ const VehicleForm: React.FC<{
                             })}
                         </div>
                     </div>
+                )}
               </div>
           </div>
         </div>

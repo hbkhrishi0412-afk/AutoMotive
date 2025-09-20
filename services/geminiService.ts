@@ -1,6 +1,6 @@
 
 import { Type } from "@google/genai";
-import type { Vehicle, ProsAndCons, Conversation, Suggestion, PricingSuggestion } from '../types';
+import type { Vehicle, ProsAndCons, Conversation, Suggestion } from '../types';
 import type { SearchFilters } from "../types";
 
 /**
@@ -66,6 +66,7 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
                     },
                 },
             },
+            thinkingConfig: { thinkingBudget: 0 },
         },
     };
 
@@ -115,17 +116,36 @@ export const generateVehicleDescription = async (vehicle: Partial<Vehicle>): Pro
         return "Please provide Make, Model, and Year for an accurate description.";
     }
 
-    const prompt = `Generate a compelling, one-sentence vehicle description for an online marketplace, targeting an Indian audience.
-Use the following details:
-Make: ${vehicle.make}, Model: ${vehicle.model}, Year: ${vehicle.year}.
-Price: ₹${vehicle.price}, Mileage: ${vehicle.mileage} kms.
-Key features: ${vehicle.features?.slice(0, 3).join(', ')}.
-The description should be concise, appealing, and highlight the vehicle's best qualities.
-Do not start with "This is a..." or "For sale is a...". Just provide the single sentence description.`;
+    const prompt = `Generate a detailed and appealing vehicle description for an online marketplace, targeting an Indian audience. The description should be well-structured, easy to read, and highlight the vehicle's key selling points.
+    
+    Here is the vehicle data:
+    - Make: ${vehicle.make}
+    - Model: ${vehicle.model}
+    - Variant: ${vehicle.variant || 'N/A'}
+    - Year: ${vehicle.year}
+    - Price: ₹${vehicle.price?.toLocaleString('en-IN')}
+    - Mileage: ${vehicle.mileage?.toLocaleString('en-IN')} kms
+    - Fuel Type: ${vehicle.fuelType}
+    - Transmission: ${vehicle.transmission}
+    - Color: ${vehicle.color}
+    - No. of Owners: ${vehicle.noOfOwners}
+    - Key Features: ${vehicle.features?.join(', ')}
+
+    Follow these instructions:
+    1. Start with a strong, catchy opening sentence.
+    2. Write a paragraph detailing the vehicle's condition, performance, and key features. Mention its suitability for different types of buyers (e.g., for a family, for city driving).
+    3. Use bullet points to list 3-5 of the most attractive features.
+    4. Conclude with a sentence that encourages buyers to take action (e.g., "Don't miss out on this well-maintained vehicle!").
+    5. The tone should be professional yet persuasive. Avoid overly technical jargon.
+    6. The total length should be around 3-4 paragraphs, including the bullet points.
+    7. Ensure the output is just the description text, without any introductory phrases like "Here is the description:".`;
 
     const requestPayload = {
         model: 'gemini-2.5-flash',
         contents: prompt,
+        config: {
+            thinkingConfig: { thinkingBudget: 0 },
+        },
     };
     
     const descriptionText = await callGeminiAPI(requestPayload);
@@ -135,51 +155,20 @@ Do not start with "This is a..." or "For sale is a...". Just provide the single 
     return descriptionText.trim();
 };
 
-export const getVehicleSpecs = async (vehicle: { make: string, model: string, year: number }): Promise<Record<string, string[]>> => {
-    const prompt = `Provide a list of common features and specifications for a ${vehicle.year} ${vehicle.make} ${vehicle.model} in the Indian market.
-Categorize the features into "Comfort & Convenience", "Safety", "Entertainment", and "Exterior".
-Return the result as a JSON object where keys are the categories and values are arrays of feature strings.
-Example: { "Safety": ["ABS", "Airbags"], "Comfort & Convenience": ["Automatic Climate Control"] }`;
-
-    const requestPayload = {
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: 'application/json',
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
-                    "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
-                    "Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
-                    "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
-                }
-            }
-        }
-    };
-    
-    try {
-        const jsonText = await callGeminiAPI(requestPayload);
-        return JSON.parse(jsonText.trim());
-    } catch (error) {
-        console.error("Error fetching vehicle specs from proxy:", error);
-        return { "Error": ["Could not fetch suggestions."] };
-    }
-};
-
-export const getStructuredVehicleSpecs = async (
+export const getAiVehicleSuggestions = async (
     vehicle: { make: string, model: string, variant?: string, year: number }
-): Promise<Partial<Pick<Vehicle, 'engine' | 'transmission' | 'fuelType' | 'fuelEfficiency' | 'displacement' | 'groundClearance' | 'bootSpace'>>> => {
-    const prompt = `Provide key technical specifications for a ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.variant || ''} for the Indian market.
-Respond ONLY with a JSON object with these keys: "engine", "transmission", "fuelType", "fuelEfficiency", "displacement", "groundClearance", "bootSpace".
-- engine: Brief description (e.g., "1.5L i-VTEC Petrol").
-- transmission: e.g., "CVT", "6-Speed Automatic".
-- fuelType: e.g., "Petrol", "Diesel", "Electric".
-- fuelEfficiency: e.g., "18.4 KMPL" or "325 km range".
-- displacement: e.g., "1498 cc".
-- groundClearance: e.g., "165 mm".
-- bootSpace: e.g., "506 litres".
-If a value is not applicable or commonly available, return "N/A".`;
+): Promise<{
+    structuredSpecs: Partial<Pick<Vehicle, 'engine' | 'transmission' | 'fuelType' | 'fuelEfficiency' | 'displacement' | 'groundClearance' | 'bootSpace'>>;
+    featureSuggestions: Record<string, string[]>;
+}> => {
+    const prompt = `For a ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.variant || ''} in the Indian market, provide:
+1.  Key technical specifications.
+2.  A list of common features, categorized.
+
+Respond ONLY with a single JSON object matching this schema. If a value is not applicable or commonly available, return "N/A" for specs or an empty array for features.
+- The root object should have two keys: "structuredSpecs" and "featureSuggestions".
+- "structuredSpecs" should be an object with keys: "engine", "transmission", "fuelType", "fuelEfficiency", "displacement", "groundClearance", "bootSpace".
+- "featureSuggestions" should be an object where keys are categories like "Comfort & Convenience", "Safety", "Entertainment", and "Exterior", and values are arrays of feature strings.`;
     
     const requestPayload = {
         model: 'gemini-2.5-flash',
@@ -189,27 +178,49 @@ If a value is not applicable or commonly available, return "N/A".`;
             responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                    engine: { type: Type.STRING },
-                    transmission: { type: Type.STRING },
-                    fuelType: { type: Type.STRING },
-                    fuelEfficiency: { type: Type.STRING },
-                    displacement: { type: Type.STRING },
-                    groundClearance: { type: Type.STRING },
-                    bootSpace: { type: Type.STRING },
+                    structuredSpecs: {
+                        type: Type.OBJECT,
+                        properties: {
+                            engine: { type: Type.STRING },
+                            transmission: { type: Type.STRING },
+                            fuelType: { type: Type.STRING },
+                            fuelEfficiency: { type: Type.STRING },
+                            displacement: { type: Type.STRING },
+                            groundClearance: { type: Type.STRING },
+                            bootSpace: { type: Type.STRING },
+                        }
+                    },
+                    featureSuggestions: {
+                        type: Type.OBJECT,
+                        properties: {
+                            "Comfort & Convenience": { type: Type.ARRAY, items: { type: Type.STRING } },
+                            "Safety": { type: Type.ARRAY, items: { type: Type.STRING } },
+                            "Entertainment": { type: Type.ARRAY, items: { type: Type.STRING } },
+                            "Exterior": { type: Type.ARRAY, items: { type: Type.STRING } },
+                        },
+                        additionalProperties: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING }
+                        }
+                    }
                 }
-            }
+            },
+            thinkingConfig: { thinkingBudget: 0 },
         }
     };
 
     try {
         const jsonText = await callGeminiAPI(requestPayload);
-        return JSON.parse(jsonText.trim());
+        const parsed = JSON.parse(jsonText.trim());
+        return {
+            structuredSpecs: parsed.structuredSpecs || {},
+            featureSuggestions: parsed.featureSuggestions || {}
+        };
     } catch (error) {
-        console.error("Error fetching structured vehicle specs from proxy:", error);
-        return {};
+        console.error("Error fetching AI vehicle suggestions from proxy:", error);
+        return { structuredSpecs: {}, featureSuggestions: { "Error": ["Could not fetch suggestions."] } };
     }
 };
-
 
 export const getSearchSuggestions = async (query: string, vehicles: Pick<Vehicle, 'make' | 'model' | 'features'>[]): Promise<string[]> => {
     if (!query.trim()) {
@@ -240,7 +251,8 @@ Return the suggestions as a JSON array of strings. For example: ["Hyundai Creta"
             responseSchema: {
                 type: Type.ARRAY,
                 items: { type: Type.STRING }
-            }
+            },
+            thinkingConfig: { thinkingBudget: 0 },
         }
     };
     
@@ -335,52 +347,6 @@ If there is no data or no meaningful suggestions can be made, return an empty ar
     } catch (error) {
         console.error("Error generating seller suggestions from proxy:", error);
         return [];
-    }
-};
-
-export const getPricingSuggestion = async (
-    vehicleDetails: Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage'>,
-    marketVehicles: Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage' | 'price'>[]
-): Promise<PricingSuggestion | null> => {
-    const prompt = `You are a vehicle pricing expert for the Indian used car market.
-Given the details of a vehicle a user wants to sell, and a list of similar vehicles currently on the market, provide a suggested price range.
-
-**Vehicle to Price:**
-- Make: ${vehicleDetails.make}
-- Model: ${vehicleDetails.model}
-- Year: ${vehicleDetails.year}
-- Mileage: ${vehicleDetails.mileage.toLocaleString('en-IN')} kms
-
-**Comparable Market Listings:**
-${JSON.stringify(marketVehicles, null, 2)}
-
-Analyze the market data. Consider the year, mileage, and prices of comparable vehicles.
-Provide a fair, competitive price range (minPrice and maxPrice) in INR for the "Vehicle to Price".
-Also, provide a brief, one-sentence justification for your suggestion.
-Respond ONLY with a JSON object matching the provided schema.`;
-
-    const requestPayload = {
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    minPrice: { type: Type.NUMBER },
-                    maxPrice: { type: Type.NUMBER },
-                    justification: { type: Type.STRING }
-                }
-            }
-        }
-    };
-    
-    try {
-        const jsonText = await callGeminiAPI(requestPayload);
-        return JSON.parse(jsonText.trim());
-    } catch (error) {
-        console.error("Error generating pricing suggestion from proxy:", error);
-        return null;
     }
 };
 

@@ -1,61 +1,55 @@
-import { GoogleGenAI } from "@google/genai";
-
-// Vercel will automatically turn this into a serverless function.
-// Using the Edge runtime for performance.
-export const config = {
-  runtime: 'edge',
-};
+import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // This is the main handler for the API route.
-export default async function handler(req: Request) {
+// It now uses Vercel's native request/response objects for better compatibility.
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Only allow POST requests
     if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-            status: 405,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // The frontend will send a 'payload' object that contains all the parameters
-        // for the Gemini API call (model, contents, config, etc.)
-        const { payload } = await req.json();
+        // The VercelRequest object has a pre-parsed body.
+        // We expect the client to send `{ "payload": { ... } }`
+        const { payload } = req.body;
 
+        if (!payload) {
+            return res.status(400).json({ error: 'Missing payload in request body' });
+        }
+
+        // This log is crucial for debugging on Vercel
+        console.log(`Gemini API proxy called. API_KEY present: ${!!process.env.API_KEY}`);
+        
         if (!process.env.API_KEY) {
             console.error("API_KEY not configured in Vercel environment variables.");
-            return new Response(JSON.stringify({ error: 'Server configuration error.' }), {
-                status: 500,
-                headers: { 'Content-Type': 'application/json' },
-            });
+            return res.status(500).json({ error: 'Server configuration error.' });
         }
         
         // Initialize the AI client on the server with the secure API key
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
-        const { model, ...requestParams } = payload;
-
         // Make the actual call to the Gemini API
-        const response = await ai.models.generateContent({
-          model,
-          ...requestParams
-        });
+        // The payload from the client should match the expected format for generateContent.
+        const response: GenerateContentResponse = await ai.models.generateContent(payload);
         
         // The .text property conveniently provides the string output,
         // which could be plain text or a JSON string.
         const resultText = response.text;
 
         // Send the result back to the frontend
-        return new Response(JSON.stringify({ result: resultText }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-        });
+        return res.status(200).json({ result: resultText });
 
     } catch (error) {
         console.error("Error in /api/gemini proxy:", error);
-        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-        return new Response(JSON.stringify({ error: 'An error occurred processing your AI request.', details: errorMessage }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
+        
+        // Check if it's a specific Gemini API error if possible, or just a generic one
+        const errorMessage = error instanceof Error ? error.message : "An unknown server error occurred.";
+        
+        // Respond with a more structured error
+        return res.status(500).json({ 
+            error: 'An error occurred while communicating with the AI service.', 
+            details: errorMessage 
         });
     }
 }

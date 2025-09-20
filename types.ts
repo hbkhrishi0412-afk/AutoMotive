@@ -167,12 +167,6 @@ export interface Suggestion {
   priority: 'high' | 'medium' | 'low';
 }
 
-export interface PricingSuggestion {
-    minPrice: number;
-    maxPrice: number;
-    justification: string;
-}
-
 export interface Notification {
   id: number;
   recipientEmail: string;
