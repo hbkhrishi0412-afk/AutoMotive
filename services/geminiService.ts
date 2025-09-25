@@ -1,4 +1,3 @@
-
 import { Type } from "@google/genai";
 import type { Vehicle, ProsAndCons, Conversation, Suggestion } from '../types';
 import type { SearchFilters } from "../types";
@@ -110,6 +109,52 @@ Provide the output in JSON format with two keys: "pros" and "cons", each contain
     }
 };
 
+export const getSellerPriceSuggestion = async (
+    vehicle: Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage' | 'city' | 'state' | 'noOfOwners'>,
+    marketVehicles: Pick<Vehicle, 'price' | 'year' | 'mileage' | 'status'>[]
+): Promise<{ summary: string; suggestedMinPrice: number; suggestedMaxPrice: number }> => {
+    const prompt = `Act as an expert Indian used car valuator. Given the vehicle details and a sample of market listings, provide a fair market price suggestion for a seller.
+
+    **Vehicle to be Priced:**
+    - ${vehicle.year} ${vehicle.make} ${vehicle.model}
+    - Mileage: ${vehicle.mileage.toLocaleString('en-IN')} kms
+    - Location: ${vehicle.city}, ${vehicle.state}
+    - Owners: ${vehicle.noOfOwners}
+
+    **Comparable Market Listings (mix of active and sold):**
+    ${JSON.stringify(marketVehicles.slice(0, 20), null, 2)}
+
+    Your task is to:
+    1.  Provide a concise 'summary' explaining the rationale for your valuation. Mention positive and negative factors (e.g., "high mileage but a desirable model in this city").
+    2.  Provide a 'suggestedMinPrice' and 'suggestedMaxPrice' in INR. This should be a realistic range for the seller to list their vehicle.
+
+    Respond ONLY with a JSON object matching the specified schema. If you cannot determine a price, return 0 for both price fields.`;
+
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    summary: { type: Type.STRING },
+                    suggestedMinPrice: { type: Type.NUMBER },
+                    suggestedMaxPrice: { type: Type.NUMBER }
+                },
+                required: ["summary", "suggestedMinPrice", "suggestedMaxPrice"]
+            }
+        }
+    };
+
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        return JSON.parse(jsonText.trim());
+    } catch (error) {
+        console.error("Failed to generate seller price suggestion from proxy:", error);
+        return { summary: 'AI analysis failed. Could not determine a fair market value.', suggestedMinPrice: 0, suggestedMaxPrice: 0 };
+    }
+};
 
 export const generateVehicleDescription = async (vehicle: Partial<Vehicle>): Promise<string> => {
     if (!vehicle.make || !vehicle.model || !vehicle.year) {

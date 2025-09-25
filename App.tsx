@@ -1,15 +1,14 @@
-
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import VehicleList from './components/VehicleList';
-import VehicleDetail from './components/VehicleDetail';
+import { VehicleDetail } from './components/VehicleDetail';
 import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import AdminLogin from './components/AdminLogin';
 import Comparison from './components/Comparison';
-import { MOCK_VEHICLES, MOCK_USERS } from './constants';
-import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory, Badge } from './types';
+import { MOCK_VEHICLES, MOCK_USERS, PLAN_DETAILS, MOCK_SUPPORT_TICKETS, MOCK_FAQS } from './constants';
+import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory, Badge, Command, SubscriptionPlan, CertifiedInspection, SupportTicket, FAQItem } from './types';
 import { View, VehicleCategory as CategoryEnum } from './types';
 import { getRatings, addRating, getSellerRatings, addSellerRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
@@ -32,6 +31,14 @@ import { getVehicleData, saveVehicleData } from './services/vehicleDataService';
 import ChatWidget from './components/ChatWidget';
 import { getVehicleRecommendations } from './services/geminiService';
 import { getSellerBadges } from './services/badgeService';
+import NewCars from './components/NewCars';
+import DealerProfiles from './components/DealerProfiles';
+import CommandPalette from './components/CommandPalette';
+import PricingPage from './components/PricingPage';
+import SupportPage from './components/SupportPage';
+import { getFaqs, saveFaqs } from './services/faqService';
+import { getSupportTickets, saveSupportTickets } from './services/supportTicketService';
+import FAQPage from './components/FAQPage';
 
 
 export type Theme = 'light' | 'dark' | 'sunset' | 'oceanic' | 'cyber';
@@ -54,6 +61,7 @@ const App: React.FC = () => {
       isFlagged: v.isFlagged || false,
       flagReason: v.flagReason || undefined,
       flaggedAt: v.flaggedAt || undefined,
+      certifiedInspection: v.certifiedInspection || null,
     }));
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -61,7 +69,7 @@ const App: React.FC = () => {
   const [comparisonList, setComparisonList] = useState<number[]>([]);
   const [ratings, setRatings] = useState<{ [key: string]: number[] }>({});
   const [sellerRatings, setSellerRatings] = useState<{ [key: string]: number[] }>({});
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [toasts, setToasts] = useState<ToastType[]>([]);
@@ -75,15 +83,24 @@ const App: React.FC = () => {
   const [isAnnouncementVisible, setIsAnnouncementVisible] = useState(true);
   const [recommendations, setRecommendations] = useState<Vehicle[]>([]);
   const [initialSearchQuery, setInitialSearchQuery] = useState<string>('');
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const [users, setUsers] = useState<User[]>(() => {
     const savedUsers = getUsers();
-    return (savedUsers || MOCK_USERS).map(u => ({...u, status: u.status || 'active'}));
+    return (savedUsers || MOCK_USERS).map(u => ({
+        ...u, 
+        status: u.status || 'active',
+        subscriptionPlan: u.subscriptionPlan || 'free',
+        featuredCredits: u.featuredCredits ?? PLAN_DETAILS[u.subscriptionPlan || 'free'].featuredCredits,
+    }));
   });
   
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => getSettings());
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(() => getAuditLog());
   const [vehicleData, setVehicleData] = useState<VehicleData>(() => getVehicleData());
+  const [faqItems, setFaqItems] = useState<FAQItem[]>(() => getFaqs() || MOCK_FAQS);
+  const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => getSupportTickets() || MOCK_SUPPORT_TICKETS);
+
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     try {
         const notificationsJson = localStorage.getItem('autoVerseNotifications');
@@ -96,6 +113,15 @@ const App: React.FC = () => {
         localStorage.setItem('autoVerseNotifications', JSON.stringify(notifications));
     } catch (error) { console.error("Failed to save notifications", error); }
   }, [notifications]);
+
+  useEffect(() => {
+    saveFaqs(faqItems);
+  }, [faqItems]);
+
+  useEffect(() => {
+    saveSupportTickets(supportTickets);
+  }, [supportTickets]);
+
 
   const addToast = useCallback((message: string, type: ToastType['type']) => {
     setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -265,6 +291,19 @@ const App: React.FC = () => {
     
     localStorage.setItem('theme', theme);
   }, [theme]);
+  
+   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+            event.preventDefault();
+            setIsCommandPaletteOpen(prev => !prev);
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const handleLogout = useCallback(() => {
     setCurrentUser(null);
@@ -609,6 +648,20 @@ const App: React.FC = () => {
     setVehicles(prevVehicles => [newVehicle, ...prevVehicles]);
     addToast('Vehicle listed successfully!', 'success');
   }, [currentUser, addToast]);
+
+  const handleAddMultipleVehicles = useCallback((newVehiclesData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>[]) => {
+    const newVehicles: Vehicle[] = newVehiclesData.map((vehicleData, index) => ({
+        ...vehicleData,
+        id: Date.now() + index, // Ensure unique IDs
+        status: 'published',
+        isFeatured: false,
+        views: 0,
+        inquiriesCount: 0,
+    }));
+
+    setVehicles(prevVehicles => [...newVehicles, ...prevVehicles]);
+    addToast(`${newVehicles.length} vehicles listed successfully via bulk upload!`, 'success');
+}, [addToast]);
   
   const handleUpdateVehicle = useCallback((updatedVehicle: Vehicle) => {
     setVehicles(prev => {
@@ -679,6 +732,57 @@ const App: React.FC = () => {
     addLogEntry(action, String(vehicleId));
     addToast(featureChange, 'info');
   }, [addLogEntry, addToast]);
+  
+  const handleFeatureListing = useCallback((vehicleId: number) => {
+    if (!currentUser || currentUser.role !== 'seller') return;
+    
+    setUsers(prevUsers => {
+      const userIndex = prevUsers.findIndex(u => u.email === currentUser.email);
+      if (userIndex === -1) return prevUsers;
+
+      const user = prevUsers[userIndex];
+      if ((user.featuredCredits || 0) <= 0) {
+        addToast('You have no featured credits left. Please upgrade your plan.', 'error');
+        return prevUsers;
+      }
+
+      const newUsers = [...prevUsers];
+      newUsers[userIndex] = { ...user, featuredCredits: (user.featuredCredits || 0) - 1 };
+
+      setVehicles(prevVehicles => {
+          const vIndex = prevVehicles.findIndex(v => v.id === vehicleId);
+          if (vIndex === -1) return prevVehicles;
+          const newVehicles = [...prevVehicles];
+          newVehicles[vIndex] = { ...prevVehicles[vIndex], isFeatured: true };
+          return newVehicles;
+      });
+
+      addToast('Listing successfully featured!', 'success');
+      return newUsers;
+    });
+  }, [currentUser, addToast]);
+
+  const handlePurchaseInspection = useCallback((vehicleId: number) => {
+    // In a real app, this would involve a payment flow. Here we simulate it.
+    const inspectionReport: CertifiedInspection = {
+        reportId: `AV-${Date.now()}-${vehicleId}`,
+        summary: 'This vehicle has passed our comprehensive 200-point inspection. Key areas are in excellent condition. A great choice for a reliable vehicle.',
+        date: new Date().toISOString(),
+        inspector: 'AutoVerse Certified',
+        scores: { 'Engine': 92, 'Transmission': 95, 'Suspension': 88, 'Brakes': 91, 'Exterior': 85, 'Interior': 90 },
+        details: { 'Engine': 'No leaks or abnormal noises found.', 'Exterior': 'Minor cosmetic wear consistent with age.', 'Interior': 'Clean with all electronics functional.' }
+    };
+
+    setVehicles(prev => {
+        const index = prev.findIndex(v => v.id === vehicleId);
+        if (index === -1) return prev;
+        const newVehicles = [...prev];
+        newVehicles[index] = { ...prev[index], certifiedInspection: inspectionReport };
+        return newVehicles;
+    });
+
+    addToast('Certified Inspection purchased successfully!', 'success');
+  }, [addToast]);
 
   const handleToggleCompare = useCallback((vehicleId: number) => {
     setComparisonList(prev => {
@@ -772,7 +876,14 @@ const App: React.FC = () => {
       addToast(reason, 'error');
       return { success: false, reason };
     }
-    const newUser: User = {...credentials, role: 'seller', status: 'active', createdAt: new Date().toISOString()};
+    const newUser: User = {
+        ...credentials, 
+        role: 'seller', 
+        status: 'active', 
+        createdAt: new Date().toISOString(),
+        subscriptionPlan: 'free',
+        featuredCredits: PLAN_DETAILS.free.featuredCredits
+    };
     setUsers(prev => [...prev, newUser]);
     loginUser(newUser);
     setCurrentView(View.SELLER_DASHBOARD);
@@ -1069,14 +1180,48 @@ const App: React.FC = () => {
         return newUsers;
     });
   }, [addLogEntry, addToast]);
+  
+  const handlePlanChange = useCallback((planId: SubscriptionPlan) => {
+      if (!currentUser || currentUser.role !== 'seller') return;
+
+      setUsers(prev => {
+          const index = prev.findIndex(u => u.email === currentUser.email);
+          if (index === -1) return prev;
+
+          const planDetails = PLAN_DETAILS[planId];
+          const newUsers = [...prev];
+          newUsers[index] = {
+              ...prev[index],
+              subscriptionPlan: planId,
+              featuredCredits: (prev[index].featuredCredits || 0) + planDetails.featuredCredits, // Top up credits
+          };
+          
+          addToast(`Successfully upgraded to the ${planDetails.name} plan!`, 'success');
+          navigate(View.SELLER_DASHBOARD);
+          return newUsers;
+      });
+
+  }, [currentUser, addToast]);
 
   const navigate = useCallback((view: View) => {
-    if (currentView === View.SELLER_PROFILE && view !== View.SELLER_PROFILE) {
+    const isNavigatingAwayFromSellerProfile = currentView === View.SELLER_PROFILE && view !== View.SELLER_PROFILE;
+
+    if (isNavigatingAwayFromSellerProfile) {
         window.history.pushState({}, '', window.location.pathname);
         setPublicSellerProfile(null);
     }
     setInitialSearchQuery(''); // Reset search query on navigation
-    setSelectedVehicle(null);
+    
+    // This condition preserves the selected vehicle state when navigating between
+    // the vehicle detail page and the seller profile page in EITHER direction.
+    const preserveSelectedVehicle =
+      (view === View.SELLER_PROFILE && currentView === View.DETAIL) ||
+      (view === View.DETAIL && currentView === View.SELLER_PROFILE);
+
+    if (!preserveSelectedVehicle) {
+        setSelectedVehicle(null);
+    }
+    
     if (view === View.USED_CARS) {
         setSelectedCategory('ALL');
     }
@@ -1123,12 +1268,65 @@ const App: React.FC = () => {
     if (sellerUser) {
         setPreviousView(currentView);
         setPublicSellerProfile(sellerUser);
-        setCurrentView(View.SELLER_PROFILE);
+        // Use navigate function to ensure state preservation logic is triggered
+        navigate(View.SELLER_PROFILE);
         window.history.pushState({}, '', `${window.location.pathname}?seller=${sellerEmail}`);
     } else {
         addToast('Seller profile not found.', 'error');
     }
-  }, [currentView, usersWithRatingsAndBadges, addToast]);
+  }, [currentView, usersWithRatingsAndBadges, addToast, navigate]);
+
+  const handleAddSupportTicket = useCallback((ticketData: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt' | 'replies' | 'status'>) => {
+    const newTicket: SupportTicket = {
+      ...ticketData,
+      id: Date.now(),
+      status: 'Open',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      replies: [],
+    };
+    setSupportTickets(prev => [newTicket, ...prev]);
+    addToast('Support ticket submitted successfully!', 'success');
+    navigate(View.HOME);
+  }, [addToast, navigate]);
+
+  const handleUpdateSupportTicket = useCallback((updatedTicket: SupportTicket) => {
+    setSupportTickets(prev => {
+      const index = prev.findIndex(t => t.id === updatedTicket.id);
+      if (index === -1) return prev;
+      const newTickets = [...prev];
+      newTickets[index] = { ...updatedTicket, updatedAt: new Date().toISOString() };
+      return newTickets;
+    });
+    addLogEntry('Updated Support Ticket', String(updatedTicket.id));
+    addToast('Support ticket updated!', 'info');
+  }, [addLogEntry, addToast]);
+
+  const handleAddFaq = useCallback((faqData: Omit<FAQItem, 'id'>) => {
+    const newFaq: FAQItem = { ...faqData, id: Date.now() };
+    setFaqItems(prev => [...prev, newFaq]);
+    addLogEntry('Added FAQ', newFaq.question);
+    addToast('FAQ item added successfully!', 'success');
+  }, [addLogEntry, addToast]);
+
+  const handleUpdateFaq = useCallback((updatedFaq: FAQItem) => {
+    setFaqItems(prev => {
+      const index = prev.findIndex(f => f.id === updatedFaq.id);
+      if (index === -1) return prev;
+      const newFaqs = [...prev];
+      newFaqs[index] = updatedFaq;
+      return newFaqs;
+    });
+    addLogEntry('Updated FAQ', updatedFaq.question);
+    addToast('FAQ item updated successfully!', 'success');
+  }, [addLogEntry, addToast]);
+
+  const handleDeleteFaq = useCallback((faqId: number) => {
+    const faq = faqItems.find(f => f.id === faqId);
+    if (faq) addLogEntry('Deleted FAQ', faq.question);
+    setFaqItems(prev => prev.filter(f => f.id !== faqId));
+    addToast('FAQ item deleted!', 'info');
+  }, [faqItems, addLogEntry, addToast]);
 
   const vehiclesToCompare = useMemo(() => {
     return vehiclesWithRatings.filter(v => comparisonList.includes(v.id));
@@ -1175,6 +1373,12 @@ const App: React.FC = () => {
     }
     
     switch (currentView) {
+      case View.SUPPORT:
+        return <SupportPage currentUser={currentUser} onSubmitTicket={handleAddSupportTicket} />;
+      case View.FAQ:
+        return <FAQPage faqItems={faqItems} />;
+      case View.PRICING:
+        return <PricingPage currentUser={currentUser} onSelectPlan={handlePlanChange} />;
       case View.SELLER_PROFILE:
         return publicSellerProfile && <SellerProfilePage 
                   seller={usersWithRatingsAndBadges.find(u => u.email === publicSellerProfile.email)!}
@@ -1188,7 +1392,7 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} allVehicles={allPublishedVehicles} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={usersWithRatingsAndBadges.find(u => u.email === currentUser.email)!}
@@ -1196,6 +1400,7 @@ const App: React.FC = () => {
                   sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
                   reportedVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email && v.isFlagged)}
                   onAddVehicle={handleAddVehicle} 
+                  onAddMultipleVehicles={handleAddMultipleVehicles}
                   onUpdateVehicle={handleUpdateVehicle} 
                   onDeleteVehicle={handleDeleteVehicle}
                   onMarkAsSold={handleMarkAsSold}
@@ -1207,6 +1412,9 @@ const App: React.FC = () => {
                   onMarkMessagesAsRead={handleMarkMessagesAsRead}
                   onUpdateSellerProfile={handleUpdateSellerProfile}
                   vehicleData={vehicleData}
+                  onNavigate={navigate}
+                  onFeatureListing={handleFeatureListing}
+                  onPurchaseInspection={handlePurchaseInspection}
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.ADMIN_PANEL:
         return currentUser?.role === 'admin' ? <AdminPanel 
@@ -1232,6 +1440,12 @@ const App: React.FC = () => {
                   vehicleData={vehicleData}
                   onUpdateVehicleData={handleUpdateVehicleData}
                   onToggleVerifiedStatus={handleToggleVerifiedStatus}
+                  supportTickets={supportTickets}
+                  onUpdateSupportTicket={handleUpdateSupportTicket}
+                  faqItems={faqItems}
+                  onAddFaq={handleAddFaq}
+                  onUpdateFaq={handleUpdateFaq}
+                  onDeleteFaq={handleDeleteFaq}
                 /> : <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
       case View.PROFILE:
         return currentUser ? <Profile 
@@ -1254,6 +1468,10 @@ const App: React.FC = () => {
         return <Comparison vehicles={vehiclesToCompare} onBack={() => navigate(View.USED_CARS)} onToggleCompare={handleToggleCompare} />;
       case View.WISHLIST:
         return <VehicleList categoryTitle="Your Wishlist" vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
+      case View.NEW_CARS:
+        return <NewCars />;
+      case View.DEALER_PROFILES:
+        return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller' && u.status === 'active')} onViewProfile={handleViewSellerProfile} />;
       case View.USED_CARS:
         return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
@@ -1277,6 +1495,7 @@ const App: React.FC = () => {
         notifications={notifications.filter(n => n.recipientEmail === currentUser?.email)}
         onNotificationClick={handleNotificationClick}
         onMarkNotificationsAsRead={handleMarkNotificationsAsRead}
+        onSelectCategory={handleSelectCategory}
       />
       {platformSettings.siteAnnouncement && isAnnouncementVisible && (
           <div className="bg-brand-blue text-white py-2 px-4 text-center text-sm relative animate-fade-in z-40">
@@ -1295,7 +1514,7 @@ const App: React.FC = () => {
       <main className="flex-grow">
         {renderContent()}
       </main>
-      <Footer />
+      <Footer onNavigate={navigate} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
        {activeChat && currentUser?.role === 'customer' && (
           <ChatWidget
@@ -1310,6 +1529,23 @@ const App: React.FC = () => {
               typingStatus={typingStatus}
           />
       )}
+       <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onNavigate={(view) => {
+          navigate(view);
+          setIsCommandPaletteOpen(false);
+        }}
+        currentUser={currentUser}
+        onChangeTheme={(theme) => {
+          handleChangeTheme(theme);
+          setIsCommandPaletteOpen(false);
+        }}
+        onLogout={() => {
+          handleLogout();
+          setIsCommandPaletteOpen(false);
+        }}
+      />
     </div>
   );
 };

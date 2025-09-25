@@ -6,6 +6,7 @@ import { parseSearchQuery, getSearchSuggestions } from '../services/geminiServic
 import QuickViewModal from './QuickViewModal';
 import VehicleTile from './VehicleTile';
 import VehicleTileSkeleton from './VehicleTileSkeleton';
+import { INDIAN_STATES, FUEL_TYPES } from '../constants';
 
 interface VehicleListProps {
   vehicles: Vehicle[];
@@ -59,6 +60,8 @@ const sortOptions = {
 
 const MIN_PRICE = 50000;
 const MAX_PRICE = 5000000;
+const MIN_MILEAGE = 0;
+const MAX_MILEAGE = 200000;
 
 const Pagination: React.FC<{ currentPage: number; totalPages: number; onPageChange: (page: number) => void; }> = ({ currentPage, totalPages, onPageChange }) => {
   if (totalPages <= 1) return null;
@@ -88,9 +91,11 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   const [makeFilter, setMakeFilter] = useState('');
   const [modelFilter, setModelFilter] = useState('');
   const [priceRange, setPriceRange] = useState({ min: MIN_PRICE, max: MAX_PRICE });
+  const [mileageRange, setMileageRange] = useState({ min: MIN_MILEAGE, max: MAX_MILEAGE });
+  const [fuelTypeFilter, setFuelTypeFilter] = useState('');
   const [yearFilter, setYearFilter] = useState('0');
   const [colorFilter, setColorFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [featureSearch, setFeatureSearch] = useState('');
   const [isFeaturesOpen, setIsFeaturesOpen] = useState(false);
@@ -104,7 +109,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   // Mobile modal state
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [tempFilters, setTempFilters] = useState({
-    categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, colorFilter, locationFilter, selectedFeatures, featureSearch: ''
+    categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, colorFilter, stateFilter, selectedFeatures, featureSearch: '', mileageRange, fuelTypeFilter
   });
   const [isMobileFeaturesOpen, setIsMobileFeaturesOpen] = useState(false);
 
@@ -123,9 +128,10 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
       if (!tempFilters.makeFilter) return [];
       return [...new Set(vehicles.filter(v => v.make === tempFilters.makeFilter).map(v => v.model))].sort();
   }, [tempFilters.makeFilter, vehicles]);
-  const uniqueYears = useMemo(() => [...new Set(vehicles.map(v => v.year))].sort((a, b) => b - a), [vehicles]);
+  const uniqueYears = useMemo(() => [...new Set(vehicles.map(v => v.year))].sort((a, b) => Number(b) - Number(a)), [vehicles]);
   const uniqueColors = useMemo(() => [...new Set(vehicles.map(v => v.color))].sort(), [vehicles]);
-  const uniqueLocations = useMemo(() => [...new Set(vehicles.map(v => v.location))].sort(), [vehicles]);
+  const uniqueStates = useMemo(() => INDIAN_STATES, []);
+
   const allFeatures = useMemo(() => [...new Set(vehicles.flatMap(v => v.features))].sort(), [vehicles]);
   
   const filteredFeatures = useMemo(() => {
@@ -208,7 +214,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   // Mobile Modal Filter Logic
   const handleOpenFilterModal = () => {
     setTempFilters({
-      categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, colorFilter, locationFilter, selectedFeatures, featureSearch: ''
+      categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, colorFilter, stateFilter, selectedFeatures, featureSearch: '', mileageRange, fuelTypeFilter
     });
     setIsFilterModalOpen(true);
   };
@@ -222,9 +228,11 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
     setMakeFilter(tempFilters.makeFilter);
     setModelFilter(tempFilters.modelFilter);
     setPriceRange(tempFilters.priceRange);
+    setMileageRange(tempFilters.mileageRange);
+    setFuelTypeFilter(tempFilters.fuelTypeFilter);
     setYearFilter(tempFilters.yearFilter);
     setColorFilter(tempFilters.colorFilter);
-    setLocationFilter(tempFilters.locationFilter);
+    setStateFilter(tempFilters.stateFilter);
     setSelectedFeatures(tempFilters.selectedFeatures);
     setIsFilterModalOpen(false);
   };
@@ -235,9 +243,11 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
           makeFilter: '',
           modelFilter: '',
           priceRange: { min: MIN_PRICE, max: MAX_PRICE },
+          mileageRange: { min: MIN_MILEAGE, max: MAX_MILEAGE },
+          fuelTypeFilter: '',
           yearFilter: '0',
           colorFilter: '',
-          locationFilter: '',
+          stateFilter: '',
           selectedFeatures: [],
           featureSearch: '',
       });
@@ -293,8 +303,9 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
 
   const handleResetFilters = () => {
     setAiSearchQuery(''); setCategoryFilter('ALL'); setMakeFilter(''); setModelFilter('');
-    setPriceRange({ min: MIN_PRICE, max: MAX_PRICE }); setYearFilter('0'); setColorFilter(''); setLocationFilter('');
+    setPriceRange({ min: MIN_PRICE, max: MAX_PRICE }); setYearFilter('0'); setColorFilter(''); setStateFilter('');
     setSelectedFeatures([]); setFeatureSearch(''); setSortOrder('YEAR_DESC'); onClearCompare(); setCurrentPage(1);
+    setMileageRange({ min: MIN_MILEAGE, max: MAX_MILEAGE }); setFuelTypeFilter('');
   };
 
   const processedVehicles = useMemo(() => {
@@ -306,12 +317,14 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
         const matchesMake = !makeFilter || vehicle.make === makeFilter;
         const matchesModel = !modelFilter || vehicle.model === modelFilter;
         const matchesPrice = vehicle.price >= priceRange.min && vehicle.price <= priceRange.max;
+        const matchesMileage = vehicle.mileage >= mileageRange.min && vehicle.mileage <= mileageRange.max;
+        const matchesFuelType = !fuelTypeFilter || vehicle.fuelType === fuelTypeFilter;
         const matchesYear = Number(yearFilter) === 0 || vehicle.year === Number(yearFilter);
         const matchesColor = !colorFilter || vehicle.color === colorFilter;
-        const matchesLocation = !locationFilter || vehicle.location === locationFilter;
+        const matchesState = !stateFilter || vehicle.state === stateFilter;
         const matchesFeatures = selectedFeatures.every(feature => vehicle.features.includes(feature));
         
-        return matchesCategory && matchesMake && matchesModel && matchesPrice && matchesYear && matchesFeatures && matchesColor && matchesLocation;
+        return matchesCategory && matchesMake && matchesModel && matchesPrice && matchesYear && matchesFeatures && matchesColor && matchesState && matchesMileage && matchesFuelType;
     });
 
     return [...filtered].sort((a, b) => {
@@ -325,7 +338,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             default: return b.year - a.year;
         }
     });
-  }, [vehicles, categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist, colorFilter, locationFilter]);
+  }, [vehicles, categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, selectedFeatures, sortOrder, isWishlistMode, wishlist, colorFilter, stateFilter]);
   
   const totalPages = Math.ceil(processedVehicles.length / ITEMS_PER_PAGE);
   const paginatedVehicles = useMemo(() => {
@@ -339,12 +352,14 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
     if (makeFilter) count++;
     if (modelFilter) count++;
     if (priceRange.min !== MIN_PRICE || priceRange.max !== MAX_PRICE) count++;
+    if (mileageRange.min !== MIN_MILEAGE || mileageRange.max !== MAX_MILEAGE) count++;
+    if (fuelTypeFilter) count++;
     if (yearFilter !== '0') count++;
     if (colorFilter) count++;
-    if (locationFilter) count++;
+    if (stateFilter) count++;
     count += selectedFeatures.length;
     return count;
-  }, [categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, colorFilter, locationFilter, selectedFeatures, isWishlistMode]);
+  }, [categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, colorFilter, stateFilter, selectedFeatures, isWishlistMode]);
 
   if (isWishlistMode) {
      return (
@@ -372,7 +387,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   const formElementClass = "block w-full p-3 border border-brand-gray-300 dark:border-brand-gray-600 rounded-lg focus:ring-2 focus:ring-brand-blue focus:border-brand-blue focus:outline-none transition bg-brand-gray-50 dark:bg-brand-gray-800 dark:text-gray-200 disabled:bg-brand-gray-200 dark:disabled:bg-brand-gray-700 disabled:cursor-not-allowed";
 
   const renderFilterControls = (isMobile: boolean) => {
-    const state = isMobile ? tempFilters : { categoryFilter, makeFilter, modelFilter, priceRange, yearFilter, colorFilter, locationFilter, selectedFeatures, featureSearch };
+    const state = isMobile ? tempFilters : { categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, colorFilter, stateFilter, selectedFeatures, featureSearch };
     const setState = (updater: (prevState: typeof state) => typeof state) => {
         if (isMobile) {
             setTempFilters(updater as any);
@@ -382,23 +397,30 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             if (newState.makeFilter !== makeFilter) { setMakeFilter(newState.makeFilter); setModelFilter(''); }
             if (newState.modelFilter !== modelFilter) setModelFilter(newState.modelFilter);
             if (newState.priceRange !== priceRange) setPriceRange(newState.priceRange);
+            if (newState.mileageRange !== mileageRange) setMileageRange(newState.mileageRange);
+            if (newState.fuelTypeFilter !== fuelTypeFilter) setFuelTypeFilter(newState.fuelTypeFilter);
             if (newState.yearFilter !== yearFilter) setYearFilter(newState.yearFilter);
             if (newState.colorFilter !== colorFilter) setColorFilter(newState.colorFilter);
-            if (newState.locationFilter !== locationFilter) setLocationFilter(newState.locationFilter);
+            if (newState.stateFilter !== stateFilter) setStateFilter(newState.stateFilter);
             if (newState.selectedFeatures !== selectedFeatures) setSelectedFeatures(newState.selectedFeatures);
             if (newState.featureSearch !== featureSearch) setFeatureSearch(newState.featureSearch);
         }
     };
 
-    const handlePriceChangeLocal = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>, rangeType: 'price' | 'mileage') => {
         const { name, value } = e.target;
         const val = parseInt(value, 10);
+        const minVal = rangeType === 'price' ? MIN_PRICE : MIN_MILEAGE;
+        const maxVal = rangeType === 'price' ? MAX_PRICE : MAX_MILEAGE;
+
         setState(prev => {
-            const newRange = { ...prev.priceRange, [name]: val };
+            const currentRange = rangeType === 'price' ? prev.priceRange : prev.mileageRange;
+            const newRange = { ...currentRange, [name]: val };
             if (newRange.min > newRange.max) {
-                return { ...prev, priceRange: name === 'min' ? { ...newRange, max: newRange.min } : { ...newRange, min: newRange.max } };
+                 if (name === 'min') newRange.max = newRange.min;
+                 else newRange.min = newRange.max;
             }
-            return { ...prev, priceRange: newRange };
+            return rangeType === 'price' ? { ...prev, priceRange: newRange } : { ...prev, mileageRange: newRange };
         });
     };
     
@@ -441,12 +463,33 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
                     <span>₹{state.priceRange.max.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="relative h-8 flex items-center">
-                    <input name="min" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={state.priceRange.min} onChange={handlePriceChangeLocal} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
-                    <input name="max" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={state.priceRange.max} onChange={handlePriceChangeLocal} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                    <input name="min" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={state.priceRange.min} onChange={(e) => handleRangeChange(e, 'price')} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                    <input name="max" type="range" min={MIN_PRICE} max={MAX_PRICE} step="10000" value={state.priceRange.max} onChange={(e) => handleRangeChange(e, 'price')} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
                     <div className="relative w-full h-1.5 bg-brand-gray-200 dark:bg-brand-gray-600 rounded-full">
                         <div className="absolute h-1.5 bg-brand-blue rounded-full" style={{ left: `${((state.priceRange.min - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%`, right: `${100 - ((state.priceRange.max - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100}%` }}></div>
                     </div>
                 </div>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-2">Mileage (kms)</label>
+                <div className="flex justify-between items-center text-xs text-brand-gray-600 dark:text-brand-gray-400">
+                    <span>{state.mileageRange.min.toLocaleString('en-IN')}</span>
+                    <span>{state.mileageRange.max.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="relative h-8 flex items-center">
+                    <input name="min" type="range" min={MIN_MILEAGE} max={MAX_MILEAGE} step="1000" value={state.mileageRange.min} onChange={(e) => handleRangeChange(e, 'mileage')} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                    <input name="max" type="range" min={MIN_MILEAGE} max={MAX_MILEAGE} step="1000" value={state.mileageRange.max} onChange={(e) => handleRangeChange(e, 'mileage')} className="absolute w-full h-1.5 bg-transparent appearance-none pointer-events-none z-10 slider-thumb" />
+                    <div className="relative w-full h-1.5 bg-brand-gray-200 dark:bg-brand-gray-600 rounded-full">
+                        <div className="absolute h-1.5 bg-brand-blue rounded-full" style={{ left: `${((state.mileageRange.min - MIN_MILEAGE) / (MAX_MILEAGE - MIN_MILEAGE)) * 100}%`, right: `${100 - ((state.mileageRange.max - MIN_MILEAGE) / (MAX_MILEAGE - MIN_MILEAGE)) * 100}%` }}></div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label htmlFor="fuel-type-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Fuel Type</label>
+                <select id="fuel-type-filter" value={state.fuelTypeFilter} onChange={(e) => setState(p => ({...p, fuelTypeFilter: e.target.value}))} className={formElementClass}>
+                    <option value="">Any Fuel Type</option>
+                    {FUEL_TYPES.map(fuel => <option key={fuel} value={fuel}>{fuel}</option>)}
+                </select>
             </div>
             <div>
                 <label htmlFor="year-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Year</label>
@@ -463,10 +506,10 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
                 </select>
             </div>
             <div>
-                <label htmlFor="location-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Location</label>
-                <select id="location-filter" value={state.locationFilter} onChange={(e) => setState(p => ({...p, locationFilter: e.target.value}))} className={formElementClass}>
-                    <option value="">Any Location</option>
-                    {uniqueLocations.map(location => <option key={location} value={location}>{location}</option>)}
+                <label htmlFor="state-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">State</label>
+                <select id="state-filter" value={state.stateFilter} onChange={(e) => setState(p => ({...p, stateFilter: e.target.value}))} className={formElementClass}>
+                    <option value="">Any State</option>
+                    {uniqueStates.map(st => <option key={st.code} value={st.code}>{st.name}</option>)}
                 </select>
             </div>
             <div className="relative" ref={isMobile ? mobileFeaturesFilterRef : featuresFilterRef}>

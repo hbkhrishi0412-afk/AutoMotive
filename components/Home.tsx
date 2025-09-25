@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { Vehicle, VehicleCategory, View } from '../types';
 import { View as ViewEnum, VehicleCategory as CategoryEnum } from '../types';
@@ -60,7 +61,7 @@ const FeaturedVehicleCard: React.FC<Pick<HomeProps, 'onSelectVehicle' | 'onToggl
         className="bg-white dark:bg-brand-gray-dark/50 backdrop-blur-sm border border-brand-gray-200 dark:border-brand-gray-700 rounded-2xl overflow-hidden group cursor-pointer transition-all duration-300 hover:border-brand-blue hover:shadow-glow hover:-translate-y-2"
       >
         <div className="relative overflow-hidden">
-          <img className="w-full h-48 sm:h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} />
+          <img className="w-full h-48 sm:h-56 object-cover group-hover:scale-105 transition-transform duration-500 ease-in-out" src={vehicle.images[0]} alt={`${vehicle.make} ${vehicle.model}`} loading="lazy" />
           <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/40 to-transparent"></div>
           <div className="absolute top-3 right-3">
               <button
@@ -172,12 +173,17 @@ const Home: React.FC<HomeProps> = ({ onSearch, onSelectCategory, featuredVehicle
         <>
             {/* Hero Section */}
             <section className="relative h-screen flex items-center justify-center text-center px-4 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-main dark:bg-gradient-main-dark z-0"></div>
-                <div className="absolute inset-0 bg-gradient-radial from-transparent to-black/5 dark:to-black/30 z-10"></div>
+                <div className="absolute inset-0 w-full h-full z-0">
+                    <video autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover">
+                        <source src="https://cdn.coverr.co/videos/coverr-a-car-driving-on-a-california-highway-3149/1080p.mp4" type="video/mp4" />
+                        Your browser does not support the video tag.
+                    </video>
+                    <div className="absolute inset-0 bg-black/60"></div>
+                </div>
 
                 <div className="relative z-20 space-y-6 animate-fade-in-up">
-                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-brand-gray-900 dark:text-white">The Future of Motion</h1>
-                    <p className="text-lg md:text-xl max-w-3xl mx-auto text-brand-gray-600 dark:text-brand-gray-300">Discover a curated collection of premium vehicles, powered by cutting-edge AI for a seamless journey.</p>
+                    <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-white" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.7)' }}>The Future of Motion</h1>
+                    <p className="text-lg md:text-xl max-w-3xl mx-auto text-gray-200" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.7)' }}>Discover a curated collection of premium vehicles, powered by cutting-edge AI for a seamless journey.</p>
                     <div className="mt-8 max-w-xl mx-auto">
                         <div className="flex rounded-full shadow-2xl bg-white/80 dark:bg-black/30 backdrop-blur-sm border border-brand-gray-300 dark:border-white/20 p-2">
                              <input

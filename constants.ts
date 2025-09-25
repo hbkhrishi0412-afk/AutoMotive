@@ -1,5 +1,6 @@
-import type { Vehicle, User } from './types';
-import { VehicleCategory } from './types';
+import type { Vehicle, User, PlanDetails, FAQItem, SupportTicket } from './types';
+import { VehicleCategory, type SubscriptionPlan } from './types';
+import { VEHICLE_DATA } from './components/vehicleData';
 
 // Helper to generate past dates
 const daysAgo = (days: number): string => {
@@ -8,478 +9,188 @@ const daysAgo = (days: number): string => {
     return date.toISOString();
 };
 
+export const INSPECTION_SERVICE_FEE = 2500; // Price for a certified inspection report
+
+export const PLAN_DETAILS: Record<SubscriptionPlan, PlanDetails> = {
+    free: {
+        id: 'free',
+        name: 'Free',
+        price: 0,
+        listingLimit: 1,
+        featuredCredits: 0,
+        features: [
+            '1 Active Listing',
+            'Basic Seller Profile',
+            'Standard Support',
+        ],
+    },
+    pro: {
+        id: 'pro',
+        name: 'Pro',
+        price: 1999,
+        listingLimit: 10,
+        featuredCredits: 2,
+        isMostPopular: true,
+        features: [
+            '10 Active Listings',
+            '2 Featured Credits/month',
+            'Enhanced Seller Profile',
+            'Performance Analytics',
+            'Priority Support',
+        ],
+    },
+    premium: {
+        id: 'premium',
+        name: 'Premium',
+        price: 4999,
+        listingLimit: 'unlimited',
+        featuredCredits: 5,
+        features: [
+            'Unlimited Active Listings',
+            '5 Featured Credits/month',
+            'AI Listing Assistant',
+            'Advanced Analytics',
+            'Dedicated Support',
+        ],
+    },
+};
+
+export const INDIAN_STATES = [
+    { name: 'Andaman & Nicobar Islands', code: 'AN' }, { name: 'Andhra Pradesh', code: 'AP' },
+    { name: 'Arunachal Pradesh', code: 'AR' }, { name: 'Assam', code: 'AS' }, { name: 'Bihar', code: 'BR' },
+    { name: 'Chandigarh', code: 'CH' }, { name: 'Chhattisgarh', code: 'CG' },
+    { name: 'Dadra & Nagar Haveli and Daman & Diu', code: 'DD' }, { name: 'Delhi', code: 'DL' },
+    { name: 'Goa', code: 'GA' }, { name: 'Gujarat', code: 'GJ' }, { name: 'Haryana', code: 'HR' },
+    { name: 'Himachal Pradesh', code: 'HP' }, { name: 'Jammu & Kashmir', code: 'JK' },
+    { name: 'Jharkhand', code: 'JH' }, { name: 'Karnataka', code: 'KA' }, { name: 'Kerala', code: 'KL' },
+    { name: 'Ladakh', code: 'LA' }, { name: 'Lakshadweep', code: 'LD' }, { name: 'Madhya Pradesh', code: 'MP' },
+    { name: 'Maharashtra', code: 'MH' }, { name: 'Manipur', code: 'MN' }, { name: 'Meghalaya', code: 'ML' },
+    { name: 'Mizoram', code: 'MZ' }, { name: 'Nagaland', code: 'NL' }, { name: 'Odisha', code: 'OR' },
+    { name: 'Puducherry', code: 'PY' }, { name: 'Punjab', code: 'PB' }, { name: 'Rajasthan', code: 'RJ' },
+    { name: 'Sikkim', code: 'SK' }, { name: 'Tamil Nadu', code: 'TN' }, { name: 'Telangana', code: 'TS' },
+    { name: 'Tripura', code: 'TR' }, { name: 'Uttar Pradesh', code: 'UP' }, { name: 'Uttarakhand', code: 'UK' },
+    { name: 'West Bengal', code: 'WB' },
+];
+
+export const CITIES_BY_STATE: Record<string, string[]> = {
+    'AP': ['Visakhapatnam', 'Vijayawada', 'Guntur'], 'AR': ['Itanagar'], 'AS': ['Guwahati', 'Dibrugarh'],
+    'BR': ['Patna', 'Gaya'], 'CG': ['Raipur', 'Bhilai'], 'GA': ['Panaji', 'Margao'],
+    'GJ': ['Ahmedabad', 'Surat', 'Vadodara'], 'HR': ['Gurugram', 'Faridabad', 'Chandigarh'],
+    'HP': ['Shimla', 'Manali'], 'JH': ['Ranchi', 'Jamshedpur'], 'KA': ['Bengaluru', 'Mysuru', 'Mangaluru'],
+    'KL': ['Kochi', 'Thiruvananthapuram', 'Kozhikode'], 'MP': ['Indore', 'Bhopal', 'Jabalpur'],
+    'MH': ['Mumbai', 'Pune', 'Nagpur'], 'MN': ['Imphal'], 'ML': ['Shillong'], 'MZ': ['Aizawl'],
+    'NL': ['Kohima'], 'OR': ['Bhubaneswar', 'Cuttack'], 'PB': ['Ludhiana', 'Amritsar'],
+    'RJ': ['Jaipur', 'Jodhpur', 'Udaipur'], 'SK': ['Gangtok'], 'TN': ['Chennai', 'Coimbatore', 'Madurai'],
+    'TS': ['Hyderabad', 'Warangal'], 'TR': ['Agartala'], 'UP': ['Lucknow', 'Kanpur', 'Noida'],
+    'UK': ['Dehradun', 'Haridwar'], 'WB': ['Kolkata', 'Howrah'], 'DL': ['New Delhi'],
+    'JK': ['Srinagar', 'Jammu'], 'LA': ['Leh'], 'AN': ['Port Blair'], 'CH': ['Chandigarh'],
+    'DD': ['Daman'], 'LD': ['Kavaratti'], 'PY': ['Puducherry'],
+};
+
 export const MOCK_USERS: User[] = [
-    { name: 'Mock Seller', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active', createdAt: daysAgo(30), dealershipName: 'Prestige Motors', bio: 'Specializing in luxury and performance electric vehicles since 2020.', logoUrl: 'https://i.pravatar.cc/100?u=seller', isVerified: true },
+    { name: 'Prestige Motors', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active', createdAt: daysAgo(30), dealershipName: 'Prestige Motors', bio: 'Specializing in luxury and performance electric vehicles since 2020.', logoUrl: 'https://i.pravatar.cc/100?u=seller', isVerified: true, subscriptionPlan: 'premium', featuredCredits: 5 },
     { name: 'Mock Customer', email: 'customer@test.com', password: 'password', mobile: '555-987-6543', role: 'customer', status: 'active', createdAt: daysAgo(15) },
     { name: 'Mock Admin', email: 'admin@test.com', password: 'password', mobile: '111-222-3333', role: 'admin', status: 'active', createdAt: daysAgo(100) },
     { name: 'Jane Doe', email: 'jane.doe@customer.com', password: 'password', mobile: '555-111-2222', role: 'customer', status: 'active', createdAt: daysAgo(5) },
-    { name: 'John Smith', email: 'john.smith@seller.com', password: 'password', mobile: '555-333-4444', role: 'seller', status: 'inactive', createdAt: daysAgo(60) },
+    { name: 'Reliable Rides', email: 'john.smith@seller.com', password: 'password', mobile: '555-333-4444', role: 'seller', status: 'active', createdAt: daysAgo(60), dealershipName: 'Reliable Rides', bio: 'Your trusted source for pre-owned family cars and SUVs.', logoUrl: 'https://i.pravatar.cc/100?u=johnsmith', isVerified: false, subscriptionPlan: 'pro', featuredCredits: 2 },
+    { name: 'Speedy Auto', email: 'speedy@auto.com', password: 'password', mobile: '555-555-1111', role: 'seller', status: 'active', createdAt: daysAgo(90), dealershipName: 'Speedy Auto', bio: 'Performance and sports cars for the enthusiast.', logoUrl: 'https://i.pravatar.cc/100?u=speedy', isVerified: true, subscriptionPlan: 'pro', featuredCredits: 1 },
+    { name: 'Eco Drive', email: 'eco@drive.com', password: 'password', mobile: '555-222-5555', role: 'seller', status: 'active', createdAt: daysAgo(45), dealershipName: 'Eco Drive', bio: 'The best deals on electric and hybrid vehicles.', logoUrl: 'https://i.pravatar.cc/100?u=eco', isVerified: false, subscriptionPlan: 'free', featuredCredits: 0 },
 
 ];
 
-export const MOCK_VEHICLES: Vehicle[] = [
-  // Four Wheelers
-  {
-    id: 1,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Tata',
-    model: 'Nexon EV',
-    variant: 'Empowered',
-    year: 2023,
-    price: 1650000,
-    mileage: 15000,
-    images: ['https://picsum.photos/seed/nexon1/800/600', 'https://picsum.photos/seed/nexon2/800/600'],
-    features: ['Sunroof', 'Touchscreen Infotainment', 'Automatic Climate Control', 'Ziptron Technology', 'Alloy Wheels'],
-    description: 'A stylish and powerful compact electric SUV, perfect for city driving and weekend getaways.',
-    sellerEmail: 'seller@test.com',
-    engine: 'Permanent Magnet Synchronous Motor',
-    transmission: 'Automatic',
-    fuelType: 'Electric',
-    fuelEfficiency: '325 km range',
-    color: 'Signature Teal Blue',
-    status: 'published' as 'published',
-    isFeatured: true,
-    views: 1850,
-    inquiriesCount: 22,
-    isFlagged: false,
-    registrationYear: 2023,
-    insuranceValidity: 'Aug 2026',
-    insuranceType: 'Comprehensive',
-    rto: 'MH01',
-    location: 'Mumbai, MH',
-    noOfOwners: 1,
-    displacement: 'N/A',
-    groundClearance: '205 mm',
-    bootSpace: '350 litres',
-    qualityReport: {
-      summary: 'This vehicle has undergone a 200-point inspection and is in excellent condition. All core structures are intact, and it has passed all mechanical and electrical checks. Minor cosmetic scratches on the rear bumper have been professionally repainted.',
-      fixesDone: ['Full interior and exterior detailing', 'AC filter replaced', 'Brake pads checked and cleaned'],
-    },
-  },
-  {
-    id: 2,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Hyundai',
-    model: 'Creta',
-    variant: 'SX(O)',
-    year: 2022,
-    price: 1400000,
-    mileage: 28000,
-    images: ['https://picsum.photos/seed/creta1/800/600', 'https://picsum.photos/seed/creta2/800/600'],
-    features: ['Panoramic Sunroof', 'Bose Premium Sound System', 'Ventilated Front Seats', 'BlueLink Connectivity'],
-    description: 'The undisputed king of SUVs, offering a premium experience with robust performance.',
-    sellerEmail: 'seller@test.com',
-    engine: '1.5L MPi Petrol',
-    transmission: 'CVT',
-    fuelType: 'Petrol',
-    fuelEfficiency: '17 KMPL',
-    color: 'Phantom Black',
-    status: 'published' as 'published',
-    isFeatured: false,
-    views: 2200,
-    inquiriesCount: 18,
-    isFlagged: false,
-    registrationYear: 2022,
-    insuranceValidity: 'Mar 2025',
-    insuranceType: 'Third Party',
-    rto: 'DL3C',
-    location: 'Delhi, DL',
-    noOfOwners: 1,
-    displacement: '1497 cc',
-    groundClearance: '190 mm',
-    bootSpace: '433 litres',
-    qualityReport: {
-      summary: 'Well-maintained vehicle with a clean service record. Passed all major inspection points. The tires have approximately 70% life remaining.',
-      fixesDone: ['Oil and filter change recently done', 'Wheel alignment and balancing'],
-    },
-  },
-  {
-    id: 3,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Maruti Suzuki',
-    model: 'Swift',
-    variant: 'ZXi+',
-    year: 2023,
-    price: 850000,
-    mileage: 9000,
-    images: ['https://picsum.photos/seed/swift1/800/600', 'https://picsum.photos/seed/swift2/800/600'],
-    features: ['Cruise Control', 'SmartPlay Studio', 'Push Start-Stop Button', 'Sporty Alloy Wheels'],
-    description: 'India\'s favorite hatchback, known for its peppy performance and excellent fuel efficiency.',
-    sellerEmail: 'seller@test.com',
-    engine: '1.2L DualJet Petrol',
-    transmission: 'AGS (Automatic)',
-    fuelType: 'Petrol',
-    fuelEfficiency: '22.5 KMPL',
-    color: 'Solid Fire Red',
-    status: 'published' as 'published',
-    isFeatured: false,
-    views: 1100,
-    inquiriesCount: 15,
-    isFlagged: true,
-    registrationYear: 2023,
-    insuranceValidity: 'Oct 2026',
-    insuranceType: 'Comprehensive',
-    rto: 'KA05',
-    location: 'Bengaluru, KA',
-    noOfOwners: 1,
-    displacement: '1197 cc',
-    groundClearance: '163 mm',
-    bootSpace: '268 litres',
-    qualityReport: {
-      summary: 'Almost brand new condition. No mechanical issues found. The interior is spotless and non-smoker owned. First service completed at an authorized service center.',
-      fixesDone: ['Teflon coating applied'],
-    },
-  },
-  {
-    id: 4,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Mahindra',
-    model: 'XUV700',
-    variant: 'AX7L',
-    year: 2022,
-    price: 2200000,
-    mileage: 21000,
-    images: ['https://picsum.photos/seed/xuv1/800/600', 'https://picsum.photos/seed/xuv2/800/600'],
-    features: ['ADAS', 'Dual HD Superscreen', 'Skyroof', 'Sony 3D Sound System'],
-    description: 'A technologically advanced and powerful SUV built to thrill.',
-    sellerEmail: 'john.smith@seller.com',
-    engine: '2.0L Turbo Petrol',
-    transmission: '6-Speed Automatic',
-    fuelType: 'Petrol',
-    fuelEfficiency: '15 KMPL',
-    color: 'Midnight Black',
-    status: 'published' as 'published',
-    isFeatured: false,
-    views: 1950,
-    inquiriesCount: 25,
-    isFlagged: false,
-    registrationYear: 2022,
-    insuranceValidity: 'Jan 2025',
-    insuranceType: 'Comprehensive',
-    rto: 'TN10',
-    location: 'Chennai, TN',
-    noOfOwners: 1,
-    displacement: '1999 cc',
-    groundClearance: '200 mm',
-    bootSpace: 'N/A (3rd row up)',
-    qualityReport: {
-      summary: 'Excellent condition with full company service history. ADAS features fully functional. No major dents or scratches on the body. A perfect family SUV.',
-      fixesDone: ['Software update for infotainment system completed', 'New floor mats installed'],
-    },
-  },
-  {
-    id: 5,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Kia',
-    model: 'Seltos',
-    variant: 'GTX+',
-    year: 2023,
-    price: 1550000,
-    mileage: 12000,
-    images: ['https://picsum.photos/seed/seltos1/800/600', 'https://picsum.photos/seed/seltos2/800/600'],
-    features: ['10.25-inch Touchscreen', 'Air Purifier', 'Heads-Up Display', 'Ambient Lighting'],
-    description: 'A feature-packed SUV with a bold design that turns heads.',
-    sellerEmail: 'john.smith@seller.com',
-    engine: '1.5L CRDi VGT Diesel',
-    transmission: '6-Speed Automatic',
-    fuelType: 'Diesel',
-    fuelEfficiency: '18 KMPL',
-    color: 'Intelligency Blue',
-    status: 'published' as 'published',
-    isFeatured: false,
-    views: 1650,
-    inquiriesCount: 11,
-    isFlagged: false,
-    registrationYear: 2023,
-    insuranceValidity: 'Jun 2026',
-    insuranceType: 'Comprehensive',
-    rto: 'MH12',
-    location: 'Pune, MH',
-    noOfOwners: 1,
-    displacement: '1493 cc',
-    groundClearance: '190 mm',
-    bootSpace: '433 litres',
-    qualityReport: {
-      summary: 'Like-new condition. The vehicle is under manufacturer warranty. All features are working perfectly. A great opportunity to own a top-end model.',
-      fixesDone: [],
-    },
-  },
-  {
-    id: 6,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Honda',
-    model: 'City',
-    variant: 'ZX',
-    year: 2024,
-    price: 1300000,
-    mileage: 5000,
-    images: ['https://picsum.photos/seed/city1/800/600', 'https://picsum.photos/seed/city2/800/600'],
-    features: ['LaneWatch Camera', 'Full LED Headlamps', 'Electric Sunroof', '8-speaker sound system'],
-    description: 'The quintessential sedan that combines luxury, comfort, and a refined driving experience.',
-    sellerEmail: 'seller@test.com',
-    engine: '1.5L i-VTEC Petrol',
-    transmission: 'CVT',
-    fuelType: 'Petrol',
-    fuelEfficiency: '18.4 KMPL',
-    color: 'Golden Brown Metallic',
-    status: 'published' as 'published',
-    isFeatured: true,
-    views: 980,
-    inquiriesCount: 9,
-    isFlagged: false,
-    registrationYear: 2024,
-    insuranceValidity: 'Feb 2027',
-    insuranceType: 'Comprehensive',
-    rto: 'UP16',
-    location: 'Noida, UP',
-    noOfOwners: 1,
-    displacement: '1498 cc',
-    groundClearance: '165 mm',
-    bootSpace: '506 litres',
-    qualityReport: {
-      summary: 'Showroom condition vehicle with very low mileage. Still has the new car smell. No issues whatsoever. Ready for immediate delivery.',
-      fixesDone: [],
-    },
-  },
-  {
-    id: 7,
-    category: VehicleCategory.FOUR_WHEELER,
-    make: 'Toyota',
-    model: 'Fortuner',
-    variant: 'Legender',
-    year: 2021,
-    price: 3500000,
-    mileage: 45000,
-    images: ['https://picsum.photos/seed/fortuner1/800/600', 'https://picsum.photos/seed/fortuner2/800/600'],
-    features: ['4x4 Capability', 'Leather Seats', 'JBL Speakers', 'Ventilated Seats'],
-    description: 'The legendary SUV known for its commanding road presence and unbeatable reliability.',
-    sellerEmail: 'seller@test.com',
-    engine: '2.8L Diesel',
-    transmission: '6-Speed Automatic',
-    fuelType: 'Diesel',
-    fuelEfficiency: '10 KMPL',
-    color: 'Sparkling Black Crystal Shine',
-    status: 'sold' as 'sold',
-    isFeatured: false,
-    views: 3500,
-    inquiriesCount: 40,
-    isFlagged: false,
-    registrationYear: 2021,
-    insuranceValidity: 'Expired',
-    insuranceType: 'Comprehensive',
-    rto: 'HR26',
-    location: 'Gurugram, HR',
-    noOfOwners: 2,
-    displacement: '2755 cc',
-    groundClearance: '225 mm',
-    bootSpace: '296 litres',
-    qualityReport: {
-      summary: 'A rugged and reliable Fortuner. Mechanically sound with some signs of wear and tear consistent with its age and mileage. The 4x4 system is fully operational.',
-      fixesDone: ['New battery installed', 'Replaced front brake pads'],
-    },
-  },
-
-  // Two Wheelers - Adding new fields to a few for demonstration
-  ...Array.from({ length: 10 }, (_, i) => {
-    const bikes = [
-        { make: 'Hero', model: 'Splendor Plus', price: 75000, mileage: 8000, fuel: '65 KMPL', features: ['i3S Technology', 'Alloy Wheels'], location: 'Jaipur, RJ' },
-        { make: 'Honda', model: 'Activa 6G', price: 80000, mileage: 12000, fuel: '50 KMPL', features: ['Silent Start', 'Telescopic Suspension'], location: 'Ahmedabad, GJ' },
-        { make: 'Royal Enfield', model: 'Classic 350', price: 210000, mileage: 5000, fuel: '35 KMPL', features: ['ABS', 'Tripper Navigation'], location: 'Chandigarh, CH' },
-        { make: 'TVS', model: 'Jupiter 125', price: 90000, mileage: 7000, fuel: '55 KMPL', features: ['External Fuel Fill', 'Large Underseat Storage'], location: 'Hyderabad, TS' },
-        { make: 'Bajaj', model: 'Pulsar NS200', price: 140000, mileage: 15000, fuel: '40 KMPL', features: ['Liquid Cooling', 'Perimeter Frame'], location: 'Pune, MH' },
-        { make: 'Yamaha', model: 'MT-15', price: 165000, mileage: 9000, fuel: '45 KMPL', features: ['Bi-Functional LED', 'Assist & Slipper Clutch'], location: 'Bengaluru, KA' },
-        { make: 'Ola', model: 'S1 Pro', price: 130000, mileage: 6000, fuel: '180 km range', features: ['Hypermode', 'Large Touchscreen'], location: 'Mumbai, MH' },
-        { make: 'Ather', model: '450X', price: 150000, mileage: 11000, fuel: '146 km range', features: ['Warp Mode', 'Google Maps'], location: 'Delhi, DL' },
-        { make: 'Suzuki', model: 'Access 125', price: 85000, mileage: 18000, fuel: '52 KMPL', features: ['Bluetooth Console', 'Eco Assist'], location: 'Kolkata, WB' },
-        { make: 'KTM', model: 'Duke 200', price: 190000, mileage: 13000, fuel: '33 KMPL', features: ['USD Forks', 'Supermoto ABS'], location: 'Chennai, TN' },
-    ];
-    const bike = bikes[i];
-    return {
-        id: 100 + i,
-        category: VehicleCategory.TWO_WHEELER,
-        make: bike.make,
-        model: bike.model,
-        year: 2022,
-        price: bike.price,
-        mileage: bike.mileage,
-        images: [`https://picsum.photos/seed/bike${i+1}/800/600`],
-        features: bike.features,
-        description: `A reliable and efficient ${bike.model} for daily commutes and city rides.`,
-        sellerEmail: 'seller@test.com',
-        engine: '100-350cc',
-        transmission: 'Manual/Automatic',
-        fuelType: bike.fuel.includes('km') ? 'Electric' : 'Petrol',
-        fuelEfficiency: bike.fuel,
-        color: 'Various',
-        status: 'published' as 'published',
-        isFeatured: i < 2,
-        // Adding new fields only to the first two bikes for brevity
-        registrationYear: 2022,
-        insuranceValidity: i < 2 ? 'Dec 2024' : 'N/A',
-        insuranceType: i < 2 ? 'Third Party' : 'N/A',
-        rto: i < 2 ? 'MH14' : 'N/A',
-        location: bike.location,
-        noOfOwners: 1,
-        displacement: i === 0 ? '97.2 cc' : '124 cc',
-        groundClearance: 'N/A',
-        bootSpace: 'N/A',
-        qualityReport: {
-          summary: 'Good condition for daily use.',
-          fixesDone: i === 0 ? ['Regular servicing done'] : [],
-        },
-    };
-  }),
-
-  // Other vehicle types with default new fields for brevity
-  // Three Wheelers
-  ...Array.from({ length: 10 }, (_, i) => {
-    const autos = [
-      { make: 'Bajaj', model: 'RE Compact', fuel: 'CNG', use: 'Passenger', location: 'Surat, GJ' },
-      { make: 'Piaggio', model: 'Ape City', fuel: 'LPG', use: 'Passenger', location: 'Lucknow, UP' },
-      { make: 'Mahindra', model: 'Alfa DX', fuel: 'Diesel', use: 'Passenger', location: 'Indore, MP' },
-      { make: 'TVS', model: 'King Duramax', fuel: 'Petrol', use: 'Passenger', location: 'Nagpur, MH' },
-      { make: 'Bajaj', model: 'Maxima Z', fuel: 'Diesel', use: 'Cargo', location: 'Kanpur, UP' },
-      { make: 'Piaggio', model: 'Ape Xtra LDX', fuel: 'Diesel', use: 'Cargo', location: 'Patna, BR' },
-      { make: 'Mahindra', model: 'Treo Zor', fuel: 'Electric', use: 'Cargo', location: 'Delhi, DL' },
-      { make: 'Euler', model: 'HiLoad EV', fuel: 'Electric', use: 'Cargo', location: 'Mumbai, MH' },
-      { make: 'Atul', model: 'Gem Paxx', fuel: 'Diesel', use: 'Passenger', location: 'Rajkot, GJ' },
-      { make: 'Kinetic Green', model: 'Safar Smart', fuel: 'Electric', use: 'Passenger', location: 'Bhopal, MP' },
-    ];
-    const auto = autos[i];
-    return {
-        id: 200 + i,
-        category: VehicleCategory.THREE_WHEELER,
-        make: auto.make,
-        model: auto.model,
-        year: 2021,
-        price: 250000 + i * 10000,
-        mileage: 30000 + i * 2000,
-        images: [`https://picsum.photos/seed/auto${i+1}/800/600`],
-        features: ['Robust Build', 'High Load Capacity', 'Low Maintenance'],
-        description: `Durable and efficient ${auto.make} ${auto.model} for ${auto.use.toLowerCase()} transport.`,
-        sellerEmail: 'john.smith@seller.com',
-        engine: '400-600cc',
-        transmission: 'Manual',
-        fuelType: auto.fuel as any,
-        fuelEfficiency: auto.fuel === 'Electric' ? '80-100 km range' : '25-30 KMPL',
-        color: 'Yellow/Green',
-        status: 'published' as 'published',
-        isFeatured: false,
-        registrationYear: 2021, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: auto.location, noOfOwners: 2, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
-    };
-  }),
-
-  // Farm Vehicles
-  ...Array.from({ length: 10 }, (_, i) => {
-    const tractors = [
-        { make: 'Mahindra', model: 'Yuvo 575 DI', hp: 45, location: 'Ludhiana, PB' },
-        { make: 'John Deere', model: '5050 D', hp: 50, location: 'Hissar, HR' },
-        { make: 'Sonalika', model: 'DI 745 III', hp: 50, location: 'Hoshiarpur, PB' },
-        { make: 'Massey Ferguson', model: '241 DI', hp: 42, location: 'Bhopal, MP' },
-        { make: 'New Holland', model: '3630 TX', hp: 55, location: 'Noida, UP' },
-        { make: 'Escorts', model: 'Farmtrac 60', hp: 50, location: 'Faridabad, HR' },
-        { make: 'Swaraj', model: '744 FE', hp: 48, location: 'Mohali, PB' },
-        { make: 'Eicher', model: '380 Super DI', hp: 40, location: 'Alwar, RJ' },
-        { make: 'Kubota', model: 'MU4501', hp: 45, location: 'Pune, MH' },
-        { make: 'Powertrac', model: 'Euro 50', hp: 50, location: 'Faridabad, HR' },
-    ];
-    const tractor = tractors[i];
-    return {
-        id: 300 + i,
-        category: VehicleCategory.FARM,
-        make: tractor.make,
-        model: tractor.model,
-        year: 2020,
-        price: 600000 + i * 25000,
-        mileage: 1500 + i * 100, // Hours of operation
-        images: [`https://picsum.photos/seed/tractor${i+1}/800/600`],
-        features: ['Power Steering', 'Heavy Duty Axle', 'Oil Immersed Brakes', 'High Lift Capacity'],
-        description: `A powerful ${tractor.hp} HP ${tractor.make} tractor, built for all farming needs.`,
-        sellerEmail: 'seller@test.com',
-        engine: `${tractor.hp} HP Diesel`,
-        transmission: 'Manual with High/Low',
-        fuelType: 'Diesel',
-        fuelEfficiency: '5-7 Ltrs/Hr',
-        color: 'Red/Blue/Green',
-        status: 'published' as 'published',
-        isFeatured: i === 0,
-        registrationYear: 2020, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: tractor.location, noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
-    };
-  }),
-
-  // Commercial Vehicles
-  ...Array.from({ length: 10 }, (_, i) => {
-    const trucks = [
-        { make: 'Tata', model: 'Ace Gold', payload: '750 Kg', location: 'Mumbai, MH' },
-        { make: 'Ashok Leyland', model: 'Dost+', payload: '1.5 Tonne', location: 'Chennai, TN' },
-        { make: 'Mahindra', model: 'Bolero Pik-Up', payload: '1.7 Tonne', location: 'Nagpur, MH' },
-        { make: 'Maruti Suzuki', model: 'Super Carry', payload: '740 Kg', location: 'Delhi, DL' },
-        { make: 'Eicher', model: 'Pro 2049', payload: '2.5 Tonne', location: 'Pithampur, MP' },
-        { make: 'BharatBenz', model: '1015R', payload: '6 Tonne', location: 'Oragadam, TN' },
-        { make: 'Tata', model: '407 Gold SFC', payload: '2.25 Tonne', location: 'Jamshedpur, JH' },
-        { make: 'Force', model: 'Traveller 3050', payload: '12-Seater', location: 'Pithampur, MP' },
-        { make: 'Isuzu', model: 'D-Max', payload: '1.2 Tonne', location: 'Sri City, AP' },
-        { make: 'Tata', model: 'Winger', payload: '15-Seater', location: 'Pune, MH' },
-    ];
-    const truck = trucks[i];
-    return {
-        id: 400 + i,
-        category: VehicleCategory.COMMERCIAL,
-        make: truck.make,
-        model: truck.model,
-        year: 2022,
-        price: 800000 + i * 50000,
-        mileage: 50000 + i * 5000,
-        images: [`https://picsum.photos/seed/truck${i+1}/800/600`],
-        features: ['Power Steering', 'High Ground Clearance', 'Spacious Cabin'],
-        description: `Reliable ${truck.make} ${truck.model} with a payload of ${truck.payload}. Ideal for business.`,
-        sellerEmail: 'john.smith@seller.com',
-        engine: '2.5L Diesel',
-        transmission: 'Manual',
-        fuelType: 'Diesel',
-        fuelEfficiency: '12-15 KMPL',
-        color: 'White',
-        status: 'published' as 'published',
-        isFeatured: false,
-        registrationYear: 2022, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: truck.location, noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
-    };
-  }),
-
-  // Construction Vehicles
-  ...Array.from({ length: 10 }, (_, i) => {
-    const machines = [
-        { make: 'JCB', model: '3DX Backhoe Loader', location: 'Ballabgarh, HR' },
-        { make: 'CAT', model: '320D2 Excavator', location: 'Thiruvallur, TN' },
-        { make: 'L&T', model: '9020 Wheel Loader', location: 'Bengaluru, KA' },
-        { make: 'Tata Hitachi', model: 'EX 200LC Excavator', location: 'Kharagpur, WB' },
-        { make: 'CASE', model: '770 EX Magnum Backhoe', location: 'Pithampur, MP' },
-        { make: 'Komatsu', model: 'PC210-10M0 Excavator', location: 'Oragadam, TN' },
-        { make: 'Volvo', model: 'EC210D Excavator', location: 'Bengaluru, KA' },
-        { make: 'Mahindra', model: 'EarthMaster SX Backhoe', location: 'Chakan, MH' },
-        { make: 'ACE', model: 'AX 124 Backhoe', location: 'Faridabad, HR' },
-        { make: 'Hyundai', model: 'R215LC-7 Excavator', location: 'Chakan, MH' },
-    ];
-    const machine = machines[i];
-    return {
-        id: 500 + i,
-        category: VehicleCategory.CONSTRUCTION,
-        make: machine.make,
-        model: machine.model,
-        year: 2019,
-        price: 2500000 + i * 100000,
-        mileage: 4000 + i * 200, // Hours of operation
-        images: [`https://picsum.photos/seed/jcb${i+1}/800/600`],
-        features: ['AC Cabin', 'GPS Enabled', 'LiveLink Technology', 'Heavy Duty Buckets'],
-        description: `Well-maintained ${machine.make} ${machine.model} ready for heavy-duty work.`,
-        sellerEmail: 'seller@test.com',
-        engine: '76 HP Diesel Engine',
-        transmission: 'Powershift',
-        fuelType: 'Diesel',
-        fuelEfficiency: '8-12 Ltrs/Hr',
-        color: 'Yellow',
-        status: 'published' as 'published',
-        isFeatured: i === 0,
-        registrationYear: 2019, insuranceValidity: 'N/A', insuranceType: 'N/A', rto: 'N/A', location: machine.location, noOfOwners: 1, displacement: 'N/A', groundClearance: 'N/A', bootSpace: 'N/A',
-    };
-  }),
+export const MOCK_FAQS: FAQItem[] = [
+    { id: 1, question: "How do I list my car for sale?", answer: "Navigate to the 'Sell' section, log in or register as a seller, and follow the on-screen instructions to create a new vehicle listing. You'll need details like make, model, year, and photos.", category: "Selling" },
+    { id: 2, question: "What is AI Price Suggestion?", answer: "Our AI Price Suggestion tool analyzes your vehicle's details and compares them with current market listings to recommend a fair and competitive price, helping you sell faster.", category: "Selling" },
+    { id: 3, question: "How can I contact a seller?", answer: "On any vehicle detail page, you can use the 'Chat with Seller' button to start a direct conversation with the seller to ask questions or schedule a test drive.", category: "Buying" },
+    { id: 4, question: "Is my personal information secure?", answer: "Yes, we take data security very seriously. All personal information is encrypted and stored securely. We do not share your details with third parties without your consent.", category: "General" },
 ];
+
+export const MOCK_SUPPORT_TICKETS: SupportTicket[] = [
+    { id: 1, userEmail: 'customer@test.com', userName: 'Mock Customer', subject: 'Issue with chat', message: 'I am unable to see messages from a seller.', status: 'Open', createdAt: daysAgo(2), updatedAt: daysAgo(2), replies: [] },
+    { id: 2, userEmail: 'jane.doe@customer.com', userName: 'Jane Doe', subject: 'Payment failed for inspection', message: 'I tried to purchase a certified inspection report but my payment failed. My card is working fine elsewhere.', status: 'In Progress', createdAt: daysAgo(1), updatedAt: daysAgo(0), replies: [{ author: 'admin@test.com', message: 'We are looking into this issue and will get back to you shortly.', timestamp: daysAgo(0) }] },
+    { id: 3, userEmail: 'seller@test.com', userName: 'Prestige Motors', subject: 'How to feature a listing?', message: 'I have upgraded my plan but cannot find the option to feature my new listing.', status: 'Closed', createdAt: daysAgo(5), updatedAt: daysAgo(4), replies: [{ author: 'admin@test.com', message: 'You can feature a listing from your Seller Dashboard under the "My Listings" tab. There is a "Feature" button in the actions column.', timestamp: daysAgo(4) }] },
+];
+
+
+const COLORS = ['White', 'Black', 'Silver', 'Grey', 'Red', 'Blue', 'Brown', 'Beige'];
+const FEATURES = ['Sunroof', 'Touchscreen Infotainment', 'Automatic Climate Control', 'Alloy Wheels', 'Ventilated Seats', '360 Camera', 'ADAS', 'Wireless Charging', 'Cruise Control', 'LED Headlamps'];
+const TRANSMISSIONS = ['Automatic', 'Manual', 'CVT', 'DCT'];
+export const FUEL_TYPES = ['Petrol', 'Diesel', 'Electric', 'CNG', 'Hybrid'];
+
+const randomItem = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const randomNumber = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const generateMockVehicles = (count: number): Vehicle[] => {
+    const vehicles: Vehicle[] = [];
+    const sellers = MOCK_USERS.filter(u => u.role === 'seller');
+
+    for (let i = 1; i <= count; i++) {
+        const category = VehicleCategory.FOUR_WHEELER;
+        const make = randomItem(Object.keys(VEHICLE_DATA[category]));
+        const model = randomItem(Object.keys(VEHICLE_DATA[category][make]));
+        const variants = VEHICLE_DATA[category][make][model];
+        const variant = variants.length > 0 ? randomItem(variants) : undefined;
+        
+        const year = randomNumber(2015, new Date().getFullYear());
+        const mileage = randomNumber(5000, 120000);
+        const price = Math.round(randomNumber(400000, 4000000) / 5000) * 5000;
+        const seller = randomItem(sellers);
+        const state = randomItem(Object.keys(CITIES_BY_STATE));
+        const city = randomItem(CITIES_BY_STATE[state]);
+
+        const vehicle: Vehicle = {
+            id: i,
+            category,
+            make,
+            model,
+            variant,
+            year,
+            price,
+            mileage,
+            images: [`https://picsum.photos/seed/${make}${model}${i}/800/600`, `https://picsum.photos/seed/${make}${model}${i+count}/800/600`],
+            videoUrl: Math.random() > 0.7 ? 'https://cdn.coverr.co/videos/coverr-a-porsche-911-on-a-bridge-638/1080p.mp4' : undefined,
+            features: [...new Set(Array.from({ length: randomNumber(3, 7) }, () => randomItem(FEATURES)))],
+            description: `A well-maintained ${year} ${make} ${model} ${variant || ''}. Comes with features like ${randomItem(FEATURES)} and ${randomItem(FEATURES)}. Available in ${city}.`,
+            sellerEmail: seller.email,
+            engine: `${randomNumber(1, 2)}.${randomNumber(0, 9)}L ${randomItem(FUEL_TYPES)}`,
+            transmission: randomItem(TRANSMISSIONS),
+            fuelType: randomItem(FUEL_TYPES),
+            fuelEfficiency: `${randomNumber(12, 25)} KMPL`,
+            color: randomItem(COLORS),
+            status: Math.random() > 0.1 ? 'published' : 'sold',
+            isFeatured: Math.random() > 0.85,
+            views: randomNumber(100, 5000),
+            inquiriesCount: randomNumber(1, 50),
+            isFlagged: Math.random() > 0.98,
+            registrationYear: year,
+            insuranceValidity: `Aug ${year + 3}`,
+            insuranceType: 'Comprehensive',
+            rto: `${state}${randomNumber(1, 20).toString().padStart(2, '0')}`,
+            city,
+            state,
+            noOfOwners: randomNumber(1, 3),
+            displacement: `${randomNumber(900, 2500)} cc`,
+            groundClearance: `${randomNumber(160, 220)} mm`,
+            bootSpace: `${randomNumber(250, 550)} litres`,
+            certifiedInspection: Math.random() > 0.8 ? {
+                reportId: `AV-${Date.now()}-${i}`,
+                summary: 'This vehicle has passed our comprehensive 200-point inspection with flying colors. Key areas like engine, transmission, and brakes are in excellent condition. Minor cosmetic wear noted on the rear bumper, consistent with age. Overall, a reliable and well-maintained vehicle.',
+                date: daysAgo(randomNumber(5, 30)),
+                inspector: 'Ravi Kumar',
+                scores: { 'Engine': 92, 'Transmission': 95, 'Suspension': 88, 'Brakes': 91, 'Exterior': 85, 'Interior': 90 },
+                details: { 'Engine': 'No leaks or abnormal noises. OBD scan clear.', 'Exterior': 'Minor scuff on rear bumper. No signs of major bodywork.', 'Interior': 'Clean interior with all electronics functional.' }
+            } : null,
+            serviceRecords: [
+                { date: daysAgo(90), service: "General Service & Oil Change", mileage: mileage - 5000, location: `${city} Service Center` },
+                { date: daysAgo(400), service: "Brake Pad Replacement", mileage: mileage - 25000, location: `${city} Service Center` }
+            ],
+            accidentHistory: Math.random() > 0.9 ? [
+                { date: daysAgo(600), description: "Minor dent on front right fender, repaired and repainted.", severity: "Minor" }
+            ] : []
+        };
+        vehicles.push(vehicle);
+    }
+    return vehicles;
+};
+
+export const MOCK_VEHICLES: Vehicle[] = generateMockVehicles(250);

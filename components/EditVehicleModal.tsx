@@ -55,7 +55,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
             setFormData(prev => ({
                 ...prev,
                 qualityReport: {
-                    ...(prev.qualityReport!),
+                    summary: prev.qualityReport?.summary || '',
                     fixesDone: [...(prev.qualityReport?.fixesDone || []), fixInput.trim()]
                 }
             }));
@@ -67,7 +67,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
         setFormData(prev => ({
             ...prev,
             qualityReport: {
-                ...(prev.qualityReport!),
+                summary: prev.qualityReport?.summary || '',
                 fixesDone: (prev.qualityReport?.fixesDone || []).filter(f => f !== fixToRemove)
             }
         }));
@@ -76,11 +76,11 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
-            files.forEach(file => {
+            files.forEach((file: File) => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     if (typeof reader.result === 'string') {
-                        setFormData(prev => ({ ...prev, images: [...prev.images, reader.result as string] }));
+                        setFormData(prev => ({ ...prev, images: [...prev.images, reader.result] }));
                     }
                 };
                 reader.readAsDataURL(file);

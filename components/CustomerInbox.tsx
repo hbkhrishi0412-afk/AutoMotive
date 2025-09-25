@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import type { Conversation, User } from '../types';
+import type { Conversation, User, ChatMessage } from '../types';
 import ReadReceiptIcon from './ReadReceiptIcon';
 
 interface CustomerInboxProps {
   conversations: Conversation[];
-  onSendMessage: (vehicleId: number, messageText: string) => void;
+  onSendMessage: (vehicleId: number, messageText: string, type?: ChatMessage['type'], payload?: any) => void;
   onMarkAsRead: (conversationId: string) => void;
   users: User[];
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
@@ -24,6 +24,26 @@ const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
     </div>
 );
 
+const TestDriveRequestMessage: React.FC<{ msg: ChatMessage }> = ({ msg }) => {
+    const { date, time, status } = msg.payload || {};
+    const statusInfo = {
+        pending: { text: "Pending", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300" },
+        confirmed: { text: "Confirmed", color: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300" },
+        rejected: { text: "Declined", color: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300" },
+    };
+    return (
+        <div className={`p-3 border-l-4 rounded-lg bg-brand-gray-100 dark:bg-brand-gray-700/50 ${status === 'pending' ? 'border-yellow-500' : status === 'confirmed' ? 'border-green-500' : 'border-red-500'}`}>
+            <p className="font-semibold text-brand-gray-800 dark:text-brand-gray-100">Test Drive Request</p>
+            <p className="text-sm text-brand-gray-600 dark:text-brand-gray-300">Date: {date}</p>
+            <p className="text-sm text-brand-gray-600 dark:text-brand-gray-300">Time: {time}</p>
+            <div className="mt-2 flex items-center justify-between">
+                <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${statusInfo[status || 'pending'].color}`}>
+                    Status: {statusInfo[status || 'pending'].text}
+                </span>
+            </div>
+        </div>
+    );
+};
 
 const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMessage, onMarkAsRead, users, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent }) => {
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
@@ -127,7 +147,7 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                                         <p className="text-xs text-brand-gray-500 dark:text-brand-gray-400 truncate mt-1">
                                             {lastMessage && (
                                                 lastMessage.sender === 'user' ? (
-                                                    <span><span className="font-semibold">You: </span>{lastMessage.text}</span>
+                                                    <span><span className="font-semibold">You: </span>{lastMessage.type === 'test_drive_request' ? 'Test Drive Request' : lastMessage.text}</span>
                                                 ) : lastMessage.sender === 'seller' ? (
                                                     <span><span className="font-semibold">{getSellerName(conv.sellerId)}: </span>{lastMessage.text}</span>
                                                 ) : (
@@ -177,7 +197,7 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                                 {msg.sender !== 'system' && (
                                     <>
                                         <div className={`px-4 py-3 max-w-lg ${ msg.sender === 'user' ? 'bg-brand-blue text-white rounded-l-xl rounded-t-xl' : 'bg-brand-gray-200 dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 rounded-r-xl rounded-t-xl'}`}>
-                                            <p className="text-sm">{msg.text}</p>
+                                            {msg.type === 'test_drive_request' ? <TestDriveRequestMessage msg={msg} /> : <p className="text-sm">{msg.text}</p>}
                                         </div>
                                         <div className="text-xs text-brand-gray-400 mt-1 px-1 flex items-center">
                                             {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

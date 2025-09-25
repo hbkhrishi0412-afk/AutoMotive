@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
+import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData, SupportTicket, FAQItem, TicketReply } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
+import { PLAN_DETAILS, INSPECTION_SERVICE_FEE } from '../constants';
 
 interface AdminPanelProps {
     users: User[];
@@ -26,12 +27,20 @@ interface AdminPanelProps {
     vehicleData: VehicleData;
     onUpdateVehicleData: (newData: VehicleData) => void;
     onToggleVerifiedStatus: (email: string) => void;
+    supportTickets: SupportTicket[];
+    onUpdateSupportTicket: (ticket: SupportTicket) => void;
+    faqItems: FAQItem[];
+    onAddFaq: (faq: Omit<FAQItem, 'id'>) => void;
+    onUpdateFaq: (faq: FAQItem) => void;
+    onDeleteFaq: (id: number) => void;
 }
 
-type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings';
+type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings' | 'support' | 'faq';
 type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
+// FIX: Restrict sortable keys to prevent comparison errors on incompatible types.
+type SortableUserKey = 'name' | 'status';
 type SortConfig = {
-    key: keyof User;
+    key: SortableUserKey;
     direction: 'ascending' | 'descending';
 };
 
@@ -61,9 +70,9 @@ const TableContainer: React.FC<{ title: string; children: React.ReactNode; actio
 
 const SortableHeader: React.FC<{
     title: string;
-    sortKey: keyof User;
+    sortKey: SortableUserKey;
     sortConfig: SortConfig | null;
-    requestSort: (key: keyof User) => void;
+    requestSort: (key: SortableUserKey) => void;
 }> = ({ title, sortKey, sortConfig, requestSort }) => {
     const isSorted = sortConfig?.key === sortKey;
     const direction = isSorted ? sortConfig.direction : undefined;
@@ -603,11 +612,140 @@ const ModerationQueueView: React.FC<{
     );
 };
 
+// --- Support Ticket View ---
+const SupportTicketsView: React.FC<{
+    tickets: SupportTicket[];
+    onUpdateTicket: (ticket: SupportTicket) => void;
+    currentUser: User;
+}> = ({ tickets, onUpdateTicket, currentUser }) => {
+    const [statusFilter, setStatusFilter] = useState<'All' | SupportTicket['status']>('All');
+    const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
+    const [replyText, setReplyText] = useState('');
+
+    const filteredTickets = useMemo(() => {
+        const sorted = [...tickets].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        if (statusFilter === 'All') return sorted;
+        return sorted.filter(t => t.status === statusFilter);
+    }, [tickets, statusFilter]);
+
+    const handleReply = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!replyText.trim() || !selectedTicket) return;
+        
+        const newReply: TicketReply = {
+            author: currentUser.email,
+            message: replyText.trim(),
+            timestamp: new Date().toISOString(),
+        };
+
+        const updatedTicket: SupportTicket = {
+            ...selectedTicket,
+            replies: [...selectedTicket.replies, newReply],
+            status: 'In Progress' // Automatically move to 'In Progress' on reply
+        };
+
+        onUpdateTicket(updatedTicket);
+        setSelectedTicket(updatedTicket); // Update local view
+        setReplyText('');
+    };
+
+    const handleStatusChange = (newStatus: SupportTicket['status']) => {
+        if (!selectedTicket || selectedTicket.status === newStatus) return;
+        const updatedTicket = { ...selectedTicket, status: newStatus };
+        onUpdateTicket(updatedTicket);
+        setSelectedTicket(updatedTicket);
+    };
+    
+    const statusColor = (status: SupportTicket['status']) => {
+        switch (status) {
+            case 'Open': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300';
+            case 'In Progress': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300';
+            case 'Closed': return 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+        }
+    };
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-[400px_1fr] gap-6 h-[calc(100vh-200px)]">
+            {/* Ticket List */}
+            <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md flex flex-col">
+                <div className="p-2 border-b dark:border-gray-700">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Support Tickets</h2>
+                    <div className="flex gap-2">
+                        {(['All', 'Open', 'In Progress', 'Closed'] as const).map(status => (
+                            <button key={status} onClick={() => setStatusFilter(status)} className={`px-3 py-1 text-xs font-semibold rounded-full ${statusFilter === status ? 'bg-brand-blue text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}`}>
+                                {status}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <ul className="overflow-y-auto mt-2 flex-grow">
+                    {filteredTickets.map(ticket => (
+                        <li key={ticket.id}>
+                            <button onClick={() => setSelectedTicket(ticket)} className={`w-full text-left p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedTicket?.id === ticket.id ? 'bg-blue-50 dark:bg-blue-900/30' : ''}`}>
+                                <div className="flex justify-between items-start">
+                                    <p className="font-semibold text-sm truncate pr-2 text-gray-800 dark:text-gray-100">{ticket.subject}</p>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColor(ticket.status)}`}>{ticket.status}</span>
+                                </div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.userName} ({ticket.userEmail})</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Updated: {new Date(ticket.updatedAt).toLocaleString()}</p>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+
+            {/* Ticket Detail View */}
+            <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md flex flex-col">
+                {selectedTicket ? (
+                    <>
+                        <div className="p-2 border-b dark:border-gray-700">
+                             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">{selectedTicket.subject}</h3>
+                             <p className="text-sm text-gray-500 dark:text-gray-400">Ticket #{selectedTicket.id} from {selectedTicket.userName}</p>
+                        </div>
+                        <div className="flex-grow overflow-y-auto p-4 space-y-4 my-2">
+                            {/* Original Message */}
+                             <div className="bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg">
+                                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{selectedTicket.userName}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{new Date(selectedTicket.createdAt).toLocaleString()}</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedTicket.message}</p>
+                            </div>
+                            {/* Replies */}
+                            {[...selectedTicket.replies].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((reply, index) => (
+                                <div key={index} className={reply.author === currentUser.email ? 'bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg' : 'bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg'}>
+                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{reply.author === currentUser.email ? 'You (Admin)' : selectedTicket.userName}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{new Date(reply.timestamp).toLocaleString()}</p>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{reply.message}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-auto pt-4 border-t dark:border-gray-700">
+                             <form onSubmit={handleReply} className="space-y-2">
+                                <textarea value={replyText} onChange={e => setReplyText(e.target.value)} placeholder="Type your reply..." rows={3} className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600"></textarea>
+                                <div className="flex justify-between items-center">
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleStatusChange('Open')} disabled={selectedTicket.status === 'Open'} className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 disabled:opacity-50">Set Open</button>
+                                        <button onClick={() => handleStatusChange('In Progress')} disabled={selectedTicket.status === 'In Progress'} className="text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 disabled:opacity-50">Set In Progress</button>
+                                        <button onClick={() => handleStatusChange('Closed')} disabled={selectedTicket.status === 'Closed'} className="text-xs px-3 py-1 rounded-full bg-gray-200 text-gray-800 disabled:opacity-50">Set Closed</button>
+                                    </div>
+                                    <button type="submit" className="px-4 py-2 bg-brand-blue text-white rounded-md hover:bg-brand-blue-dark disabled:opacity-50" disabled={!replyText.trim()}>Send Reply</button>
+                                </div>
+                            </form>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex items-center justify-center h-full text-center">
+                        <p className="text-gray-500">Select a ticket to view details.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 
 // --- Main Admin Panel Component ---
 
-const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData, onToggleVerifiedStatus }) => {
+const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData, onToggleVerifiedStatus, supportTickets, onUpdateSupportTicket, faqItems, onAddFaq, onUpdateFaq, onDeleteFaq }) => {
     const [activeView, setActiveView] = useState<AdminView>('analytics');
     
     // State for User Management
@@ -642,6 +780,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         const listingsByMakeChartData = Object.entries(listingsByMake).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value);
         const moderationQueueCount = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
 
+        // New monetization metrics
+        const monthlySubscriptionRevenue = users
+            .filter(u => u.role === 'seller' && u.subscriptionPlan)
+            .reduce((total, user) => {
+                if (user.subscriptionPlan) {
+                    const plan = PLAN_DETAILS[user.subscriptionPlan];
+                    return total + (plan ? plan.price : 0);
+                }
+                return total;
+            }, 0);
+
+        const inspectionServiceRevenue = vehicles
+            .filter(v => v.certifiedInspection)
+            .length * INSPECTION_SERVICE_FEE;
+
+        const featuredListingsCount = vehicles.filter(v => v.isFeatured).length;
+
 
         return {
             totalSalesValue,
@@ -650,11 +805,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
             userRoleChartData,
             listingsByMakeChartData,
             moderationQueueCount,
+            monthlySubscriptionRevenue,
+            inspectionServiceRevenue,
+            featuredListingsCount,
+            openSupportTickets: supportTickets.filter(t => t.status === 'Open').length,
         };
-    }, [users, vehicles, conversations]);
+    }, [users, vehicles, conversations, supportTickets]);
 
     // --- User Management Logic ---
-    const requestSort = (key: keyof User) => {
+    const requestSort = (key: SortableUserKey) => {
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
             direction = 'descending';
@@ -693,8 +852,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
 
         if (sortConfig !== null) {
             filtered.sort((a, b) => {
-                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+                const valA = a[sortConfig.key];
+                const valB = b[sortConfig.key];
+                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
                 return 0;
             });
         }
@@ -723,8 +884,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard title="Total Users" value={users.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
                             <StatCard title="Total Vehicles" value={vehicles.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
-                             <StatCard title="Most Popular Make" value={analyticsData.mostPopularMake} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>} />
+                             <StatCard title="Open Support Tickets" value={analyticsData.openSupportTickets} onClick={() => setActiveView('support')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
                              <StatCard title="Moderation Queue" value={analyticsData.moderationQueueCount} onClick={() => setActiveView('moderation')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>} />
+                        </div>
+                        <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
+                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Monetization Analytics</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <StatCard 
+                                    title="Monthly Subscription Revenue" 
+                                    value={`₹${analyticsData.monthlySubscriptionRevenue.toLocaleString('en-IN')}`} 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>} 
+                                />
+                                <StatCard 
+                                    title="Featured Listings Active" 
+                                    value={analyticsData.featuredListingsCount} 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.522 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.522 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.522-4.674a1 1 0 00-.363-1.118L2.98 8.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.522-4.674z" /></svg>} 
+                                />
+                                <StatCard 
+                                    title="Inspection Service Revenue" 
+                                    value={`₹${analyticsData.inspectionServiceRevenue.toLocaleString('en-IN')}`} 
+                                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944A12.02 12.02 0 0012 22a12.02 12.02 0 009-1.056c.343-.343.672-.712.968-1.114z" /></svg>} 
+                                />
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                             <BarChart title="Listings by Make" data={analyticsData.listingsByMakeChartData} />
@@ -786,7 +967,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                                         <tr key={user.email}>
                                             <td className="px-6 py-4">{user.name}{user.isVerified && ' ✅'}</td>
                                             <td className="px-6 py-4"><div className="font-medium">{user.email}</div><div className="text-sm text-gray-500 capitalize">{user.role}</div></td>
-                                            <td className="px-6 py-4 text-gray-500 font-mono tracking-widest"><div className="flex items-center gap-2"><span>{isPasswordVisible ? user.password : '••••••••'}</span><button onClick={() => togglePasswordVisibility(user.email)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}>{isPasswordVisible ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274-4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}</button></div></td>
+                                            <td className="px-6 py-4 text-gray-500 font-mono tracking-widest"><div className="flex items-center gap-2"><span>{isPasswordVisible ? user.password : '••••••••'}</span><button onClick={() => togglePasswordVisibility(user.email)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}>{isPasswordVisible ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274-4.057 5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}</button></div></td>
                                             <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>{user.status}</span></td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                 <button onClick={() => handleEditUserClick(user)} disabled={isCurrentUser} className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed">Edit</button>
@@ -846,37 +1027,48 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
                 return <AuditLogView auditLog={auditLog} />;
             case 'settings':
                 return <PlatformSettingsView settings={platformSettings} onUpdate={onUpdateSettings} onSendBroadcast={onSendBroadcast} />;
+            case 'support':
+                return <SupportTicketsView tickets={supportTickets} onUpdateTicket={onUpdateSupportTicket} currentUser={currentUser} />;
+            default:
+                return null;
         }
     };
     
     return (
-    <div className="space-y-6 animate-fade-in">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">Admin Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
-            <aside>
+        <div className="container mx-auto py-8 animate-fade-in">
+            <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
+                <aside>
                 <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md space-y-2">
                     <AdminNavItem view="analytics">Analytics</AdminNavItem>
                     <AdminNavItem view="users">User Management</AdminNavItem>
                     <AdminNavItem view="listings">Vehicle Listings</AdminNavItem>
                     <AdminNavItem view="moderation" count={analyticsData.moderationQueueCount}>Moderation Queue</AdminNavItem>
+                    <AdminNavItem view="support" count={analyticsData.openSupportTickets}>Support Tickets</AdminNavItem>
                     <AdminNavItem view="vehicleData">Vehicle Data</AdminNavItem>
                     <AdminNavItem view="auditLog">Audit Log</AdminNavItem>
-                    <AdminNavItem view="settings">Platform Settings</AdminNavItem>
+                    <AdminNavItem view="settings">Settings</AdminNavItem>
                 </div>
-            </aside>
-            <main>
-                {renderContent()}
-            </main>
+                </aside>
+                <main>
+                    {renderContent()}
+                </main>
+            </div>
+            {isEditModalOpen && selectedUser && (
+                <EditUserModal
+                    user={selectedUser}
+                    onClose={() => setIsEditModalOpen(false)}
+                    onSave={handleSaveUser}
+                />
+            )}
+            {editingVehicle && (
+                <EditVehicleModal
+                    vehicle={editingVehicle}
+                    onClose={() => setEditingVehicle(null)}
+                    onSave={handleSaveVehicle}
+                />
+            )}
         </div>
-        
-        {isEditModalOpen && selectedUser && (
-            <EditUserModal user={selectedUser} onClose={() => setIsEditModalOpen(false)} onSave={handleSaveUser} />
-        )}
-        {editingVehicle && (
-            <EditVehicleModal vehicle={editingVehicle} onClose={() => setEditingVehicle(null)} onSave={handleSaveVehicle} />
-        )}
-    </div>
-  );
+    );
 };
 
 export default AdminPanel;

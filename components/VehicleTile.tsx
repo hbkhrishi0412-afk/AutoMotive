@@ -53,7 +53,7 @@ const VehicleTile: React.FC<VehicleTileProps> = ({ vehicle, onSelect, onToggleCo
             <span>{vehicle.transmission}</span>
             <span>{vehicle.noOfOwners}{vehicle.noOfOwners === 1 ? 'st' : 'nd'} Owner</span>
             <span>{vehicle.rto}</span>
-            <span>{vehicle.location}</span>
+            <span>{`${vehicle.city}, ${vehicle.state}`}</span>
         </div>
 
         <div className="mt-auto pt-2 flex justify-between items-end">

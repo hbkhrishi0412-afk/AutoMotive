@@ -1,12 +1,14 @@
-
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
-import type { Vehicle, User, Conversation, VehicleData } from '../types';
-import { VehicleCategory } from '../types';
+import type { Vehicle, User, Conversation, VehicleData, ChatMessage, VehicleDocument } from '../types';
+import { VehicleCategory, View } from '../types';
 import { generateVehicleDescription, getAiVehicleSuggestions } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
 import AiAssistant from './AiAssistant';
 import ChatWidget from './ChatWidget';
+import { INDIAN_STATES, CITIES_BY_STATE, PLAN_DETAILS } from '../constants';
+import PricingGuidance from './PricingGuidance';
+import BulkUploadModal from './BulkUploadModal';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController);
 import { Bar, Line } from 'react-chartjs-2';
@@ -18,17 +20,22 @@ interface DashboardProps {
   sellerVehicles: Vehicle[];
   reportedVehicles: Vehicle[];
   onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
+  onAddMultipleVehicles: (vehicles: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>[]) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (vehicleId: number) => void;
   onMarkAsSold: (vehicleId: number) => void;
   conversations: Conversation[];
-  onSellerSendMessage: (conversationId: string, messageText: string) => void;
+  onSellerSendMessage: (conversationId: string, messageText: string, type?: ChatMessage['type'], payload?: any) => void;
   onMarkConversationAsReadBySeller: (conversationId: string) => void;
   typingStatus: { conversationId: string; userRole: 'customer' | 'seller' } | null;
   onUserTyping: (conversationId: string, userRole: 'customer' | 'seller') => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onUpdateSellerProfile: (details: { dealershipName: string; bio: string; logoUrl: string; }) => void;
   vehicleData: VehicleData;
+  onFeatureListing: (vehicleId: number) => void;
+  onPurchaseInspection: (vehicleId: number) => void;
+  onNavigate: (view: View) => void;
+  onTestDriveResponse: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
 }
 
 type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile' | 'reports';
@@ -71,10 +78,52 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
   </div>
 ));
 
-const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
+const PlanStatusCard: React.FC<{
+    seller: User;
+    activeListingsCount: number;
+    onNavigate: (view: View) => void;
+}> = memo(({ seller, activeListingsCount, onNavigate }) => {
+    const plan = PLAN_DETAILS[seller.subscriptionPlan || 'free'];
+    const listingLimit = plan.listingLimit === 'unlimited' ? Infinity : plan.listingLimit;
+    const usagePercentage = listingLimit === Infinity ? 0 : (activeListingsCount / listingLimit) * 100;
+
+    return (
+        <div className="bg-gradient-to-br from-indigo-500 to-blue-600 dark:from-indigo-700 dark:to-blue-800 text-white p-6 rounded-lg shadow-lg flex flex-col h-full">
+            <h3 className="text-lg font-bold flex justify-between items-center">
+                <span>Your Plan: <span className="text-yellow-300">{plan.name}</span></span>
+            </h3>
+            <div className="mt-4 space-y-3 text-sm flex-grow">
+                <div className="flex justify-between">
+                    <span>Active Listings:</span>
+                    <span className="font-semibold">{activeListingsCount} / {plan.listingLimit === 'unlimited' ? '∞' : plan.listingLimit}</span>
+                </div>
+                <div className="w-full bg-blue-400/50 rounded-full h-2">
+                    <div
+                        className="bg-yellow-300 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                    ></div>
+                </div>
+                <div className="flex justify-between">
+                    <span>Featured Credits:</span>
+                    <span className="font-semibold">{seller.featuredCredits ?? 0} remaining</span>
+                </div>
+            </div>
+            {plan.id !== 'premium' && (
+                <button
+                    onClick={() => onNavigate(View.PRICING)}
+                    className="mt-6 w-full bg-white text-indigo-600 font-bold py-2 px-4 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                    Upgrade Plan
+                </button>
+            )}
+        </div>
+    );
+});
+
+const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount' | 'reviews'> = {
   make: '', model: '', variant: '', year: new Date().getFullYear(), price: 0, mileage: 0,
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Petrol', fuelEfficiency: '',
-  color: '', features: [], images: [],
+  color: '', features: [], images: [], documents: [],
   sellerEmail: '',
   category: VehicleCategory.FOUR_WHEELER,
   status: 'published',
@@ -83,7 +132,8 @@ const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = 
   insuranceValidity: '',
   insuranceType: 'Comprehensive',
   rto: '',
-  location: '',
+  city: '',
+  state: '',
   noOfOwners: 1,
   displacement: '',
   groundClearance: '',
@@ -92,6 +142,7 @@ const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = 
     summary: '',
     fixesDone: [],
   },
+  certifiedInspection: null,
 };
 
 const FormFieldset: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
@@ -144,6 +195,11 @@ const VehicleForm: React.FC<{
         if (!formData.category || !formData.make || !formData.model || !vehicleData[formData.category]?.[formData.make]?.[formData.model]) return [];
         return vehicleData[formData.category][formData.make][formData.model].sort();
     }, [formData.category, formData.make, formData.model, vehicleData]);
+
+    const availableCities = useMemo(() => {
+        if (!formData.state || !CITIES_BY_STATE[formData.state]) return [];
+        return CITIES_BY_STATE[formData.state].sort();
+    }, [formData.state]);
 
     const handleGetAiSuggestions = async () => {
         const { make, model, year, variant } = formData;
@@ -203,6 +259,8 @@ const VehicleForm: React.FC<{
             newState.model = ''; newState.variant = '';
         } else if (name === 'model') {
             newState.variant = '';
+        } else if (name === 'state') {
+            newState.city = '';
         }
         return newState;
       });
@@ -245,7 +303,7 @@ const VehicleForm: React.FC<{
             setFormData(prev => ({
                 ...prev,
                 qualityReport: {
-                    ...(prev.qualityReport!),
+                    summary: prev.qualityReport?.summary || '',
                     fixesDone: [...(prev.qualityReport?.fixesDone || []), fixInput.trim()]
                 }
             }));
@@ -257,7 +315,7 @@ const VehicleForm: React.FC<{
         setFormData(prev => ({
             ...prev,
             qualityReport: {
-                ...(prev.qualityReport!),
+                summary: prev.qualityReport?.summary || '',
                 fixesDone: (prev.qualityReport?.fixesDone || []).filter(f => f !== fixToRemove)
             }
         }));
@@ -273,43 +331,42 @@ const VehicleForm: React.FC<{
         });
     };
     
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'document') => {
         const input = e.target;
-        if (input.files) {
-            setIsUploading(true);
-            const files = Array.from(input.files);
-            
-            const readPromises = files.map(file => {
-                return new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        if (typeof reader.result === 'string') {
-                            resolve(reader.result);
-                        } else {
-                            reject(new Error('Failed to read file as string.'));
-                        }
-                    };
-                    reader.onerror = (error) => reject(error);
-                    reader.readAsDataURL(file);
-                });
-            });
+        if (!input.files) return;
 
-            try {
-                const results = await Promise.all(readPromises);
-                setFormData(prev => ({ ...prev, images: [...prev.images, ...results] }));
-            } catch (error) {
-                console.error("Error reading one or more files:", error);
-            } finally {
-                setIsUploading(false);
-                if (input) {
-                    input.value = '';
-                }
+        setIsUploading(true);
+        const files = Array.from(input.files);
+        
+        const readPromises = files.map((file: File) => new Promise<{ fileName: string, url: string }>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => typeof reader.result === 'string' ? resolve({ fileName: file.name, url: reader.result }) : reject(new Error('File read error.'));
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(file);
+        }));
+
+        try {
+            const results = await Promise.all(readPromises);
+            if (type === 'image') {
+                setFormData(prev => ({ ...prev, images: [...prev.images, ...results.map(r => r.url)] }));
+            } else {
+                 const docType = (document.getElementById('document-type') as HTMLSelectElement).value as VehicleDocument['name'];
+                 const newDocs: VehicleDocument[] = results.map(r => ({ name: docType, url: r.url, fileName: r.fileName }));
+                 setFormData(prev => ({ ...prev, documents: [...(prev.documents || []), ...newDocs] }));
             }
+        } catch (error) { console.error("Error reading files:", error); } 
+        finally {
+            setIsUploading(false);
+            if (input) input.value = '';
         }
     };
   
     const handleRemoveImageUrl = (urlToRemove: string) => {
       setFormData(prev => ({...prev, images: prev.images.filter(url => url !== urlToRemove)}));
+    };
+
+    const handleRemoveDocument = (urlToRemove: string) => {
+        setFormData(prev => ({ ...prev, documents: (prev.documents || []).filter(doc => doc.url !== urlToRemove) }));
     };
   
     const handleGenerateDescription = async () => {
@@ -382,11 +439,21 @@ const VehicleForm: React.FC<{
                     </FormInput>
                     <FormInput label="Make Year" name="year" type="number" value={formData.year} onChange={handleChange} onBlur={handleBlur} error={errors.year} required />
                     <FormInput label="Registration Year" name="registrationYear" type="number" value={formData.registrationYear} onChange={handleChange} required />
-                    <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
+                    <div>
+                        <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
+                        <PricingGuidance vehicleDetails={formData} allVehicles={allVehicles} />
+                    </div>
                     <FormInput label="Km Driven" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage} />
                     <FormInput label="No. of Owners" name="noOfOwners" type="number" value={formData.noOfOwners} onChange={handleChange} />
                     <FormInput label="RTO" name="rto" value={formData.rto} onChange={handleChange} placeholder="e.g., MH01" />
-                    <FormInput label="Location" name="location" value={formData.location} onChange={handleChange} placeholder="e.g., Mumbai, MH" required />
+                    <FormInput label="State" name="state" type="select" value={formData.state} onChange={handleChange} required>
+                        <option value="" disabled>Select State</option>
+                        {INDIAN_STATES.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
+                    </FormInput>
+                    <FormInput label="City" name="city" type="select" value={formData.city} onChange={handleChange} disabled={!formData.state} required>
+                        <option value="" disabled>Select City</option>
+                        {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
+                    </FormInput>
                     <FormInput label="Insurance Type" name="insuranceType" type="select" value={formData.insuranceType} onChange={handleChange}>
                         <option>Comprehensive</option>
                         <option>Third Party</option>
@@ -444,7 +511,7 @@ const VehicleForm: React.FC<{
                             <button type="button" onClick={handleAddFix} className="bg-gray-200 dark:bg-gray-600 font-bold py-2 px-4 rounded-lg">Add Fix</button>
                         </div>
                         <div className="mt-2 flex flex-wrap gap-2">
-                            {formData.qualityReport?.fixesDone.map(fix => (
+                            {(formData.qualityReport?.fixesDone || []).map(fix => (
                                 <span key={fix} className="bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full flex items-center gap-2">
                                     {fix}
                                     <button type="button" onClick={() => handleRemoveFix(fix)}>&times;</button>
@@ -455,45 +522,52 @@ const VehicleForm: React.FC<{
                 </div>
             </FormFieldset>
             
-            <FormFieldset title="Media, Features & Description">
+            <FormFieldset title="Media, Documents & Description">
                 <div className="space-y-4">
                      <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Images</label>
                         <div className="mt-1">
-                            <label
-                                htmlFor="file-upload"
-                                className={`relative cursor-pointer bg-white dark:bg-brand-gray-darker rounded-lg border-2 border-gray-300 dark:border-gray-600 border-dashed hover:border-brand-blue dark:hover:border-brand-blue-light transition-colors duration-200 flex flex-col items-center justify-center text-center p-6 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
+                            <label htmlFor="file-upload" className={`relative cursor-pointer bg-white dark:bg-brand-gray-darker rounded-lg border-2 border-gray-300 dark:border-gray-600 border-dashed hover:border-brand-blue dark:hover:border-brand-blue-light transition-colors duration-200 flex flex-col items-center justify-center text-center p-6 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <span className="mt-2 block text-sm font-semibold text-brand-blue">
                                     {isUploading ? 'Uploading...' : 'Upload images'}
                                 </span>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">or drag and drop</p>
-                                <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple accept="image/png, image/jpeg, image/gif" onChange={handleImageUpload} disabled={isUploading} />
+                                <input id="file-upload" type="file" className="sr-only" multiple accept="image/png, image/jpeg" onChange={(e) => handleFileUpload(e, 'image')} disabled={isUploading} />
                             </label>
                         </div>
                         <div className="mt-4 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3">
                             {formData.images.map((url, index) => (
                                 <div key={index} className="relative group">
                                     <img src={url} className="w-full h-24 object-cover rounded-lg shadow-sm" alt={`Vehicle thumbnail ${index + 1}`} />
-                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-300 rounded-lg"></div>
-                                    <button 
-                                        type="button" 
-                                        onClick={() => handleRemoveImageUrl(url)} 
-                                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                                        aria-label={`Remove image ${index + 1}`}
-                                    >
-                                        &times;
-                                    </button>
+                                    <button type="button" onClick={() => handleRemoveImageUrl(url)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100">&times;</button>
                                 </div>
                             ))}
-                            {isUploading && (
-                                <div className="w-full h-24 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                                    <div className="w-6 h-6 border-4 border-dashed rounded-full animate-spin border-brand-blue"></div>
-                                </div>
-                            )}
+                        </div>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Documents</label>
+                        <div className="mt-1 flex items-center gap-2">
+                             <select id="document-type" className="p-3 border rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200 border-brand-gray dark:border-gray-600">
+                                <option>Registration Certificate (RC)</option>
+                                <option>Insurance</option>
+                                <option>Pollution Under Control (PUC)</option>
+                                <option>Service Record</option>
+                                <option>Other</option>
+                            </select>
+                            <label htmlFor="doc-upload" className={`cursor-pointer font-semibold text-white py-2 px-4 rounded-lg transition-colors ${isUploading ? 'bg-gray-400' : 'bg-brand-blue hover:bg-brand-blue-dark'}`}>
+                                {isUploading ? '...' : 'Upload'}
+                                <input id="doc-upload" type="file" className="sr-only" accept=".pdf,.png,.jpg,.jpeg" onChange={(e) => handleFileUpload(e, 'document')} disabled={isUploading} />
+                            </label>
+                        </div>
+                         <div className="mt-2 flex flex-wrap gap-2">
+                            {(formData.documents || []).map(doc => (
+                                <span key={doc.url} className="bg-gray-200 dark:bg-gray-700 text-sm font-semibold px-3 py-1 rounded-full flex items-center gap-2">
+                                    {doc.fileName} ({doc.name})
+                                    <button type="button" onClick={() => handleRemoveDocument(doc.url)}>&times;</button>
+                                </span>
+                            ))}
                         </div>
                     </div>
                     <div>
@@ -533,7 +607,7 @@ const VehicleForm: React.FC<{
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">✨ Suggested Features</h3>
                         <div className="bg-brand-gray-light dark:bg-brand-gray-darker p-4 rounded-lg border dark:border-gray-700 max-h-96 overflow-y-auto">
                             {Object.entries(aiSuggestions.featureSuggestions).map(([category, features]) => {
-                                if (features.length === 0) return null;
+                                if (!Array.isArray(features) || features.length === 0) return null;
                                 return (
                                     <div key={category} className="mb-4 last:mb-0">
                                         <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-2 pb-1 border-b dark:border-gray-600">{category}</h4>
@@ -563,7 +637,10 @@ const InquiriesView: React.FC<{
   onMarkConversationAsReadBySeller: (conversationId: string) => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onSelectConv: (conv: Conversation) => void;
-}> = memo(({ conversations, onMarkConversationAsReadBySeller, onMarkMessagesAsRead, onSelectConv }) => {
+  onTestDriveResponse: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
+  onSellerSendMessage: (conversationId: string, messageText: string) => void;
+
+}> = memo(({ conversations, onMarkConversationAsReadBySeller, onMarkMessagesAsRead, onSelectConv, onTestDriveResponse, onSellerSendMessage }) => {
 
     const handleSelectConversation = (conv: Conversation) => {
       onSelectConv(conv);
@@ -572,6 +649,18 @@ const InquiriesView: React.FC<{
         onMarkMessagesAsRead(conv.id, 'seller');
       }
     };
+    
+    const handleAcceptTestDrive = (convId: string, msgId: number, date: string, time: string) => {
+        onTestDriveResponse(convId, msgId, 'confirmed');
+        const confirmationText = `Sounds great! Your test drive for the ${conversations.find(c=>c.id === convId)?.vehicleName} is confirmed for ${new Date(date).toLocaleDateString()} at ${time}. We look forward to seeing you.`;
+        onSellerSendMessage(convId, confirmationText);
+    };
+    
+    const handleDeclineTestDrive = (convId: string, msgId: number) => {
+        onTestDriveResponse(convId, msgId, 'rejected');
+        const declineText = `Apologies, but we are unable to accommodate your test drive request at this time. Please suggest an alternative date or time.`;
+        onSellerSendMessage(convId, declineText);
+    }
 
     const sortedConversations = useMemo(() => {
         return [...conversations].sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
@@ -652,7 +741,7 @@ const SellerProfileForm: React.FC<{ seller: User; onUpdateProfile: (details: any
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
             reader.onload = (event) => {
-                if(event.target?.result) {
+                if(event.target && typeof event.target.result === 'string') {
                     setFormData(prev => ({ ...prev, logoUrl: event.target.result as string }));
                 }
             };
@@ -768,10 +857,11 @@ const ReportsView: React.FC<{
 
 
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicles, reportedVehicles, onAddVehicle, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData }) => {
+const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicles, reportedVehicles, onAddVehicle, onAddMultipleVehicles, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData, onFeatureListing, onPurchaseInspection, onNavigate, onTestDriveResponse }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   useEffect(() => {
     if (selectedConv) {
@@ -788,7 +878,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
     }
   }, [conversations, selectedConv]);
 
-  const navigate = (view: DashboardView) => {
+  const handleNavigate = (view: DashboardView) => {
     if (view !== 'inquiries') {
         setSelectedConv(null);
     }
@@ -797,17 +887,17 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
 
   const handleEditClick = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
-    navigate('form');
+    handleNavigate('form');
   };
   
   const handleAddNewClick = () => {
     setEditingVehicle(null);
-    navigate('form');
+    handleNavigate('form');
   }
 
   const handleFormCancel = () => {
     setEditingVehicle(null);
-    navigate('listings');
+    handleNavigate('listings');
   }
 
   const handleNavigateToVehicle = (vehicleId: number) => {
@@ -821,7 +911,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
     const conv = conversations.find(c => c.id === conversationId);
     if (conv) {
         setSelectedConv(conv);
-        navigate('inquiries');
+        handleNavigate('inquiries');
     }
   };
 
@@ -864,10 +954,11 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
       case 'overview':
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
-              <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
-              <StatCard title="Your Seller Rating" value={`${seller.averageRating?.toFixed(1) || 'N/A'} (${seller.ratingCount || 0})`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.522 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.522 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.522-4.674a1 1 0 00-.363-1.118L2.98 8.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.522-4.674z" /></svg>} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+              <StatCard title="Unread Messages" value={unreadCount} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
+              <StatCard title="Your Seller Rating" value={`${seller.averageRating?.toFixed(1) || 'N/A'} (${seller.ratingCount || 0})`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.522 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.522 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.522-4.674a1 1 0 00-.363-1.118L2.98 8.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.522-4.674z" /></svg>} />
+              <PlanStatusCard seller={seller} activeListingsCount={activeListings.length} onNavigate={onNavigate} />
             </div>
             <AiAssistant
               vehicles={activeListings}
@@ -881,10 +972,10 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
         return (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
-                    <StatCard title="Total Sales Value" value={`₹${analyticsData.totalSalesValue.toLocaleString('en-IN')}`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
-                    <StatCard title="Total Views" value={analyticsData.totalViews.toLocaleString('en-IN')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>} />
-                    <StatCard title="Total Inquiries" value={analyticsData.totalInquiries.toLocaleString('en-IN')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
+                    <StatCard title="Active Listings" value={activeListings.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} />
+                    <StatCard title="Total Sales Value" value={`₹${analyticsData.totalSalesValue.toLocaleString('en-IN')}`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
+                    <StatCard title="Total Views" value={analyticsData.totalViews.toLocaleString('en-IN')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057 5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>} />
+                    <StatCard title="Total Inquiries" value={analyticsData.totalInquiries.toLocaleString('en-IN')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} />
                 </div>
                 <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
                     <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Listing Performance</h2>
@@ -936,22 +1027,31 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
       case 'listings':
         return (
           <div className="bg-white dark:bg-brand-gray-dark p-6 sm:p-8 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Active Listings</h2>
-              <button onClick={handleAddNewClick} className="bg-brand-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-brand-blue-dark">List New Vehicle</button>
+              <div className="flex gap-2">
+                <button onClick={() => setIsBulkUploadOpen(true)} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Bulk Upload</button>
+                <button onClick={handleAddNewClick} className="bg-brand-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-brand-blue-dark">List New Vehicle</button>
+              </div>
             </div>
             {activeListings.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-800"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th><th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th><th className="relative px-6 py-3"></th></tr></thead>
+                  <thead className="bg-gray-50 dark:bg-gray-800"><tr><th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th><th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th><th className="relative px-6 py-3 text-right text-xs font-medium uppercase">Actions</th></tr></thead>
                   <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                     {activeListings.map((v) => (
                       <tr key={v.id}>
                         <td className="px-6 py-4 font-medium">{v.year} {v.make} {v.model} {v.variant || ''}</td>
                         <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <button onClick={() => onMarkAsSold(v.id)} className="text-green-600 hover:text-green-800 mr-4">Mark as Sold</button>
-                          <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark mr-4">Edit</button>
+                        <td className="px-6 py-4 text-right whitespace-nowrap text-sm font-semibold space-x-3">
+                          {!v.isFeatured && (seller.featuredCredits ?? 0) > 0 && (
+                              <button onClick={() => onFeatureListing(v.id)} className="text-purple-600 hover:text-purple-800" title="Use a credit to feature this listing">Feature</button>
+                          )}
+                          {!v.certifiedInspection && (
+                              <button onClick={() => onPurchaseInspection(v.id)} className="text-teal-600 hover:text-teal-800" title="Purchase a certified inspection report">Get Certified</button>
+                          )}
+                          <button onClick={() => onMarkAsSold(v.id)} className="text-green-600 hover:text-green-800">Sold</button>
+                          <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark">Edit</button>
                           <button onClick={() => onDeleteVehicle(v.id)} className="text-red-600 hover:text-red-800">Delete</button>
                         </td>
                       </tr>
@@ -1009,6 +1109,8 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
                     onMarkConversationAsReadBySeller={onMarkConversationAsReadBySeller} 
                     onMarkMessagesAsRead={onMarkMessagesAsRead}
                     onSelectConv={setSelectedConv}
+                    onTestDriveResponse={onTestDriveResponse}
+                    onSellerSendMessage={onSellerSendMessage}
                 />;
       case 'reports':
         return <ReportsView
@@ -1020,7 +1122,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
   }
 
   const NavItem: React.FC<{ view: DashboardView, children: React.ReactNode, count?: number }> = ({ view, children, count }) => (
-    <button onClick={() => navigate(view)} className={`flex justify-between items-center w-full text-left px-4 py-3 rounded-lg transition-colors ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
+    <button onClick={() => handleNavigate(view)} className={`flex justify-between items-center w-full text-left px-4 py-3 rounded-lg transition-colors ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
       <span>{children}</span>
       {count && count > 0 && <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{count}</span>}
     </button>
@@ -1055,6 +1157,13 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
                     onMarkMessagesAsRead={onMarkMessagesAsRead}
                     onFlagContent={() => {}}
                     typingStatus={typingStatus}
+                />
+            )}
+             {isBulkUploadOpen && (
+                <BulkUploadModal 
+                    onClose={() => setIsBulkUploadOpen(false)}
+                    onAddMultipleVehicles={onAddMultipleVehicles}
+                    sellerEmail={seller.email}
                 />
             )}
         </div>

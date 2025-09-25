@@ -7,7 +7,7 @@ interface ComparisonProps {
   onToggleCompare: (id: number) => void;
 }
 
-const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'color', 'sellerName', 'location', 'averageRating', 'sellerAverageRating', 'registrationYear', 'noOfOwners', 'displacement'];
+const specFields: (keyof Vehicle)[] = ['price', 'year', 'mileage', 'engine', 'transmission', 'fuelType', 'fuelEfficiency', 'color', 'sellerName', 'city', 'averageRating', 'sellerAverageRating', 'registrationYear', 'noOfOwners', 'displacement'];
 const specLabels: Record<keyof Vehicle, string> = {
     price: 'Price',
     year: 'Year',
@@ -27,7 +27,8 @@ const specLabels: Record<keyof Vehicle, string> = {
     description: 'Description',
     sellerEmail: 'Seller Email',
     sellerName: 'Seller Name',
-    location: 'Location',
+    city: 'City',
+    state: 'State',
     averageRating: 'Vehicle Rating',
     ratingCount: 'Rating Count',
     status: 'Status',
@@ -49,6 +50,12 @@ const specLabels: Record<keyof Vehicle, string> = {
     groundClearance: 'Ground Clearance',
     bootSpace: 'Boot Space',
     qualityReport: 'Quality Report',
+    certifiedInspection: 'Certified Inspection',
+    // FIX: Add missing properties to satisfy Record<keyof Vehicle, string>
+    videoUrl: 'Video URL',
+    serviceRecords: 'Service Records',
+    accidentHistory: 'Accident History',
+    documents: 'Documents',
 };
 
 const CheckIcon: React.FC = () => (
@@ -144,7 +151,11 @@ const Comparison: React.FC<ComparisonProps> = ({ vehicles, onBack: onBackToHome,
                 <tr key={String(key)} className="border-b border-brand-gray-200 dark:border-brand-gray-700">
                   <td className="font-semibold text-brand-gray-600 dark:text-brand-gray-300 p-4 sticky left-0 bg-white dark:bg-brand-gray-800 z-10">{specLabels[key]}</td>
                   {vehicles.map(vehicle => {
-                    const value = vehicle[key];
+                    let value = vehicle[key];
+                    if (key === 'city') {
+                        value = `${vehicle.city}, ${vehicle.state}`;
+                    }
+
                     const isBest = typeof value === 'number' && isBestValue(key, value);
                     const cellClass = highlightDiffs && hasDifference ? 'bg-brand-blue-lightest/50 dark:bg-brand-blue/10' : '';
                     return (
