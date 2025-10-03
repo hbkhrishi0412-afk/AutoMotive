@@ -761,7 +761,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
 
     // --- Memoized Analytics Calculations ---
     const analyticsData = useMemo(() => {
-        const totalSalesValue = vehicles.reduce((sum, v) => sum + v.price, 0);
+        // FIX: Added Number() casting to ensure v.price is treated as a number, preventing arithmetic errors.
+        const totalSalesValue = vehicles.reduce((sum, v) => sum + Number(v.price), 0);
         const averagePrice = vehicles.length > 0 ? totalSalesValue / vehicles.length : 0;
         
         const userRoleCounts = users.reduce((acc, user) => {
@@ -786,16 +787,14 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
             .reduce((total, user) => {
                 if (user.subscriptionPlan) {
                     const plan = PLAN_DETAILS[user.subscriptionPlan];
-                    // FIX: Explicitly cast plan.price to a number to ensure the arithmetic operation is valid.
-                    return total + (plan ? Number(plan.price) : 0);
+                    return total + (plan ? plan.price : 0);
                 }
                 return total;
             }, 0);
 
         const inspectionServiceRevenue = vehicles
             .filter(v => v.certifiedInspection)
-            // FIX: Explicitly cast INSPECTION_SERVICE_FEE to a number.
-            .length * Number(INSPECTION_SERVICE_FEE);
+            .length * INSPECTION_SERVICE_FEE;
 
         const featuredListingsCount = vehicles.filter(v => v.isFeatured).length;
 

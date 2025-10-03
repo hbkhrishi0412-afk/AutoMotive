@@ -77,6 +77,35 @@ const App: React.FC = () => {
   const [faqItems, setFaqItems] = useState<FAQItem[]>(() => getFaqs() || MOCK_FAQS);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => getSupportTickets() || MOCK_SUPPORT_TICKETS);
 
+  const addToast = useCallback((message: string, type: ToastType['type']) => {
+    setToasts(prev => [...prev, { id: Date.now(), message, type }]);
+  }, []);
+  
+  const processAndSetData = useCallback((vehiclesData: Vehicle[], usersData: User[]) => {
+      const processedVehicles = vehiclesData.map(v => ({
+          ...v,
+          category: v.category || CategoryEnum.FOUR_WHEELER,
+          status: v.status || 'published',
+          isFeatured: v.isFeatured || false,
+          views: v.views || 0,
+          inquiriesCount: v.inquiriesCount || 0,
+          isFlagged: v.isFlagged || false,
+          flagReason: v.flagReason || undefined,
+          flaggedAt: v.flaggedAt || undefined,
+          certifiedInspection: v.certifiedInspection || null,
+      }));
+
+      const processedUsers = usersData.map(u => ({
+          ...u, 
+          status: u.status || 'active',
+          subscriptionPlan: u.subscriptionPlan || 'free',
+          featuredCredits: u.featuredCredits ?? PLAN_DETAILS[u.subscriptionPlan || 'free'].featuredCredits,
+      }));
+      
+      setVehicles(processedVehicles);
+      setUsers(processedUsers);
+  }, []);
+
   useEffect(() => {
     const loadInitialData = async () => {
         setIsLoading(true);
@@ -85,39 +114,47 @@ const App: React.FC = () => {
                 getVehicles(),
                 getUsers()
             ]);
-
-            const processedVehicles = vehiclesData.map(v => ({
-                ...v,
-                category: v.category || CategoryEnum.FOUR_WHEELER,
-                status: v.status || 'published',
-                isFeatured: v.isFeatured || false,
-                views: v.views || 0,
-                inquiriesCount: v.inquiriesCount || 0,
-                isFlagged: v.isFlagged || false,
-                flagReason: v.flagReason || undefined,
-                flaggedAt: v.flaggedAt || undefined,
-                certifiedInspection: v.certifiedInspection || null,
-            }));
-
-            const processedUsers = usersData.map(u => ({
-                ...u, 
-                status: u.status || 'active',
-                subscriptionPlan: u.subscriptionPlan || 'free',
-                featuredCredits: u.featuredCredits ?? PLAN_DETAILS[u.subscriptionPlan || 'free'].featuredCredits,
-            }));
-            
-            setVehicles(processedVehicles);
-            setUsers(processedUsers);
+            processAndSetData(vehiclesData, usersData);
         } catch (error) {
-            console.error("Failed to load initial data from APIs", error);
-            addToast("Could not load data from the server. Using local fallback.", "error");
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.warn(`Initial data load failed (${errorMessage}), attempting to seed database...`);
+            addToast("First-time setup: Initializing database...", "info");
+
+            try {
+                const seedResponse = await fetch('/api/seed');
+                if (!seedResponse.ok) {
+                    const errorText = await seedResponse.text();
+                    let seedErrorDetail = errorText;
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        seedErrorDetail = errorJson.error || errorJson.message || errorText;
+                    } catch {
+                        // It's not JSON, so we just use the raw text.
+                    }
+                    throw new Error(`Database seeding failed: ${seedErrorDetail}`);
+                }
+                await seedResponse.json();
+                addToast("Database initialized! Loading data...", "success");
+
+                // Retry fetching data after successful seeding
+                const [vehiclesData, usersData] = await Promise.all([
+                    getVehicles(),
+                    getUsers()
+                ]);
+                processAndSetData(vehiclesData, usersData);
+
+            } catch (seedError) {
+                const seedErrorMessage = seedError instanceof Error ? seedError.message : String(seedError);
+                console.error("Fatal error: Failed to seed database and fetch data.", seedError);
+                addToast(`Server setup failed: ${seedErrorMessage}`, "error");
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
     loadInitialData();
-  }, []); // Run only once on mount
+  }, [addToast, processAndSetData]);
 
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     try {
@@ -139,11 +176,6 @@ const App: React.FC = () => {
   useEffect(() => {
     saveSupportTickets(supportTickets);
   }, [supportTickets]);
-
-
-  const addToast = useCallback((message: string, type: ToastType['type']) => {
-    setToasts(prev => [...prev, { id: Date.now(), message, type }]);
-  }, []);
 
   const addLogEntry = useCallback((action: string, target: string, details?: string) => {
     if (!currentUser || currentUser.role !== 'admin') return;

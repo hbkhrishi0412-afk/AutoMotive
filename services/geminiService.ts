@@ -47,6 +47,7 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
     Respond only with JSON matching the provided schema. If a value is not present, omit the key.`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -86,6 +87,7 @@ Key features include: ${vehicle.features.join(', ')}.
 Provide the output in JSON format with two keys: "pros" and "cons", each containing an array of strings.`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -131,6 +133,7 @@ export const getSellerPriceSuggestion = async (
     Respond ONLY with a JSON object matching the specified schema. If you cannot determine a price, return 0 for both price fields.`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -186,6 +189,7 @@ export const generateVehicleDescription = async (vehicle: Partial<Vehicle>): Pro
     7. Ensure the output is just the description text, without any introductory phrases like "Here is the description:".`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -216,6 +220,7 @@ Respond ONLY with a single JSON object matching this schema. If a value is not a
 - "featureSuggestions" should be an object where keys are categories like "Comfort & Convenience", "Safety", "Entertainment", and "Exterior", and values are arrays of feature strings.`;
     
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -289,6 +294,7 @@ Available features: ${features.slice(0, 20).join(', ')}
 Return the suggestions as a JSON array of strings. For example: ["Hyundai Creta", "Sunroof", "under 15 lakhs"].`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -356,6 +362,7 @@ Respond ONLY with a JSON object containing a "suggestions" key, which is an arra
 If there is no data or no meaningful suggestions can be made, return an empty array for "suggestions".`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
@@ -416,6 +423,7 @@ Based on their preferences, recommend up to 5 vehicle IDs from the full list tha
 Respond ONLY with a JSON array of recommended vehicle IDs (numbers). For example: [10, 25, 3]. If no suitable recommendations are found, return an empty array.`;
 
     const requestPayload = {
+        // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
         model: 'gemini-2.5-flash',
         contents: prompt,
         config: {

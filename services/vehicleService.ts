@@ -7,28 +7,26 @@ const VEHICLE_STORAGE_KEY = 'autoVerseVehicles';
  * @returns A promise that resolves to an array of vehicles.
  */
 export const getVehicles = async (): Promise<Vehicle[]> => {
-  try {
-    const response = await fetch('/api/vehicles');
-    if (!response.ok) {
-      throw new Error('Failed to fetch vehicles');
-    }
-    const data = await response.json();
-    // Vercel Postgres returns numeric types as strings, so we need to parse them.
-    return data.map((v: any) => ({
-      ...v,
-      id: Number(v.id),
-      year: Number(v.year),
-      price: Number(v.price),
-      mileage: Number(v.mileage),
-      views: Number(v.views),
-      inquiriesCount: Number(v.inquiriesCount),
-      noOfOwners: Number(v.noOfOwners),
-      registrationYear: Number(v.registrationYear),
-    }));
-  } catch (error) {
-    console.error("Failed to fetch vehicles from API", error);
-    return []; // Return empty array on error
+  const response = await fetch('/api/vehicles');
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: `Failed to fetch vehicles. Status: ${response.status}` }));
+    const errorMessage = errorBody.error || `Failed to fetch vehicles from API`;
+    console.error(errorMessage, { status: response.status, details: errorBody });
+    throw new Error(errorMessage);
   }
+  const data = await response.json();
+  // Vercel Postgres returns numeric types as strings, so we need to parse them.
+  return data.map((v: any) => ({
+    ...v,
+    id: Number(v.id),
+    year: Number(v.year),
+    price: Number(v.price),
+    mileage: Number(v.mileage),
+    views: Number(v.views),
+    inquiriesCount: Number(v.inquiriesCount),
+    noOfOwners: Number(v.noOfOwners),
+    registrationYear: Number(v.registrationYear),
+  }));
 };
 
 /**

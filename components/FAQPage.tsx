@@ -18,14 +18,14 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
 
     // FIX: Replaced the one-liner reduce with a more explicit version and a generic type argument
     // to ensure correct type inference for the accumulator, resolving the 'map' property error.
-    return filtered.reduce<Record<string, FAQItem[]>>((acc, item) => {
+    return filtered.reduce((acc, item) => {
       const category = item.category;
       if (!acc[category]) {
         acc[category] = [];
       }
       acc[category].push(item);
       return acc;
-    }, {});
+    }, {} as Record<string, FAQItem[]>);
   }, [faqItems, searchTerm]);
 
   const toggleItem = (id: number) => {

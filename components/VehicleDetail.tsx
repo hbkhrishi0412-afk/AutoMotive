@@ -73,7 +73,6 @@ const CertifiedInspectionReport: React.FC<{ report: CertifiedInspection }> = ({ 
                             <span className="font-bold text-sm text-brand-gray-900 dark:text-brand-gray-100">{score}/100</span>
                         </div>
                         <div className="w-full bg-brand-gray-200 dark:bg-brand-gray-700 rounded-full h-2.5">
-                            {/* FIX: Cast score to Number to resolve typing error as Object.entries may not be inferred as a number type for the value. */}
                             <div className={`${scoreColor(Number(score))} h-2.5 rounded-full`} style={{ width: `${score}%` }}></div>
                         </div>
                         <p className="text-xs text-brand-gray-500 dark:text-brand-gray-400 mt-1">{report.details[key]}</p>
@@ -119,7 +118,8 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, allVehicl
   };
   
   const handleRateSeller = (rating: number) => {
-    onAddSellerRating(vehicle.sellerEmail, rating);
+    // FIX: Explicitly cast 'rating' to a number to satisfy the function signature, avoiding a potential type mismatch.
+    onAddSellerRating(vehicle.sellerEmail, Number(rating));
     setShowSellerRatingSuccess(true);
     setTimeout(() => setShowSellerRatingSuccess(false), 3000);
   };

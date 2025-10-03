@@ -7,21 +7,19 @@ const USER_STORAGE_KEY = 'appUsers';
  * @returns A promise that resolves to an array of users.
  */
 export const getUsers = async (): Promise<User[]> => {
-  try {
-    const response = await fetch('/api/users');
-    if (!response.ok) {
-      throw new Error('Failed to fetch users');
-    }
-    const data = await response.json();
-     // Vercel Postgres returns numeric types as strings, so we need to parse them.
-    return data.map((u: any) => ({
-      ...u,
-      featuredCredits: u.featuredCredits ? Number(u.featuredCredits) : 0,
-    }));
-  } catch (error) {
-    console.error("Failed to fetch users from API", error);
-    return []; // Return empty array on error
+  const response = await fetch('/api/users');
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ error: `Failed to fetch users. Status: ${response.status}` }));
+    const errorMessage = errorBody.error || `Failed to fetch users from API`;
+    console.error(errorMessage, { status: response.status, details: errorBody });
+    throw new Error(errorMessage);
   }
+  const data = await response.json();
+   // Vercel Postgres returns numeric types as strings, so we need to parse them.
+  return data.map((u: any) => ({
+    ...u,
+    featuredCredits: u.featuredCredits ? Number(u.featuredCredits) : 0,
+  }));
 };
 
 /**
