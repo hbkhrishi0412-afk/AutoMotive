@@ -65,8 +65,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
   }, [allCommands, query]);
   
   const groupedCommands = useMemo(() => {
-    // FIX: Replaced the one-liner reduce with a more explicit version and a generic type argument
-    // to ensure correct type inference for the accumulator, resolving the 'map' property error.
+    // FIX: Provided a specific type argument to the `reduce` function to ensure correct type inference
+    // for the accumulator, resolving an error where the `map` property was not found on type `unknown`.
     return filteredCommands.reduce<Record<string, Command[]>>((acc, command) => {
         const section = command.section;
         if (!acc[section]) {
