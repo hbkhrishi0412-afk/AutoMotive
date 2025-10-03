@@ -37,7 +37,7 @@ interface AdminPanelProps {
 
 type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings' | 'support' | 'faq';
 type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
-// FIX: Restrict sortable keys to prevent comparison errors on incompatible types.
+// FIX: Restrict sortable keys to 'name' and 'status' to prevent comparison errors on incompatible types.
 type SortableUserKey = 'name' | 'status';
 type SortConfig = {
     key: SortableUserKey;
@@ -778,7 +778,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         
         const userRoleChartData = Object.entries(userRoleCounts).map(([label, value]) => ({ label: label.charAt(0).toUpperCase() + label.slice(1), value })).sort((a,b) => b.value - a.value);
         const listingsByMakeChartData = Object.entries(listingsByMake).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value);
-        const moderationQueueCount = Number(vehicles.filter(v => v.isFlagged).length) + Number(conversations.filter(c => c.isFlagged).length);
+        const moderationQueueCount = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
 
         // New monetization metrics
         const monthlySubscriptionRevenue = users

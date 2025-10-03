@@ -98,6 +98,7 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose, onAddMultipl
                     isFeatured: false,
                     views: 0,
                     inquiriesCount: 0,
+                    certifiedInspection: null,
                 };
 
                 // More validation

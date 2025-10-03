@@ -10,18 +10,22 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
   const [openItem, setOpenItem] = useState<number | null>(null);
 
   const filteredAndGroupedFAQs = useMemo(() => {
-    // FIX: Removed unnecessary type guard. The prop 'faqItems' is already typed as an array.
-    // The guard was confusing TypeScript's type inference, causing a compilation error.
     const filtered = faqItems.filter(
       (item) =>
         item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.answer.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    return filtered.reduce((acc, item) => {
-      (acc[item.category] = acc[item.category] || []).push(item);
+    // FIX: Replaced the one-liner reduce with a more explicit version and a generic type argument
+    // to ensure correct type inference for the accumulator, resolving the 'map' property error.
+    return filtered.reduce<Record<string, FAQItem[]>>((acc, item) => {
+      const category = item.category;
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category].push(item);
       return acc;
-    }, {} as Record<string, FAQItem[]>);
+    }, {});
   }, [faqItems, searchTerm]);
 
   const toggleItem = (id: number) => {

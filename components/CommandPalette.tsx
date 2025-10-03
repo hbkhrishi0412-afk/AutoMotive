@@ -65,12 +65,16 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
   }, [allCommands, query]);
   
   const groupedCommands = useMemo(() => {
-    // FIX: Removed unnecessary type guard. `filteredCommands` is always an array,
-    // and the guard was confusing TypeScript's type inference, causing an error.
-    return filteredCommands.reduce((acc, command) => {
-        (acc[command.section] = acc[command.section] || []).push(command);
+    // FIX: Replaced the one-liner reduce with a more explicit version and a generic type argument
+    // to ensure correct type inference for the accumulator, resolving the 'map' property error.
+    return filteredCommands.reduce<Record<string, Command[]>>((acc, command) => {
+        const section = command.section;
+        if (!acc[section]) {
+            acc[section] = [];
+        }
+        acc[section].push(command);
         return acc;
-    }, {} as Record<string, Command[]>);
+    }, {});
   }, [filteredCommands]);
 
   useEffect(() => {
