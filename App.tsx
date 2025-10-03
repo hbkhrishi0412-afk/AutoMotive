@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -110,44 +111,15 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
         setIsLoading(true);
         try {
+            // These services now get from localStorage or fall back to mock data
             const [vehiclesData, usersData] = await Promise.all([
                 getVehicles(),
                 getUsers()
             ]);
             processAndSetData(vehiclesData, usersData);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.warn(`Initial data load failed (${errorMessage}), attempting to seed database...`);
-            addToast("First-time setup: Initializing database...", "info");
-
-            try {
-                const seedResponse = await fetch('/api/seed');
-                if (!seedResponse.ok) {
-                    const errorText = await seedResponse.text();
-                    let seedErrorDetail = errorText;
-                    try {
-                        const errorJson = JSON.parse(errorText);
-                        seedErrorDetail = errorJson.error || errorJson.message || errorText;
-                    } catch {
-                        // It's not JSON, so we just use the raw text.
-                    }
-                    throw new Error(`Database seeding failed: ${seedErrorDetail}`);
-                }
-                await seedResponse.json();
-                addToast("Database initialized! Loading data...", "success");
-
-                // Retry fetching data after successful seeding
-                const [vehiclesData, usersData] = await Promise.all([
-                    getVehicles(),
-                    getUsers()
-                ]);
-                processAndSetData(vehiclesData, usersData);
-
-            } catch (seedError) {
-                const seedErrorMessage = seedError instanceof Error ? seedError.message : String(seedError);
-                console.error("Fatal error: Failed to seed database and fetch data.", seedError);
-                addToast(`Server setup failed: ${seedErrorMessage}`, "error");
-            }
+            console.error("Failed to load initial data", error);
+            addToast("Error loading application data.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -1454,6 +1426,7 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
+        {/* FIX: Changed onToggleCompare to handleToggleCompare */}
         return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} allVehicles={allPublishedVehicles} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
@@ -1538,6 +1511,7 @@ const App: React.FC = () => {
         return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
+        {/* FIX: Changed onToggleCompare to handleToggleCompare and onToggleWishlist to handleToggleWishlist */}
         return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} onNavigate={navigate} />;
     }
   };

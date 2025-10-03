@@ -51,7 +51,6 @@ const specLabels: Record<keyof Vehicle, string> = {
     bootSpace: 'Boot Space',
     qualityReport: 'Quality Report',
     certifiedInspection: 'Certified Inspection',
-    // FIX: Add missing properties to satisfy Record<keyof Vehicle, string>
     videoUrl: 'Video URL',
     serviceRecords: 'Service Records',
     accidentHistory: 'Accident History',

@@ -1,6 +1,5 @@
 import React, { memo } from 'react';
 import { View } from '../types';
-import DbStatusIndicator from './DbStatusIndicator';
 
 interface FooterProps {
     onNavigate: (view: View) => void;
@@ -22,7 +21,6 @@ const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <a href="#" className="hover:text-brand-blue dark:hover:text-brand-blue-light transition-colors">Terms of Service</a>
           <a href="#" onClick={(e) => handleNav(e, View.SUPPORT)} className="hover:text-brand-blue dark:hover:text-brand-blue-light transition-colors">Contact Support</a>
           <a href="#" onClick={(e) => handleNav(e, View.FAQ)} className="hover:text-brand-blue dark:hover:text-brand-blue-light transition-colors">FAQ</a>
-          <DbStatusIndicator />
         </div>
       </div>
     </footer>

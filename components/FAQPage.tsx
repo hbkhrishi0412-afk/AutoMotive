@@ -16,16 +16,15 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
         item.answer.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // FIX: Provided a specific type argument to the `reduce` function to ensure correct type inference
-    // for the accumulator, resolving an error where the `map` property was not found on type `unknown`.
-    return filtered.reduce<Record<string, FAQItem[]>>((acc, item) => {
+    // FIX: Explicitly type the initial value of reduce to prevent TypeScript from inferring it as `unknown`.
+    return filtered.reduce((acc, item) => {
       const category = item.category;
       if (!acc[category]) {
         acc[category] = [];
       }
       acc[category].push(item);
       return acc;
-    }, {});
+    }, {} as Record<string, FAQItem[]>);
   }, [faqItems, searchTerm]);
 
   const toggleItem = (id: number) => {

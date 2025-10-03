@@ -761,8 +761,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
 
     // --- Memoized Analytics Calculations ---
     const analyticsData = useMemo(() => {
-        // FIX: Added Number() casting to ensure v.price is treated as a number, preventing arithmetic errors.
-        const totalSalesValue = vehicles.reduce((sum, v) => sum + Number(v.price), 0);
+        // FIX: Explicitly cast values to Number to prevent type errors in arithmetic operations.
+        const totalSalesValue = vehicles.reduce((sum, v) => Number(sum) + Number(v.price), 0);
         const averagePrice = vehicles.length > 0 ? totalSalesValue / vehicles.length : 0;
         
         const userRoleCounts = users.reduce((acc, user) => {
@@ -782,19 +782,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         const moderationQueueCount = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
 
         // New monetization metrics
+        // FIX: Explicitly cast values to Number to prevent type errors in arithmetic operations.
         const monthlySubscriptionRevenue = users
             .filter(u => u.role === 'seller' && u.subscriptionPlan)
             .reduce((total, user) => {
                 if (user.subscriptionPlan) {
                     const plan = PLAN_DETAILS[user.subscriptionPlan];
-                    return total + (plan ? plan.price : 0);
+                    return Number(total) + (plan ? Number(plan.price) : 0);
                 }
-                return total;
+                return Number(total);
             }, 0);
 
+        // FIX: Explicitly cast INSPECTION_SERVICE_FEE to Number to prevent type errors in arithmetic operations.
         const inspectionServiceRevenue = vehicles
             .filter(v => v.certifiedInspection)
-            .length * INSPECTION_SERVICE_FEE;
+            .length * Number(INSPECTION_SERVICE_FEE);
 
         const featuredListingsCount = vehicles.filter(v => v.isFeatured).length;
 

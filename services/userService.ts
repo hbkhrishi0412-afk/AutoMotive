@@ -1,25 +1,24 @@
 import type { User } from '../types';
+import { MOCK_USERS } from '../constants';
 
 const USER_STORAGE_KEY = 'appUsers';
 
 /**
- * Retrieves all users from the API endpoint.
+ * Retrieves all users from localStorage, or seeds it with mock data if empty.
  * @returns A promise that resolves to an array of users.
  */
 export const getUsers = async (): Promise<User[]> => {
-  const response = await fetch('/api/users');
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ error: `Failed to fetch users. Status: ${response.status}` }));
-    const errorMessage = errorBody.error || `Failed to fetch users from API`;
-    console.error(errorMessage, { status: response.status, details: errorBody });
-    throw new Error(errorMessage);
+  try {
+    const usersJson = localStorage.getItem(USER_STORAGE_KEY);
+    if (usersJson) {
+      return JSON.parse(usersJson);
+    }
+  } catch (error) {
+    console.error("Failed to parse users from localStorage", error);
   }
-  const data = await response.json();
-   // Vercel Postgres returns numeric types as strings, so we need to parse them.
-  return data.map((u: any) => ({
-    ...u,
-    featuredCredits: u.featuredCredits ? Number(u.featuredCredits) : 0,
-  }));
+  
+  saveUsers(MOCK_USERS);
+  return MOCK_USERS;
 };
 
 /**

@@ -8,6 +8,7 @@ import Benefits from './Benefits';
 import QuickViewModal from './QuickViewModal';
 import BadgeDisplay from './BadgeDisplay';
 import VehicleHistory from './VehicleHistory';
+import PriceAnalysis from './PriceAnalysis';
 
 interface VehicleDetailProps {
   vehicle: Vehicle;
@@ -118,7 +119,6 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, allVehicl
   };
   
   const handleRateSeller = (rating: number) => {
-    // FIX: Explicitly cast 'rating' to a number to satisfy the function signature, avoiding a potential type mismatch.
     onAddSellerRating(vehicle.sellerEmail, Number(rating));
     setShowSellerRatingSuccess(true);
     setTimeout(() => setShowSellerRatingSuccess(false), 3000);
@@ -145,6 +145,12 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, allVehicl
   const filteredRecommendations = useMemo(() => {
       return recommendations.filter(rec => rec.id !== vehicle.id).slice(0, 3);
   }, [recommendations, vehicle.id]);
+
+  const similarVehiclesForAnalysis = useMemo(() => {
+      return allVehicles
+          .filter(v => v.id !== vehicle.id && v.make === vehicle.make && Math.abs(v.price - vehicle.price) < 500000)
+          .map(v => ({ price: v.price, year: v.year, mileage: v.mileage, status: v.status }));
+  }, [allVehicles, vehicle]);
   
   return (
     <>
@@ -300,6 +306,8 @@ export const VehicleDetail: React.FC<VehicleDetailProps> = ({ vehicle, allVehicl
                             </div>}
                       </div>}
                       
+                      <PriceAnalysis vehicle={vehicle} similarVehicles={similarVehiclesForAnalysis} />
+
                       <EMICalculator price={vehicle.price} />
 
                       <div className="text-center">
