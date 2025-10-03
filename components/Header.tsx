@@ -111,6 +111,7 @@ const Header: React.FC<HeaderProps> = ({
               </div>
               <button onClick={() => handleNavigate(ViewEnum.SELLER_LOGIN)} className={`font-semibold ${navLinkClasses}`}>Sell</button>
               <button onClick={() => handleNavigate(ViewEnum.PRICING)} className={`font-semibold ${navLinkClasses}`}>Pricing</button>
+              <button onClick={() => handleNavigate(ViewEnum.SUPPORT)} className={`font-semibold ${navLinkClasses}`}>Support</button>
             </nav>
           </div>
 
@@ -187,6 +188,7 @@ const Header: React.FC<HeaderProps> = ({
             )}
             <button onClick={() => handleNavigate(ViewEnum.SELLER_LOGIN)} className="block w-full text-left font-semibold text-brand-gray-700 dark:text-brand-gray-200 hover:text-brand-blue dark:hover:text-brand-blue-light py-2">Sell</button>
             <button onClick={() => handleNavigate(ViewEnum.PRICING)} className="block w-full text-left font-semibold text-brand-gray-700 dark:text-brand-gray-200 hover:text-brand-blue dark:hover:text-brand-blue-light py-2">Pricing</button>
+            <button onClick={() => handleNavigate(ViewEnum.SUPPORT)} className="block w-full text-left font-semibold text-brand-gray-700 dark:text-brand-gray-200 hover:text-brand-blue dark:hover:text-brand-blue-light py-2">Support</button>
             <hr className="border-brand-gray-200 dark:border-brand-gray-700"/>
             <button onClick={() => handleNavigate(ViewEnum.COMPARISON)} className="block w-full text-left font-semibold text-brand-gray-700 dark:text-brand-gray-200 hover:text-brand-blue dark:hover:text-brand-blue-light py-2">Compare ({compareCount})</button>
             <button onClick={() => handleNavigate(ViewEnum.WISHLIST)} className="block w-full text-left font-semibold text-brand-gray-700 dark:text-brand-gray-200 hover:text-brand-blue dark:hover:text-brand-blue-light py-2">Wishlist ({wishlistCount})</button>

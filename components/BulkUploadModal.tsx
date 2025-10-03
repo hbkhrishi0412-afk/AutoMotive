@@ -86,7 +86,7 @@ const BulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose, onAddMultipl
                     insuranceType: row.insuranceType,
                     features: row.features ? row.features.split('|').map(f => f.trim()) : [],
                     description: row.description,
-                    // FIX: Add missing properties
+                    // FIX: Add missing properties with fallbacks to align with the Vehicle type.
                     engine: row.engine || '',
                     fuelEfficiency: row.fuelEfficiency || '',
                     displacement: row.displacement || '',

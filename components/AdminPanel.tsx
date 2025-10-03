@@ -778,7 +778,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         
         const userRoleChartData = Object.entries(userRoleCounts).map(([label, value]) => ({ label: label.charAt(0).toUpperCase() + label.slice(1), value })).sort((a,b) => b.value - a.value);
         const listingsByMakeChartData = Object.entries(listingsByMake).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value);
-        const moderationQueueCount = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
+        const moderationQueueCount = Number(vehicles.filter(v => v.isFlagged).length) + Number(conversations.filter(c => c.isFlagged).length);
 
         // New monetization metrics
         const monthlySubscriptionRevenue = users
@@ -786,14 +786,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
             .reduce((total, user) => {
                 if (user.subscriptionPlan) {
                     const plan = PLAN_DETAILS[user.subscriptionPlan];
-                    return total + (plan ? plan.price : 0);
+                    // FIX: Explicitly cast plan.price to a number to ensure the arithmetic operation is valid.
+                    return total + (plan ? Number(plan.price) : 0);
                 }
                 return total;
             }, 0);
 
         const inspectionServiceRevenue = vehicles
             .filter(v => v.certifiedInspection)
-            .length * INSPECTION_SERVICE_FEE;
+            // FIX: Explicitly cast INSPECTION_SERVICE_FEE to a number.
+            .length * Number(INSPECTION_SERVICE_FEE);
 
         const featuredListingsCount = vehicles.filter(v => v.isFeatured).length;
 

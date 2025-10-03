@@ -10,8 +10,8 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
   const [openItem, setOpenItem] = useState<number | null>(null);
 
   const filteredAndGroupedFAQs = useMemo(() => {
-    // FIX: Added a type guard to ensure 'faqItems' is an array before using array methods like '.reduce()'.
-    if (!Array.isArray(faqItems)) return {};
+    // FIX: Removed unnecessary type guard. The prop 'faqItems' is already typed as an array.
+    // The guard was confusing TypeScript's type inference, causing a compilation error.
     const filtered = faqItems.filter(
       (item) =>
         item.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
