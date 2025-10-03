@@ -7,7 +7,7 @@ import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import AdminLogin from './components/AdminLogin';
 import Comparison from './components/Comparison';
-import { MOCK_VEHICLES, MOCK_USERS, PLAN_DETAILS, MOCK_SUPPORT_TICKETS, MOCK_FAQS } from './constants';
+import { PLAN_DETAILS, MOCK_SUPPORT_TICKETS, MOCK_FAQS } from './constants';
 import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory, Badge, Command, SubscriptionPlan, CertifiedInspection, SupportTicket, FAQItem } from './types';
 import { View, VehicleCategory as CategoryEnum } from './types';
 import { getRatings, addRating, getSellerRatings, addSellerRating } from './services/ratingService';
@@ -47,24 +47,8 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.HOME);
   const [previousView, setPreviousView] = useState<View>(View.HOME);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
-    const savedVehicles = getVehicles();
-    const initialVehicles = savedVehicles || MOCK_VEHICLES;
-    
-    return initialVehicles.map(v => ({
-      ...v,
-      category: v.category || CategoryEnum.FOUR_WHEELER,
-      status: v.status || 'published',
-      isFeatured: v.isFeatured || false,
-      views: v.views || 0,
-      inquiriesCount: v.inquiriesCount || 0,
-      isFlagged: v.isFlagged || false,
-      flagReason: v.flagReason || undefined,
-      flaggedAt: v.flaggedAt || undefined,
-      certifiedInspection: v.certifiedInspection || null,
-    }));
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [comparisonList, setComparisonList] = useState<number[]>([]);
   const [ratings, setRatings] = useState<{ [key: string]: number[] }>({});
@@ -85,21 +69,55 @@ const App: React.FC = () => {
   const [initialSearchQuery, setInitialSearchQuery] = useState<string>('');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
-  const [users, setUsers] = useState<User[]>(() => {
-    const savedUsers = getUsers();
-    return (savedUsers || MOCK_USERS).map(u => ({
-        ...u, 
-        status: u.status || 'active',
-        subscriptionPlan: u.subscriptionPlan || 'free',
-        featuredCredits: u.featuredCredits ?? PLAN_DETAILS[u.subscriptionPlan || 'free'].featuredCredits,
-    }));
-  });
+  const [users, setUsers] = useState<User[]>([]);
   
   const [platformSettings, setPlatformSettings] = useState<PlatformSettings>(() => getSettings());
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>(() => getAuditLog());
   const [vehicleData, setVehicleData] = useState<VehicleData>(() => getVehicleData());
   const [faqItems, setFaqItems] = useState<FAQItem[]>(() => getFaqs() || MOCK_FAQS);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>(() => getSupportTickets() || MOCK_SUPPORT_TICKETS);
+
+  useEffect(() => {
+    const loadInitialData = async () => {
+        setIsLoading(true);
+        try {
+            const [vehiclesData, usersData] = await Promise.all([
+                getVehicles(),
+                getUsers()
+            ]);
+
+            const processedVehicles = vehiclesData.map(v => ({
+                ...v,
+                category: v.category || CategoryEnum.FOUR_WHEELER,
+                status: v.status || 'published',
+                isFeatured: v.isFeatured || false,
+                views: v.views || 0,
+                inquiriesCount: v.inquiriesCount || 0,
+                isFlagged: v.isFlagged || false,
+                flagReason: v.flagReason || undefined,
+                flaggedAt: v.flaggedAt || undefined,
+                certifiedInspection: v.certifiedInspection || null,
+            }));
+
+            const processedUsers = usersData.map(u => ({
+                ...u, 
+                status: u.status || 'active',
+                subscriptionPlan: u.subscriptionPlan || 'free',
+                featuredCredits: u.featuredCredits ?? PLAN_DETAILS[u.subscriptionPlan || 'free'].featuredCredits,
+            }));
+            
+            setVehicles(processedVehicles);
+            setUsers(processedUsers);
+        } catch (error) {
+            console.error("Failed to load initial data from APIs", error);
+            addToast("Could not load data from the server. Using local fallback.", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    loadInitialData();
+  }, []); // Run only once on mount
 
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     try {
@@ -263,11 +281,8 @@ const App: React.FC = () => {
     // Check for seller profile view from URL on initial load
     const urlParams = new URLSearchParams(window.location.search);
     const sellerEmail = urlParams.get('seller');
-    if (sellerEmail) {
-        // We need to use the users from state, which is initialized synchronously
-        const savedUsers = getUsers();
-        const allUsers = (savedUsers || MOCK_USERS);
-        const sellerUser = allUsers.find(u => u.email === sellerEmail && u.role === 'seller');
+    if (sellerEmail && users.length > 0) {
+        const sellerUser = users.find(u => u.email === sellerEmail && u.role === 'seller');
 
         if (sellerUser) {
             setPublicSellerProfile(sellerUser);
@@ -277,7 +292,7 @@ const App: React.FC = () => {
             window.history.pushState({}, '', window.location.pathname);
         }
     }
-  }, [addToast]);
+  }, [addToast, users]); // Depend on users to run after they are loaded
 
   useEffect(() => {
     const root = document.documentElement;
@@ -377,12 +392,16 @@ const App: React.FC = () => {
   }, []);
   
   useEffect(() => {
-    saveUsers(users);
-  }, [users]);
+    if (!isLoading) { // Only save to localStorage after initial load from DB
+      saveUsers(users);
+    }
+  }, [users, isLoading]);
   
   useEffect(() => {
-    saveVehicles(vehicles);
-  }, [vehicles]);
+     if (!isLoading) { // Only save to localStorage after initial load from DB
+      saveVehicles(vehicles);
+     }
+  }, [vehicles, isLoading]);
   
   useEffect(() => {
     saveConversations(conversations);
@@ -1355,6 +1374,17 @@ const App: React.FC = () => {
   }, [conversations, currentUser]);
 
   const renderContent = () => {
+    if (isLoading) {
+        return (
+            <div className="min-h-[calc(100vh-140px)] flex items-center justify-center">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-brand-blue"></div>
+                    <span className="text-xl font-semibold text-brand-gray-600 dark:text-brand-gray-300">Loading Data...</span>
+                </div>
+            </div>
+        );
+    }
+    
     const authViews = [View.LOGIN_PORTAL, View.CUSTOMER_LOGIN, View.SELLER_LOGIN, View.ADMIN_LOGIN, View.FORGOT_PASSWORD];
     if (authViews.includes(currentView)) {
       const AuthWrapper: React.FC<{children: React.ReactNode}> = ({ children }) => (

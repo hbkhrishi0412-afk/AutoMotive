@@ -1,25 +1,18 @@
 {
-  "name": "reride",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
+  "name": "reride-app",
+  "version": "1.0.0",
+  "description": "A modern vehicle marketplace platform.",
   "dependencies": {
     "@google/genai": "^1.17.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-chartjs-2": "^5.3.0",
+    "@vercel/postgres": "^0.9.0",
     "chart.js": "^4.5.0",
-    "@vercel/node": "^5.3.23"
+    "react": "^19.1.1",
+    "react-chartjs-2": "^5.3.0",
+    "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "@vitejs/plugin-react": "^5.0.0",
-    "typescript": "~5.8.2",
-    "vite": "^6.2.0"
+    "@types/node": "^20.14.2",
+    "@types/react": "^18.3.3",
+    "@vercel/node": "^5.3.23"
   }
 }
