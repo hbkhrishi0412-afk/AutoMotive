@@ -8,7 +8,7 @@ export const getSellerBadges = (seller: User, allSellerVehicles: Vehicle[]): Bad
         badges.push({
             type: 'verified',
             label: 'Verified Seller',
-            description: 'This seller has been verified by AutoVerse AI for authenticity and reliability.',
+            description: 'This seller has been verified by ReRide for authenticity and reliability.',
         });
     }
 

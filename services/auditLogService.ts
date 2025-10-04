@@ -1,6 +1,6 @@
 import type { AuditLogEntry } from '../types';
 
-const AUDIT_LOG_STORAGE_KEY = 'autoVerseAuditLog';
+const AUDIT_LOG_STORAGE_KEY = 'reRideAuditLog';
 
 export const getAuditLog = (): AuditLogEntry[] => {
   try {

@@ -1,12 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
-import VehicleList from './components/VehicleList';
-import { VehicleDetail } from './components/VehicleDetail';
-import Dashboard from './components/Dashboard';
-import Login from './components/Login';
-import AdminLogin from './components/AdminLogin';
-import Comparison from './components/Comparison';
 import { PLAN_DETAILS, MOCK_SUPPORT_TICKETS, MOCK_FAQS } from './constants';
 import type { Vehicle, User, Conversation, ChatMessage, Toast as ToastType, PlatformSettings, AuditLogEntry, VehicleData, Notification, VehicleCategory, Badge, Command, SubscriptionPlan, CertifiedInspection, SupportTicket, FAQItem } from './types';
 import { View, VehicleCategory as CategoryEnum } from './types';
@@ -16,33 +10,52 @@ import { getVehicles, saveVehicles } from './services/vehicleService';
 import { getUsers, saveUsers } from './services/userService';
 import LoginPortal from './components/LoginPortal';
 import CustomerLogin from './components/CustomerLogin';
-import AdminPanel from './components/AdminPanel';
+import AdminLogin from './components/AdminLogin';
+import Login from './components/Login';
 import ToastContainer from './components/ToastContainer';
-import Profile from './components/Profile';
 import ForgotPassword from './components/ForgotPassword';
-import CustomerInbox from './components/CustomerInbox';
 import { getSettings, saveSettings } from './services/settingsService';
 import { getAuditLog, logAction, saveAuditLog } from './services/auditLogService';
 import { exportToCsv } from './services/exportService';
 import { showNotification } from './services/notificationService';
-import SellerProfilePage from './components/SellerProfilePage';
-import Home from './components/Home';
 import { getVehicleData, saveVehicleData } from './services/vehicleDataService';
 import ChatWidget from './components/ChatWidget';
 import { getVehicleRecommendations } from './services/geminiService';
 import { getSellerBadges } from './services/badgeService';
-import NewCars from './components/NewCars';
-import DealerProfiles from './components/DealerProfiles';
 import CommandPalette from './components/CommandPalette';
-import PricingPage from './components/PricingPage';
-import SupportPage from './components/SupportPage';
 import { getFaqs, saveFaqs } from './services/faqService';
 import { getSupportTickets, saveSupportTickets } from './services/supportTicketService';
-import FAQPage from './components/FAQPage';
 import { getPlaceholderImage } from './components/vehicleData';
 
 
+// Lazy-loaded components
+const Home = lazy(() => import('./components/Home'));
+const VehicleList = lazy(() => import('./components/VehicleList'));
+const VehicleDetail = lazy(() => import('./components/VehicleDetail').then(module => ({ default: module.VehicleDetail })));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const Comparison = lazy(() => import('./components/Comparison'));
+const Profile = lazy(() => import('./components/Profile'));
+const CustomerInbox = lazy(() => import('./components/CustomerInbox'));
+const SellerProfilePage = lazy(() => import('./components/SellerProfilePage'));
+const NewCars = lazy(() => import('./components/NewCars'));
+const DealerProfiles = lazy(() => import('./components/DealerProfiles'));
+const PricingPage = lazy(() => import('./components/PricingPage'));
+const SupportPage = lazy(() => import('./components/SupportPage'));
+const FAQPage = lazy(() => import('./components/FAQPage'));
+
+
 export type Theme = 'light' | 'dark' | 'sunset' | 'oceanic' | 'cyber';
+
+const LoadingSpinner: React.FC = () => (
+    <div className="min-h-[calc(100vh-140px)] flex items-center justify-center">
+        <div className="flex items-center gap-4">
+            <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-brand-blue"></div>
+            <span className="text-xl font-semibold text-brand-gray-600 dark:text-brand-gray-300">Loading...</span>
+        </div>
+    </div>
+);
+
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.HOME);
@@ -94,6 +107,7 @@ const App: React.FC = () => {
           flagReason: v.flagReason || undefined,
           flaggedAt: v.flaggedAt || undefined,
           certifiedInspection: v.certifiedInspection || null,
+          certificationStatus: v.certificationStatus || 'none',
       }));
 
       const processedUsers = usersData.map(u => ({
@@ -101,6 +115,7 @@ const App: React.FC = () => {
           status: u.status || 'active',
           subscriptionPlan: u.subscriptionPlan || 'free',
           featuredCredits: u.featuredCredits ?? PLAN_DETAILS[u.subscriptionPlan || 'free'].featuredCredits,
+          usedCertifications: u.usedCertifications || 0,
       }));
       
       setVehicles(processedVehicles);
@@ -130,14 +145,14 @@ const App: React.FC = () => {
 
   const [notifications, setNotifications] = useState<Notification[]>(() => {
     try {
-        const notificationsJson = localStorage.getItem('autoVerseNotifications');
+        const notificationsJson = localStorage.getItem('reRideNotifications');
         return notificationsJson ? JSON.parse(notificationsJson) : [];
     } catch { return []; }
   });
 
   useEffect(() => {
     try {
-        localStorage.setItem('autoVerseNotifications', JSON.stringify(notifications));
+        localStorage.setItem('reRideNotifications', JSON.stringify(notifications));
     } catch (error) { console.error("Failed to save notifications", error); }
   }, [notifications]);
 
@@ -654,7 +669,25 @@ const App: React.FC = () => {
     });
   }, [vehicles, ratings, usersWithRatingsAndBadges]);
   
-  const handleAddVehicle = useCallback((vehicleData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => {
+  const handleAddVehicle = useCallback((vehicleData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, isFeaturing: boolean) => {
+    if (isFeaturing) {
+        if (!currentUser || currentUser.role !== 'seller' || (currentUser.featuredCredits || 0) <= 0) {
+            addToast('You have no featured credits left. Please upgrade your plan.', 'error');
+            isFeaturing = false; // Failsafe
+        } else {
+            // Decrement credit
+            setUsers(prevUsers => {
+              const userIndex = prevUsers.findIndex(u => u.email === currentUser.email);
+              if (userIndex === -1) return prevUsers;
+
+              const user = prevUsers[userIndex];
+              const newUsers = [...prevUsers];
+              newUsers[userIndex] = { ...user, featuredCredits: (user.featuredCredits || 0) - 1 };
+              return newUsers;
+            });
+        }
+    }
+
     const newVehicle: Vehicle = {
       ...vehicleData,
       id: Date.now(),
@@ -664,12 +697,13 @@ const App: React.FC = () => {
       ],
       sellerEmail: currentUser?.email || 'seller@test.com',
       status: 'published',
-      isFeatured: false,
+      isFeatured: isFeaturing,
       views: 0,
       inquiriesCount: 0,
+      certificationStatus: 'none',
     };
     setVehicles(prevVehicles => [newVehicle, ...prevVehicles]);
-    addToast('Vehicle listed successfully!', 'success');
+    addToast(`Vehicle listed successfully!${isFeaturing ? ' It has been featured.' : ''}`, 'success');
   }, [currentUser, addToast]);
 
   const handleAddMultipleVehicles = useCallback((newVehiclesData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>[]) => {
@@ -680,6 +714,7 @@ const App: React.FC = () => {
         isFeatured: false,
         views: 0,
         inquiriesCount: 0,
+        certificationStatus: 'none',
     }));
 
     setVehicles(prevVehicles => [...newVehicles, ...prevVehicles]);
@@ -785,27 +820,95 @@ const App: React.FC = () => {
     });
   }, [currentUser, addToast]);
 
-  const handlePurchaseInspection = useCallback((vehicleId: number) => {
-    // In a real app, this would involve a payment flow. Here we simulate it.
-    const inspectionReport: CertifiedInspection = {
-        reportId: `AV-${Date.now()}-${vehicleId}`,
-        summary: 'This vehicle has passed our comprehensive 200-point inspection. Key areas are in excellent condition. A great choice for a reliable vehicle.',
-        date: new Date().toISOString(),
-        inspector: 'AutoVerse Certified',
-        scores: { 'Engine': 92, 'Transmission': 95, 'Suspension': 88, 'Brakes': 91, 'Exterior': 85, 'Interior': 90 },
-        details: { 'Engine': 'No leaks or abnormal noises found.', 'Exterior': 'Minor cosmetic wear consistent with age.', 'Interior': 'Clean with all electronics functional.' }
+  const handleRequestCertification = useCallback((vehicleId: number) => {
+    if (!currentUser || currentUser.role !== 'seller') return;
+
+    const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
+    if (vehicleIndex === -1) return;
+    
+    const vehicle = vehicles[vehicleIndex];
+    if (vehicle.certificationStatus === 'requested') return; // Avoid duplicate requests
+
+    const updatedVehicles = [...vehicles];
+    updatedVehicles[vehicleIndex] = { ...updatedVehicles[vehicleIndex], certificationStatus: 'requested' };
+    setVehicles(updatedVehicles);
+    
+    addToast('Certification requested. An admin will review it shortly.', 'info');
+
+    const admins = users.filter(u => u.role === 'admin');
+    const newAdminNotifications: Notification[] = admins.map(admin => ({
+        id: Date.now() + Math.random(),
+        recipientEmail: admin.email,
+        message: `New certification request from ${currentUser.dealershipName || currentUser.name} for ${vehicle.make} ${vehicle.model}.`,
+        targetId: vehicleId,
+        targetType: 'vehicle', 
+        isRead: false,
+        timestamp: new Date().toISOString(),
+    }));
+    setNotifications(prev => [...prev, ...newAdminNotifications]);
+  }, [vehicles, currentUser, users, addToast]);
+
+  const handleCertificationApproval = useCallback((vehicleId: number, decision: 'approved' | 'rejected') => {
+    const vehicleIndex = vehicles.findIndex(v => v.id === vehicleId);
+    if (vehicleIndex === -1) return;
+
+    const vehicle = vehicles[vehicleIndex];
+    const sellerIndex = users.findIndex(u => u.email === vehicle.sellerEmail);
+    if (sellerIndex === -1) return;
+
+    const seller = users[sellerIndex];
+    const plan = PLAN_DETAILS[seller.subscriptionPlan || 'free'];
+    
+    let updatedVehicle = { ...vehicle };
+    let notificationMessage = '';
+    
+    if (decision === 'approved') {
+        updatedVehicle.certificationStatus = 'approved';
+        updatedVehicle.certifiedInspection = {
+            reportId: `RR-CERT-${Date.now()}-${vehicleId}`,
+            summary: 'This vehicle has passed our comprehensive 200-point inspection. Key areas are in excellent condition.',
+            date: new Date().toISOString(),
+            inspector: 'ReRide Admin Certified',
+            scores: { 'Engine': 95, 'Transmission': 92, 'Suspension': 89, 'Brakes': 94, 'Exterior': 88, 'Interior': 91 },
+            details: { 'Engine': 'Excellent condition, no issues found.', 'Exterior': 'Minor wear consistent with age.', 'Interior': 'Clean with all electronics functional.' }
+        };
+
+        const usedCerts = seller.usedCertifications || 0;
+        if (usedCerts < plan.freeCertifications) {
+            const updatedUsers = [...users];
+            updatedUsers[sellerIndex] = { ...seller, usedCertifications: usedCerts + 1 };
+            setUsers(updatedUsers);
+            notificationMessage = `Your certification request for ${vehicle.make} ${vehicle.model} has been APPROVED. 1 free credit was used.`;
+            addToast('Certification approved. Seller\'s free credit has been used.', 'success');
+        } else {
+             notificationMessage = `Your certification request for ${vehicle.make} ${vehicle.model} has been APPROVED.`;
+             addToast('Certification approved. Seller had no free credits left.', 'info');
+        }
+        addLogEntry('Approved Certification', String(vehicleId));
+
+    } else { // Rejected
+        updatedVehicle.certificationStatus = 'rejected';
+        updatedVehicle.certifiedInspection = null;
+        notificationMessage = `We're sorry, your certification request for ${vehicle.make} ${vehicle.model} has been rejected.`;
+        addLogEntry('Rejected Certification', String(vehicleId));
+        addToast('Certification request rejected.', 'info');
+    }
+
+    const updatedVehicles = [...vehicles];
+    updatedVehicles[vehicleIndex] = updatedVehicle;
+    setVehicles(updatedVehicles);
+
+    const sellerNotification: Notification = {
+        id: Date.now(),
+        recipientEmail: seller.email,
+        message: notificationMessage,
+        targetId: vehicleId,
+        targetType: 'vehicle',
+        isRead: false,
+        timestamp: new Date().toISOString(),
     };
-
-    setVehicles(prev => {
-        const index = prev.findIndex(v => v.id === vehicleId);
-        if (index === -1) return prev;
-        const newVehicles = [...prev];
-        newVehicles[index] = { ...prev[index], certifiedInspection: inspectionReport };
-        return newVehicles;
-    });
-
-    addToast('Certified Inspection purchased successfully!', 'success');
-  }, [addToast]);
+    setNotifications(prev => [...prev, sellerNotification]);
+  }, [vehicles, users, addToast, addLogEntry]);
 
   const handleToggleCompare = useCallback((vehicleId: number) => {
     setComparisonList(prev => {
@@ -905,12 +1008,13 @@ const App: React.FC = () => {
         status: 'active', 
         createdAt: new Date().toISOString(),
         subscriptionPlan: 'free',
-        featuredCredits: PLAN_DETAILS.free.featuredCredits
+        featuredCredits: PLAN_DETAILS.free.featuredCredits,
+        usedCertifications: 0,
     };
     setUsers(prev => [...prev, newUser]);
     loginUser(newUser);
     setCurrentView(View.SELLER_DASHBOARD);
-    addToast('Registration successful! Welcome to AutoVerse AI.', 'success');
+    addToast('Registration successful! Welcome to ReRide.', 'success');
     return { success: true, reason: ''};
   }, [users, loginUser, addToast]);
 
@@ -924,7 +1028,7 @@ const App: React.FC = () => {
     setUsers(prev => [...prev, newUser]);
     loginUser(newUser);
     setCurrentView(View.HOME);
-    addToast('Registration successful! Welcome to AutoVerse AI.', 'success');
+    addToast('Registration successful! Welcome to ReRide.', 'success');
     return { success: true, reason: '' };
   }, [users, loginUser, addToast]);
   
@@ -957,7 +1061,7 @@ const App: React.FC = () => {
     }
   }, [addLogEntry, addToast]);
 
-  const handleAdminUpdateUser = useCallback((email: string, details: { name: string; mobile: string; role: User['role'] }) => {
+  const handleAdminUpdateUser = useCallback((email: string, details: Partial<User>) => {
     addLogEntry('Updated User Profile', email);
     setUsers(prev => {
         const index = prev.findIndex(u => u.email === email);
@@ -1378,15 +1482,8 @@ const App: React.FC = () => {
   }, [conversations, currentUser]);
 
   const renderContent = () => {
-    if (isLoading) {
-        return (
-            <div className="min-h-[calc(100vh-140px)] flex items-center justify-center">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-dashed rounded-full animate-spin border-brand-blue"></div>
-                    <span className="text-xl font-semibold text-brand-gray-600 dark:text-brand-gray-300">Loading Data...</span>
-                </div>
-            </div>
-        );
+    if (isLoading && currentView === View.HOME) {
+        return <LoadingSpinner />;
     }
     
     const authViews = [View.LOGIN_PORTAL, View.CUSTOMER_LOGIN, View.SELLER_LOGIN, View.ADMIN_LOGIN, View.FORGOT_PASSWORD];
@@ -1426,11 +1523,10 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} allVehicles={allPublishedVehicles} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={usersWithRatingsAndBadges.find(u => u.email === currentUser.email)!}
-                  allVehicles={vehiclesWithRatings}
                   sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
                   reportedVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email && v.isFlagged)}
                   onAddVehicle={handleAddVehicle} 
@@ -1448,7 +1544,7 @@ const App: React.FC = () => {
                   vehicleData={vehicleData}
                   onNavigate={navigate}
                   onFeatureListing={handleFeatureListing}
-                  onPurchaseInspection={handlePurchaseInspection}
+                  onRequestCertification={handleRequestCertification}
                 /> : <LoginPortal onNavigate={navigate} />;
       case View.ADMIN_PANEL:
         return currentUser?.role === 'admin' ? <AdminPanel 
@@ -1480,6 +1576,7 @@ const App: React.FC = () => {
                   onAddFaq={handleAddFaq}
                   onUpdateFaq={handleUpdateFaq}
                   onDeleteFaq={handleDeleteFaq}
+                  onCertificationApproval={handleCertificationApproval}
                 /> : <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
       case View.PROFILE:
         return currentUser ? <Profile 
@@ -1529,6 +1626,7 @@ const App: React.FC = () => {
         notifications={notifications.filter(n => n.recipientEmail === currentUser?.email)}
         onNotificationClick={handleNotificationClick}
         onMarkNotificationsAsRead={handleMarkNotificationsAsRead}
+        onMarkAllNotificationsAsRead={() => handleMarkNotificationsAsRead(notifications.map(n => n.id))}
         onSelectCategory={handleSelectCategory}
       />
       {platformSettings.siteAnnouncement && isAnnouncementVisible && (
@@ -1546,7 +1644,9 @@ const App: React.FC = () => {
           </div>
       )}
       <main className="flex-grow">
-        {renderContent()}
+        <Suspense fallback={<LoadingSpinner />}>
+            {renderContent()}
+        </Suspense>
       </main>
       <Footer onNavigate={navigate} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />

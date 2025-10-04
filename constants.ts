@@ -18,6 +18,7 @@ export const PLAN_DETAILS: Record<SubscriptionPlan, PlanDetails> = {
         price: 0,
         listingLimit: 1,
         featuredCredits: 0,
+        freeCertifications: 0,
         features: [
             '1 Active Listing',
             'Basic Seller Profile',
@@ -30,10 +31,12 @@ export const PLAN_DETAILS: Record<SubscriptionPlan, PlanDetails> = {
         price: 1999,
         listingLimit: 10,
         featuredCredits: 2,
+        freeCertifications: 1,
         isMostPopular: true,
         features: [
             '10 Active Listings',
             '2 Featured Credits/month',
+            '1 Free Certified Inspection/month',
             'Enhanced Seller Profile',
             'Performance Analytics',
             'Priority Support',
@@ -45,9 +48,11 @@ export const PLAN_DETAILS: Record<SubscriptionPlan, PlanDetails> = {
         price: 4999,
         listingLimit: 'unlimited',
         featuredCredits: 5,
+        freeCertifications: 3,
         features: [
             'Unlimited Active Listings',
             '5 Featured Credits/month',
+            '3 Free Certified Inspections/month',
             'AI Listing Assistant',
             'Advanced Analytics',
             'Dedicated Support',
@@ -88,13 +93,13 @@ export const CITIES_BY_STATE: Record<string, string[]> = {
 };
 
 export const MOCK_USERS: User[] = [
-    { name: 'Prestige Motors', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active', createdAt: daysAgo(30), dealershipName: 'Prestige Motors', bio: 'Specializing in luxury and performance electric vehicles since 2020.', logoUrl: 'https://i.pravatar.cc/100?u=seller', isVerified: true, subscriptionPlan: 'premium', featuredCredits: 5 },
+    { name: 'Prestige Motors', email: 'seller@test.com', password: 'password', mobile: '555-123-4567', role: 'seller', status: 'active', createdAt: daysAgo(30), dealershipName: 'Prestige Motors', bio: 'Specializing in luxury and performance electric vehicles since 2020.', logoUrl: 'https://i.pravatar.cc/100?u=seller', isVerified: true, subscriptionPlan: 'premium', featuredCredits: 5, usedCertifications: 1 },
     { name: 'Mock Customer', email: 'customer@test.com', password: 'password', mobile: '555-987-6543', role: 'customer', status: 'active', createdAt: daysAgo(15) },
     { name: 'Mock Admin', email: 'admin@test.com', password: 'password', mobile: '111-222-3333', role: 'admin', status: 'active', createdAt: daysAgo(100) },
     { name: 'Jane Doe', email: 'jane.doe@customer.com', password: 'password', mobile: '555-111-2222', role: 'customer', status: 'active', createdAt: daysAgo(5) },
-    { name: 'Reliable Rides', email: 'john.smith@seller.com', password: 'password', mobile: '555-333-4444', role: 'seller', status: 'active', createdAt: daysAgo(60), dealershipName: 'Reliable Rides', bio: 'Your trusted source for pre-owned family cars and SUVs.', logoUrl: 'https://i.pravatar.cc/100?u=johnsmith', isVerified: false, subscriptionPlan: 'pro', featuredCredits: 2 },
-    { name: 'Speedy Auto', email: 'speedy@auto.com', password: 'password', mobile: '555-555-1111', role: 'seller', status: 'active', createdAt: daysAgo(90), dealershipName: 'Speedy Auto', bio: 'Performance and sports cars for the enthusiast.', logoUrl: 'https://i.pravatar.cc/100?u=speedy', isVerified: true, subscriptionPlan: 'pro', featuredCredits: 1 },
-    { name: 'Eco Drive', email: 'eco@drive.com', password: 'password', mobile: '555-222-5555', role: 'seller', status: 'active', createdAt: daysAgo(45), dealershipName: 'Eco Drive', bio: 'The best deals on electric and hybrid vehicles.', logoUrl: 'https://i.pravatar.cc/100?u=eco', isVerified: false, subscriptionPlan: 'free', featuredCredits: 0 },
+    { name: 'Reliable Rides', email: 'john.smith@seller.com', password: 'password', mobile: '555-333-4444', role: 'seller', status: 'active', createdAt: daysAgo(60), dealershipName: 'Reliable Rides', bio: 'Your trusted source for pre-owned family cars and SUVs.', logoUrl: 'https://i.pravatar.cc/100?u=johnsmith', isVerified: false, subscriptionPlan: 'pro', featuredCredits: 2, usedCertifications: 0 },
+    { name: 'Speedy Auto', email: 'speedy@auto.com', password: 'password', mobile: '555-555-1111', role: 'seller', status: 'active', createdAt: daysAgo(90), dealershipName: 'Speedy Auto', bio: 'Performance and sports cars for the enthusiast.', logoUrl: 'https://i.pravatar.cc/100?u=speedy', isVerified: true, subscriptionPlan: 'pro', featuredCredits: 1, usedCertifications: 1 },
+    { name: 'Eco Drive', email: 'eco@drive.com', password: 'password', mobile: '555-222-5555', role: 'seller', status: 'active', createdAt: daysAgo(45), dealershipName: 'Eco Drive', bio: 'The best deals on electric and hybrid vehicles.', logoUrl: 'https://i.pravatar.cc/100?u=eco', isVerified: false, subscriptionPlan: 'free', featuredCredits: 0, usedCertifications: 0 },
 
 ];
 
@@ -163,7 +168,7 @@ const generateMockVehicles = (count: number): Vehicle[] => {
             fuelType: randomItem(FUEL_TYPES),
             fuelEfficiency: `${randomNumber(12, 25)} KMPL`,
             color: randomItem(COLORS),
-            status: Math.random() > 0.1 ? 'published' : 'sold',
+            status: Math.random() > 0.1 ? 'sold' : 'published',
             isFeatured: Math.random() > 0.85,
             views: randomNumber(100, 5000),
             inquiriesCount: randomNumber(1, 50),
@@ -178,8 +183,9 @@ const generateMockVehicles = (count: number): Vehicle[] => {
             displacement: `${randomNumber(900, 2500)} cc`,
             groundClearance: `${randomNumber(160, 220)} mm`,
             bootSpace: `${randomNumber(250, 550)} litres`,
+            certificationStatus: 'none',
             certifiedInspection: Math.random() > 0.8 ? {
-                reportId: `AV-${Date.now()}-${i}`,
+                reportId: `RR-${Date.now()}-${i}`,
                 summary: 'This vehicle has passed our comprehensive 200-point inspection with flying colors. Key areas like engine, transmission, and brakes are in excellent condition. Minor cosmetic wear noted on the rear bumper, consistent with age. Overall, a reliable and well-maintained vehicle.',
                 date: daysAgo(randomNumber(5, 30)),
                 inspector: 'Ravi Kumar',
@@ -194,6 +200,7 @@ const generateMockVehicles = (count: number): Vehicle[] => {
                 { date: daysAgo(600), description: "Minor dent on front right fender, repaired and repainted.", severity: "Minor" }
             ] : []
         };
+        if(vehicle.certifiedInspection) vehicle.certificationStatus = 'approved';
         vehicles.push(vehicle);
     }
     return vehicles;

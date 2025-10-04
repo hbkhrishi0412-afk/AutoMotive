@@ -1,10 +1,10 @@
 import type { PlatformSettings } from '../types';
 
-const SETTINGS_STORAGE_KEY = 'autoVersePlatformSettings';
+const SETTINGS_STORAGE_KEY = 'reRidePlatformSettings';
 
 const defaultSettings: PlatformSettings = {
     listingFee: 25,
-    siteAnnouncement: 'Welcome to AutoVerse AI! All EVs are 10% off this week.',
+    siteAnnouncement: 'Welcome to ReRide! All EVs are 10% off this week.',
 };
 
 export const getSettings = (): PlatformSettings => {

@@ -12,7 +12,7 @@ export interface VehicleMake {
 
 export type VehicleCategoryData = VehicleMake[];
 
-const DEFAULT_PLACEHOLDER = 'https://via.placeholder.com/800x600/E5E7EB/4B5563?text=AutoVerse+AI';
+const DEFAULT_PLACEHOLDER = 'https://via.placeholder.com/800x600/E5E7EB/4B5563?text=ReRide';
 
 export const getPlaceholderImage = (make?: string, model?: string): string => {
     if (make && model) {

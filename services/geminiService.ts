@@ -1,3 +1,4 @@
+
 import { Type } from "@google/genai";
 import type { Vehicle, ProsAndCons, Conversation, Suggestion } from '../types';
 import type { SearchFilters } from "../types";
@@ -65,6 +66,7 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
                     },
                 },
             },
+            // FIX: Disable thinking for low-latency tasks like parsing search queries.
             thinkingConfig: { thinkingBudget: 0 },
         },
     };
@@ -106,53 +108,6 @@ Provide the output in JSON format with two keys: "pros" and "cons", each contain
     } catch (error) {
         console.error("Failed to generate pros and cons from proxy:", error);
         return { pros: ['AI analysis unavailable.'], cons: ['Could not generate suggestions at this time.'] };
-    }
-};
-
-export const getSellerPriceSuggestion = async (
-    vehicle: Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage' | 'city' | 'state' | 'noOfOwners'>,
-    marketVehicles: Pick<Vehicle, 'price' | 'year' | 'mileage' | 'status'>[]
-): Promise<{ summary: string; suggestedMinPrice: number; suggestedMaxPrice: number }> => {
-    const prompt = `Act as an expert Indian used car valuator. Given the vehicle details and a sample of market listings, provide a fair market price suggestion for a seller.
-
-    **Vehicle to be Priced:**
-    - ${vehicle.year} ${vehicle.make} ${vehicle.model}
-    - Mileage: ${vehicle.mileage.toLocaleString('en-IN')} kms
-    - Location: ${vehicle.city}, ${vehicle.state}
-    - Owners: ${vehicle.noOfOwners}
-
-    **Comparable Market Listings (mix of active and sold):**
-    ${JSON.stringify(marketVehicles.slice(0, 20), null, 2)}
-
-    Your task is to:
-    1.  Provide a concise 'summary' explaining the rationale for your valuation. Mention positive and negative factors (e.g., "high mileage but a desirable model in this city").
-    2.  Provide a 'suggestedMinPrice' and 'suggestedMaxPrice' in INR. This should be a realistic range for the seller to list their vehicle.
-
-    Respond ONLY with a JSON object matching the specified schema. If you cannot determine a price, return 0 for both price fields.`;
-
-    const requestPayload = {
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    summary: { type: Type.STRING },
-                    suggestedMinPrice: { type: Type.NUMBER },
-                    suggestedMaxPrice: { type: Type.NUMBER }
-                },
-                required: ["summary", "suggestedMinPrice", "suggestedMaxPrice"]
-            }
-        }
-    };
-
-    try {
-        const jsonText = await callGeminiAPI(requestPayload);
-        return JSON.parse(jsonText.trim());
-    } catch (error) {
-        console.error("Failed to generate seller price suggestion from proxy:", error);
-        return { summary: 'AI analysis failed. Could not determine a fair market value.', suggestedMinPrice: 0, suggestedMaxPrice: 0 };
     }
 };
 
@@ -259,6 +214,7 @@ Respond ONLY with a single JSON object matching this schema. If a value is not a
         const parsed = JSON.parse(jsonText.trim());
         return {
             structuredSpecs: parsed.structuredSpecs || {},
+            // FIX: Check if featureSuggestions exists before returning.
             featureSuggestions: parsed.featureSuggestions || {}
         };
     } catch (error) {
@@ -371,9 +327,10 @@ If there is no data or no meaningful suggestions can be made, return an empty ar
                                 type: { type: Type.STRING },
                                 title: { type: Type.STRING },
                                 description: { type: Type.STRING },
-                                targetId: { type: Type.STRING },
+                                targetId: { type: Type.STRING }, // Gemini may return number as string
                                 priority: { type: Type.STRING },
-                            }
+                            },
+                            required: ["type", "title", "description", "targetId", "priority"]
                         }
                     }
                 }
@@ -385,6 +342,10 @@ If there is no data or no meaningful suggestions can be made, return an empty ar
         const jsonText = await callGeminiAPI(requestPayload);
         const result = JSON.parse(jsonText.trim());
         
+        if (!result.suggestions) {
+            return [];
+        }
+
         return result.suggestions.map((s: any) => ({
             ...s,
             targetId: s.type === 'urgent_inquiry' ? String(s.targetId) : Number(s.targetId)
@@ -433,5 +394,69 @@ Respond ONLY with a JSON array of recommended vehicle IDs (numbers). For example
     } catch (error) {
         console.error("Error generating vehicle recommendations from proxy:", error);
         return [];
+    }
+};
+
+export const getSellerPriceSuggestion = async (
+    vehicle: Partial<Pick<Vehicle, 'make' | 'model' | 'year' | 'mileage' | 'features' | 'description'>>,
+    marketContext: Pick<Vehicle, 'price' | 'year' | 'mileage'>[]
+): Promise<{ summary: string; suggestedMinPrice: number; suggestedMaxPrice: number }> => {
+    const prompt = `You are an expert AI vehicle pricing assistant for an Indian marketplace.
+Analyze the following vehicle details and market context to provide a price suggestion.
+
+Vehicle Details:
+- Make: ${vehicle.make}
+- Model: ${vehicle.model}
+- Year: ${vehicle.year}
+- Mileage: ${vehicle.mileage} kms
+- Features: ${vehicle.features?.join(', ') || 'N/A'}
+- Description: "${vehicle.description || 'N/A'}"
+
+Market Context (similar vehicles from the same make):
+${JSON.stringify(marketContext.slice(0, 10), null, 2)}
+
+Based on the data, provide:
+1. A brief summary explaining your pricing rationale. Consider the vehicle's age, mileage, and features compared to the market.
+2. A suggested price range (min and max) in INR.
+
+Respond ONLY with a single JSON object matching this schema.
+- "summary": A string with your analysis.
+- "suggestedMinPrice": A number representing the lower end of the suggested price range.
+- "suggestedMaxPrice": A number representing the higher end of the suggested price range.
+
+If there is not enough data to make a suggestion, provide a reason in the summary and set prices to 0.`;
+    
+    const requestPayload = {
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                    summary: { type: Type.STRING },
+                    suggestedMinPrice: { type: Type.NUMBER },
+                    suggestedMaxPrice: { type: Type.NUMBER },
+                },
+                required: ['summary', 'suggestedMinPrice', 'suggestedMaxPrice'],
+            }
+        }
+    };
+
+    try {
+        const jsonText = await callGeminiAPI(requestPayload);
+        const parsed = JSON.parse(jsonText.trim());
+        return {
+            summary: parsed.summary || "No summary provided.",
+            suggestedMinPrice: parsed.suggestedMinPrice || 0,
+            suggestedMaxPrice: parsed.suggestedMaxPrice || 0,
+        };
+    } catch (error) {
+        console.error("Error fetching price suggestion from proxy:", error);
+        return {
+            summary: "Could not connect to the AI pricing service. Please try again later.",
+            suggestedMinPrice: 0,
+            suggestedMaxPrice: 0,
+        };
     }
 };

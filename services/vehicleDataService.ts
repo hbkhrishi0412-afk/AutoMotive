@@ -1,7 +1,7 @@
 import type { VehicleData } from '../types';
 import { VEHICLE_DATA } from '../components/vehicleData';
 
-const VEHICLE_DATA_STORAGE_KEY = 'autoVerseVehicleData';
+const VEHICLE_DATA_STORAGE_KEY = 'reRideVehicleData';
 
 /**
  * Retrieves vehicle data (categories, makes, models, variants) from localStorage.

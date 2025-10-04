@@ -1,6 +1,6 @@
 import type { FAQItem } from '../types';
 
-const FAQ_STORAGE_KEY = 'autoVerseFaqs';
+const FAQ_STORAGE_KEY = 'reRideFaqs';
 
 export const getFaqs = (): FAQItem[] | null => {
   try {

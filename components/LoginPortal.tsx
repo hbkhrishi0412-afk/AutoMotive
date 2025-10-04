@@ -8,7 +8,7 @@ interface LoginPortalProps {
 const LoginPortal: React.FC<LoginPortalProps> = ({ onNavigate }) => {
   return (
     <div className="w-full max-w-md space-y-8 bg-white dark:bg-brand-gray-800 p-10 rounded-xl shadow-soft-xl text-center">
-      <h2 className="text-3xl font-extrabold text-brand-gray-900 dark:text-brand-gray-100">Welcome to AutoVerse AI</h2>
+      <h2 className="text-3xl font-extrabold text-brand-gray-900 dark:text-brand-gray-100">Welcome to ReRide</h2>
       <p className="mt-2 text-brand-gray-600 dark:text-brand-gray-400">Please select your role to continue.</p>
       <div className="mt-8 space-y-4">
         <button

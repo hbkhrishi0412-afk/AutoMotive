@@ -1,6 +1,6 @@
 import type { Conversation } from '../types';
 
-const CONVERSATION_STORAGE_KEY = 'autoVerseConversations';
+const CONVERSATION_STORAGE_KEY = 'reRideConversations';
 
 /**
  * Retrieves all conversations from localStorage.

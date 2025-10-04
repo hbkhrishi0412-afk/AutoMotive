@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData, SupportTicket, FAQItem, TicketReply } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
-import { PLAN_DETAILS, INSPECTION_SERVICE_FEE } from '../constants';
+import { PLAN_DETAILS } from '../constants';
 import VehicleDataBulkUploadModal from './VehicleDataBulkUploadModal';
 
 interface AdminPanelProps {
@@ -34,10 +34,12 @@ interface AdminPanelProps {
     onAddFaq: (faq: Omit<FAQItem, 'id'>) => void;
     onUpdateFaq: (faq: FAQItem) => void;
     onDeleteFaq: (id: number) => void;
+    onCertificationApproval: (vehicleId: number, decision: 'approved' | 'rejected') => void;
 }
 
-type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings' | 'support' | 'faq';
+type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'certificationRequests' | 'vehicleData' | 'auditLog' | 'settings' | 'support' | 'faq';
 type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
+// FIX: Restrict sortable keys to prevent comparison errors on incompatible types.
 type SortableUserKey = 'name' | 'status';
 type SortConfig = {
     key: SortableUserKey;
@@ -48,7 +50,7 @@ type SortConfig = {
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode, onClick?: () => void }> = ({ title, value, icon, onClick }) => (
   <div className={`bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md flex items-center ${onClick ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-transform' : ''}`} onClick={onClick}>
-    <div className="bg-brand-blue-light p-3 rounded-full mr-4">{icon}</div>
+    <div className="bg-brand-blue-lightest p-3 rounded-full mr-4">{icon}</div>
     <div>
       <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</h3>
       <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
@@ -104,14 +106,69 @@ const BarChart: React.FC<{ title: string; data: { label: string; value: number }
                                     className="bg-brand-blue h-5 rounded-full text-white text-xs flex items-center justify-end pr-2"
                                     style={{ width: `${(value / maxValue) * 100}%` }}
                                 >
+                                    {value}
                                 </div>
                             </div>
-                            <span className="font-semibold text-gray-800 dark:text-gray-100">{value}</span>
                         </div>
                     </div>
                 ))}
             </div>
         </div>
+    );
+};
+
+// --- Certification Requests View Component ---
+const CertificationRequestsView: React.FC<{
+    requests: Vehicle[];
+    users: User[];
+    onCertificationApproval: (vehicleId: number, decision: 'approved' | 'rejected') => void;
+}> = ({ requests, users, onCertificationApproval }) => {
+    
+    const getSellerInfo = (email: string) => {
+        const seller = users.find(u => u.email === email);
+        if (!seller) return { planName: 'N/A', usage: 'N/A', hasFreeCredits: false };
+        const plan = PLAN_DETAILS[seller.subscriptionPlan || 'free'];
+        const used = seller.usedCertifications || 0;
+        const total = plan.freeCertifications;
+        const usage = `${used}/${total}`;
+        return { planName: plan.name, usage, hasFreeCredits: used < total };
+    };
+
+    return (
+        <TableContainer title={`Pending Certification Requests (${requests.length})`}>
+            {requests.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                        <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Seller</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Plan Details</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
+                        {requests.map(v => {
+                            const sellerInfo = getSellerInfo(v.sellerEmail);
+                            return (
+                                <tr key={v.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model}</td>
+                                    <td className="px-6 py-4">{v.sellerEmail}</td>
+                                    <td className="px-6 py-4">
+                                        <div>Plan: <span className="font-semibold">{sellerInfo.planName}</span></div>
+                                        <div className="text-sm">Free Certs Used: {sellerInfo.usage}</div>
+                                        {!sellerInfo.hasFreeCredits && <div className="text-xs text-yellow-600">No free credits left</div>}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                        <button onClick={() => onCertificationApproval(v.id, 'approved')} className="text-green-600 hover:text-green-900">Approve</button>
+                                        <button onClick={() => onCertificationApproval(v.id, 'rejected')} className="text-red-600 hover:text-red-900">Reject</button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            ) : <p className="text-center py-8 text-gray-500 dark:text-gray-400">No pending certification requests.</p>}
+        </TableContainer>
     );
 };
 
@@ -637,31 +694,44 @@ const SupportTicketsView: React.FC<{
                                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedTicket.message}</p>
                             </div>
                             {/* Replies */}
-                            {[...selectedTicket.replies].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((reply, index) => (
-                                <div key={index} className={reply.author === currentUser.email ? 'bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg' : 'bg-gray-100 dark:bg-gray-700/50 p-3 rounded-lg'}>
-                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{reply.author === currentUser.email ? 'You (Admin)' : selectedTicket.userName}</p>
+                            {selectedTicket.replies.map((reply, index) => (
+                                <div key={index} className={`p-3 rounded-lg ${reply.author === currentUser.email ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-gray-100 dark:bg-gray-700/50'}`}>
+                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{reply.author === currentUser.email ? 'You' : reply.author}</p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{new Date(reply.timestamp).toLocaleString()}</p>
                                     <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{reply.message}</p>
                                 </div>
                             ))}
                         </div>
-                        <div className="mt-auto pt-4 border-t dark:border-gray-700">
-                             <form onSubmit={handleReply} className="space-y-2">
-                                <textarea value={replyText} onChange={e => setReplyText(e.target.value)} placeholder="Type your reply..." rows={3} className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600"></textarea>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex gap-2">
-                                        <button onClick={() => handleStatusChange('Open')} disabled={selectedTicket.status === 'Open'} className="text-xs px-3 py-1 rounded-full bg-blue-100 text-blue-800 disabled:opacity-50">Set Open</button>
-                                        <button onClick={() => handleStatusChange('In Progress')} disabled={selectedTicket.status === 'In Progress'} className="text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 disabled:opacity-50">Set In Progress</button>
-                                        <button onClick={() => handleStatusChange('Closed')} disabled={selectedTicket.status === 'Closed'} className="text-xs px-3 py-1 rounded-full bg-gray-200 text-gray-800 disabled:opacity-50">Set Closed</button>
+                        {selectedTicket.status !== 'Closed' && (
+                            <form onSubmit={handleReply} className="p-2 border-t dark:border-gray-700">
+                                <textarea
+                                    value={replyText}
+                                    onChange={e => setReplyText(e.target.value)}
+                                    placeholder="Type your reply..."
+                                    rows={3}
+                                    className="w-full p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600"
+                                />
+                                <div className="mt-2 flex justify-between items-center">
+                                    <div>
+                                        <button type="button" onClick={() => handleStatusChange('Open')} className="text-xs font-semibold text-blue-600 mr-3">Set to Open</button>
+                                        <button type="button" onClick={() => handleStatusChange('In Progress')} className="text-xs font-semibold text-yellow-600 mr-3">Set to In Progress</button>
+                                        <button type="button" onClick={() => handleStatusChange('Closed')} className="text-xs font-semibold text-gray-600">Close Ticket</button>
                                     </div>
-                                    <button type="submit" className="px-4 py-2 bg-brand-blue text-white rounded-md hover:bg-brand-blue-dark disabled:opacity-50" disabled={!replyText.trim()}>Send Reply</button>
+                                    <button type="submit" className="px-4 py-2 bg-brand-blue text-white rounded-md text-sm font-semibold">Send Reply</button>
                                 </div>
                             </form>
-                        </div>
+                        )}
+                        {selectedTicket.status === 'Closed' && (
+                             <div className="p-4 border-t dark:border-gray-700 text-center">
+                                <p className="text-sm text-gray-500 italic">This ticket is closed.</p>
+                                <button onClick={() => handleStatusChange('Open')} className="mt-2 text-sm font-semibold text-brand-blue">Re-open Ticket</button>
+                             </div>
+                        )}
                     </>
                 ) : (
-                    <div className="flex items-center justify-center h-full text-center">
-                        <p className="text-gray-500">Select a ticket to view details.</p>
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                        <p className="mt-2 font-semibold">Select a ticket to view details</p>
                     </div>
                 )}
             </div>
@@ -669,79 +739,156 @@ const SupportTicketsView: React.FC<{
     );
 };
 
+// --- FAQ Editor View ---
+const FAQEditorView: React.FC<{
+    faqItems: FAQItem[];
+    onAdd: (faq: Omit<FAQItem, 'id'>) => void;
+    onUpdate: (faq: FAQItem) => void;
+    onDelete: (id: number) => void;
+}> = ({ faqItems, onAdd, onUpdate, onDelete }) => {
+    const [editingItem, setEditingItem] = useState<FAQItem | Partial<FAQItem> | null>(null);
 
-// --- Main Admin Panel Component ---
-
-const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser, onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus, onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast, auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData, onToggleVerifiedStatus, supportTickets, onUpdateSupportTicket, faqItems, onAddFaq, onUpdateFaq, onDeleteFaq }) => {
-    const [activeView, setActiveView] = useState<AdminView>('analytics');
-    
-    // State for User Management
-    const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
-    const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
-    const [sortConfig, setSortConfig] = useState<SortConfig | null>({ key: 'name', direction: 'ascending' });
-    
-    // State for Vehicle Management
-    const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-
-    // --- Memoized Analytics Calculations ---
-    const analyticsData = useMemo(() => {
-        const totalSalesValue = vehicles.reduce((sum, v) => Number(sum) + (v.status === 'sold' ? Number(v.price) : 0), 0);
-        const averagePrice = vehicles.length > 0 ? totalSalesValue / vehicles.length : 0;
+    const handleSave = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingItem || !editingItem.question || !editingItem.answer || !editingItem.category) return;
         
-        const userRoleCounts = users.reduce((acc, user) => {
-            acc[user.role] = (acc[user.role] || 0) + 1;
-            return acc;
-        }, {} as Record<User['role'], number>);
+        if ('id' in editingItem && editingItem.id) {
+            onUpdate(editingItem as FAQItem);
+        } else {
+            onAdd(editingItem as Omit<FAQItem, 'id'>);
+        }
+        setEditingItem(null);
+    };
 
+    const handleCancel = () => {
+        setEditingItem(null);
+    };
+
+    const startEditing = (item: FAQItem) => {
+        setEditingItem(item);
+    };
+
+    const startAdding = () => {
+        setEditingItem({ question: '', answer: '', category: 'General' });
+    };
+
+    const categories = useMemo(() => [...new Set(faqItems.map(f => f.category))].sort(), [faqItems]);
+
+    if (editingItem) {
+        return (
+            <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md animate-fade-in">
+                <h2 className="text-xl font-bold mb-4">{'id' in editingItem ? 'Edit' : 'Add'} FAQ</h2>
+                <form onSubmit={handleSave} className="space-y-4">
+                    <input type="text" placeholder="Question" value={editingItem.question} onChange={e => setEditingItem(p => ({...p, question: e.target.value}))} className="w-full p-2 border rounded" required />
+                    <textarea placeholder="Answer" value={editingItem.answer} onChange={e => setEditingItem(p => ({...p, answer: e.target.value}))} className="w-full p-2 border rounded" rows={4} required />
+                    <input type="text" placeholder="Category" value={editingItem.category} onChange={e => setEditingItem(p => ({...p, category: e.target.value}))} className="w-full p-2 border rounded" list="faq-categories" required />
+                    <datalist id="faq-categories">
+                        {categories.map(cat => <option key={cat} value={cat} />)}
+                    </datalist>
+                    <div className="flex gap-4">
+                        <button type="submit" className="px-4 py-2 bg-brand-blue text-white rounded">Save</button>
+                        <button type="button" onClick={handleCancel} className="px-4 py-2 bg-gray-200 rounded">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        );
+    }
+
+    return (
+        <TableContainer title="Manage FAQs" actions={<button onClick={startAdding} className="bg-green-500 text-white font-bold py-2 px-4 rounded-lg">Add FAQ</button>}>
+            <table className="min-w-full">
+                <thead><tr><th>Question</th><th>Category</th><th>Actions</th></tr></thead>
+                <tbody>
+                    {faqItems.map(item => (
+                        <tr key={item.id}>
+                            <td>{item.question}</td>
+                            <td>{item.category}</td>
+                            <td>
+                                <button onClick={() => startEditing(item)} className="text-blue-500 mr-2">Edit</button>
+                                <button onClick={() => onDelete(item.id)} className="text-red-500">Delete</button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </TableContainer>
+    );
+};
+
+// --- MAIN ADMIN PANEL COMPONENT ---
+
+const AdminPanel: React.FC<AdminPanelProps> = (props) => {
+    const {
+        users, currentUser, vehicles, conversations, onToggleUserStatus, onDeleteUser,
+        onAdminUpdateUser, onUpdateVehicle, onDeleteVehicle, onToggleVehicleStatus,
+        onToggleVehicleFeature, onResolveFlag, platformSettings, onUpdateSettings, onSendBroadcast,
+        auditLog, onExportUsers, onExportVehicles, onExportSales, vehicleData, onUpdateVehicleData,
+        onToggleVerifiedStatus, supportTickets, onUpdateSupportTicket, faqItems, onAddFaq, onUpdateFaq, onDeleteFaq,
+        onCertificationApproval
+    } = props;
+    const [activeView, setActiveView] = useState<AdminView>('analytics');
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+    const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
+    const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+
+    const analytics = useMemo(() => {
+        const totalUsers = users.length;
+        const totalVehicles = vehicles.length;
+        const activeListings = vehicles.filter(v => v.status === 'published').length;
+        const soldListings = vehicles.filter(v => v.status === 'sold');
+        // FIX: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+        const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
+        const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
+        const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
+        
         const listingsByMake = vehicles.reduce((acc, v) => {
             acc[v.make] = (acc[v.make] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
+
+        const userSignups = users.reduce((acc, u) => {
+            const date = new Date(u.createdAt).toISOString().split('T')[0];
+            acc[date] = (acc[date] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const userSignupsChartData = Object.entries(userSignups)
+            .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+            .slice(-30) // Last 30 days
+            .map(([label, value]) => ({ label, value }));
         
-        const mostPopularMake = Object.entries(listingsByMake).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
-        
-        const userRoleChartData = Object.entries(userRoleCounts).map(([label, value]) => ({ label: label.charAt(0).toUpperCase() + label.slice(1), value })).sort((a,b) => b.value - a.value);
-        const listingsByMakeChartData = Object.entries(listingsByMake).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value);
-        // FIX: Explicitly cast operands to Number to prevent arithmetic errors with inferred types.
-        const moderationQueueCount = Number(vehicles.filter(v => v.isFlagged).length) + Number(conversations.filter(c => c.isFlagged).length);
-
-        const monthlySubscriptionRevenue = users
-            .filter(u => u.role === 'seller' && u.subscriptionPlan)
-            .reduce((total, user) => {
-                if (user.subscriptionPlan) {
-                    const plan = PLAN_DETAILS[user.subscriptionPlan];
-                    // FIX: Explicitly cast operands to Number to prevent arithmetic errors with inferred types.
-                    return Number(total) + (plan ? Number(plan.price) : 0);
-                }
-                return total;
-            }, 0);
-
-        const inspectionServiceRevenue = vehicles
-            .filter(v => v.certifiedInspection)
-            // FIX: Explicitly cast operand to Number to prevent arithmetic errors with inferred types.
-            .length * Number(INSPECTION_SERVICE_FEE);
-
-        const featuredListingsCount = vehicles.filter(v => v.isFeatured).length;
-
+        const listingsByMakeChartData = Object.entries(listingsByMake)
+            .sort(([, countA], [, countB]) => countB - countA)
+            .slice(0, 10)
+            .map(([label, value]) => ({ label, value }));
 
         return {
-            totalSalesValue,
-            averagePrice,
-            mostPopularMake,
-            userRoleChartData,
+            totalUsers, totalVehicles, activeListings, totalSales, flaggedContent, certificationRequests,
             listingsByMakeChartData,
-            moderationQueueCount,
-            monthlySubscriptionRevenue,
-            inspectionServiceRevenue,
-            featuredListingsCount,
-            openSupportTickets: supportTickets.filter(t => t.status === 'Open').length,
+            userSignupsChartData
         };
-    }, [users, vehicles, conversations, supportTickets]);
+    }, [users, vehicles, conversations]);
 
-    // --- User Management Logic ---
+    const filteredUsers = useMemo(() => {
+        let sortableUsers = [...users];
+        if (roleFilter !== 'all') {
+            sortableUsers = sortableUsers.filter(user => user.role === roleFilter);
+        }
+        if (sortConfig !== null) {
+            sortableUsers.sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) {
+                    return sortConfig.direction === 'ascending' ? -1 : 1;
+                }
+                if (a[sortConfig.key] > b[sortConfig.key]) {
+                    return sortConfig.direction === 'ascending' ? 1 : -1;
+                }
+                return 0;
+            });
+        }
+        return sortableUsers;
+    }, [users, roleFilter, sortConfig]);
+
     const requestSort = (key: SortableUserKey) => {
         let direction: 'ascending' | 'descending' = 'ascending';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -750,252 +897,183 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         setSortConfig({ key, direction });
     };
 
-    const togglePasswordVisibility = (email: string) => {
-        setVisiblePasswords(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(email)) newSet.delete(email);
-            else newSet.add(email);
-            return newSet;
-        });
-    };
-
-    const handleEditUserClick = (user: User) => {
-        setSelectedUser(user);
-        setIsEditModalOpen(true);
-    };
-
     const handleSaveUser = (email: string, details: { name: string; mobile: string; role: User['role'] }) => {
         onAdminUpdateUser(email, details);
-        setIsEditModalOpen(false);
-        setSelectedUser(null);
+        setEditingUser(null);
     };
 
-    const processedUsers = useMemo(() => {
-        let filtered = users.filter(user => {
-            const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-            const matchesSearch = searchTerm === '' || 
-                                  user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                  user.email.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesRole && matchesSearch;
-        });
-
-        if (sortConfig !== null) {
-            filtered.sort((a, b) => {
-                const valA = a[sortConfig.key];
-                const valB = b[sortConfig.key];
-                if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-                return 0;
-            });
-        }
-        return filtered;
-    }, [users, roleFilter, searchTerm, sortConfig]);
-
-    // --- Vehicle Management Logic ---
-    const handleSaveVehicle = (updatedVehicle: Vehicle) => {
-        onUpdateVehicle(updatedVehicle);
+    const handleSaveVehicle = (vehicle: Vehicle) => {
+        onUpdateVehicle(vehicle);
         setEditingVehicle(null);
     };
-
-    // --- Render Logic ---
-    const AdminNavItem: React.FC<{ view: AdminView, children: React.ReactNode, count?: number }> = ({ view, children, count }) => (
-        <button onClick={() => setActiveView(view)} className={`relative w-full text-left px-4 py-3 rounded-lg transition-colors font-medium ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-light dark:hover:bg-brand-gray-darker'}`}>
-          {children}
-          {count && count > 0 && <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{count}</span>}
-        </button>
-    );
     
     const renderContent = () => {
-        switch (activeView) {
+        switch(activeView) {
             case 'analytics':
                 return (
                     <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard title="Total Users" value={users.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
-                            <StatCard title="Total Vehicles" value={vehicles.length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
-                             <StatCard title="Open Support Tickets" value={analyticsData.openSupportTickets} onClick={() => setActiveView('support')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-                             <StatCard title="Moderation Queue" value={analyticsData.moderationQueueCount} onClick={() => setActiveView('moderation')} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>} />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <StatCard title="Total Users" value={analytics.totalUsers} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197" /></svg>} onClick={() => setActiveView('users')} />
+                            <StatCard title="Active Listings" value={analytics.activeListings} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} onClick={() => setActiveView('listings')} />
+                            <StatCard title="Total Sales" value={`₹${(analytics.totalSales / 100000).toFixed(2)}L`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
+                            <StatCard title="Flagged Content" value={analytics.flaggedContent} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>} onClick={() => setActiveView('moderation')} />
+                            <StatCard title="Open Support Tickets" value={supportTickets.filter(t => t.status !== 'Closed').length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>} onClick={() => setActiveView('support')} />
+                            <StatCard title="Certification Requests" value={analytics.certificationRequests} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812z" clipRule="evenodd" /></svg>} onClick={() => setActiveView('certificationRequests')} />
+                        </div>
+                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <BarChart title="Top 10 Vehicle Makes" data={analytics.listingsByMakeChartData} />
+                            <BarChart title="User Signups (Last 30 Days)" data={analytics.userSignupsChartData} />
                         </div>
                         <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Monetization Analytics</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <StatCard 
-                                    title="Monthly Subscription Revenue" 
-                                    value={`₹${analyticsData.monthlySubscriptionRevenue.toLocaleString('en-IN')}`} 
-                                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>} 
-                                />
-                                <StatCard 
-                                    title="Featured Listings Active" 
-                                    value={analyticsData.featuredListingsCount} 
-                                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.522 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.522 4.674c.3.921-.755 1.688-1.54 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.784.57-1.838-.197-1.539-1.118l1.522-4.674a1 1 0 00-.363-1.118L2.98 8.11c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.522-4.674z" /></svg>} 
-                                />
-                                <StatCard 
-                                    title="Inspection Service Revenue" 
-                                    value={`₹${analyticsData.inspectionServiceRevenue.toLocaleString('en-IN')}`} 
-                                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 20.944A12.02 12.02 0 0012 22a12.02 12.02 0 009-1.056c.343-.343.672-.712.968-1.114z" /></svg>} 
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <BarChart title="Listings by Make" data={analyticsData.listingsByMakeChartData} />
-                            <BarChart title="User Role Distribution" data={analyticsData.userRoleChartData} />
-                        </div>
-                        <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
-                            <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">Data Export</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Download platform data in CSV format for external analysis.</p>
+                            <h3 className="text-lg font-bold mb-4">Export Data</h3>
                             <div className="flex flex-wrap gap-4">
-                                <button
-                                    onClick={onExportUsers}
-                                    className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    Export Users
-                                </button>
-                                <button
-                                    onClick={onExportVehicles}
-                                    className="flex items-center gap-2 bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    Export Vehicles
-                                </button>
-                                <button
-                                    onClick={onExportSales}
-                                    className="flex items-center gap-2 bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    Export Sales Report
-                                </button>
+                                <button onClick={onExportUsers} className="bg-gray-200 dark:bg-gray-700 font-semibold py-2 px-4 rounded-lg">Export Users (CSV)</button>
+                                <button onClick={onExportVehicles} className="bg-gray-200 dark:bg-gray-700 font-semibold py-2 px-4 rounded-lg">Export Listings (CSV)</button>
+                                <button onClick={onExportSales} className="bg-gray-200 dark:bg-gray-700 font-semibold py-2 px-4 rounded-lg">Export Sales Report (CSV)</button>
                             </div>
                         </div>
                     </div>
                 );
             case 'users':
-                const filterActions = (
-                    <div className="flex flex-col sm:flex-row gap-2 w-full">
-                        <input type="text" placeholder="Search by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-grow p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200 focus:ring-2 focus:ring-brand-blue-light focus:outline-none transition" />
-                        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)} className="p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200 focus:ring-2 focus:ring-brand-blue-light focus:outline-none transition">
-                            <option value="all">All Roles</option><option value="customer">Customers</option><option value="seller">Sellers</option><option value="admin">Admins</option>
-                        </select>
-                    </div>
+                const userFilterActions = (
+                     <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as RoleFilter)} className="p-2 border border-brand-gray dark:border-gray-600 rounded-lg bg-white dark:bg-brand-gray-darker dark:text-gray-200">
+                        <option value="all">All Roles</option>
+                        <option value="customer">Customers</option>
+                        <option value="seller">Sellers</option>
+                        <option value="admin">Admins</option>
+                    </select>
                 );
                 return (
-                    <TableContainer title="User Management" actions={filterActions}>
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                           <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400"><tr>
+                   <TableContainer title="User Management" actions={userFilterActions}>
+                       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400"><tr>
                                 <SortableHeader title="Name" sortKey="name" sortConfig={sortConfig} requestSort={requestSort} />
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Email / Role</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Password</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Email & Mobile</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Role</th>
                                 <SortableHeader title="Status" sortKey="status" sortConfig={sortConfig} requestSort={requestSort} />
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Verified</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
                             </tr></thead>
                             <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
-                                {processedUsers.map(user => {
+                                {filteredUsers.map(user => {
                                     const isCurrentUser = user.email === currentUser.email;
-                                    const isPasswordVisible = visiblePasswords.has(user.email);
                                     return (
                                         <tr key={user.email}>
-                                            <td className="px-6 py-4">{user.name}{user.isVerified && ' ✅'}</td>
-                                            <td className="px-6 py-4"><div className="font-medium">{user.email}</div><div className="text-sm text-gray-500 capitalize">{user.role}</div></td>
-                                            <td className="px-6 py-4 text-gray-500 font-mono tracking-widest"><div className="flex items-center gap-2"><span>{isPasswordVisible ? user.password : '••••••••'}</span><button onClick={() => togglePasswordVisibility(user.email)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}>{isPasswordVisible ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274-4.057 5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}</button></div></td>
-                                            <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>{user.status}</span></td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <button onClick={() => handleEditUserClick(user)} disabled={isCurrentUser} className="text-indigo-600 hover:text-indigo-900 disabled:opacity-50 disabled:cursor-not-allowed">Edit</button>
-                                                <button onClick={() => onToggleUserStatus(user.email)} disabled={isCurrentUser} className={`ml-3 ${user.status === 'active' ? 'text-yellow-600 hover:text-yellow-900' : 'text-green-600 hover:text-green-900'} disabled:opacity-50 disabled:cursor-not-allowed`}>{user.status === 'active' ? 'Deactivate' : 'Reactivate'}</button>
+                                            <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm"><p>{user.email}</p><p className="text-gray-500">{user.mobile}</p></td>
+                                            <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.role === 'admin' ? 'bg-red-100 text-red-800' : user.role === 'seller' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>{user.role}</span></td>
+                                            <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>{user.status}</span></td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-center">
                                                 {user.role === 'seller' && (
-                                                    <button onClick={() => onToggleVerifiedStatus(user.email)} disabled={isCurrentUser} className="ml-3 text-cyan-600 hover:text-cyan-900 disabled:opacity-50 disabled:cursor-not-allowed">
-                                                        {user.isVerified ? 'Un-verify' : 'Verify'}
-                                                    </button>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={user.isVerified || false} 
+                                                        onChange={() => onToggleVerifiedStatus(user.email)}
+                                                        className="h-4 w-4 text-brand-blue focus:ring-brand-blue border-gray-300 rounded"
+                                                        title={user.isVerified ? "Un-verify seller" : "Verify seller"}
+                                                    />
                                                 )}
-                                                <button onClick={() => onDeleteUser(user.email)} disabled={isCurrentUser} className="ml-3 text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed">Delete</button>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                                <button onClick={() => setEditingUser(user)} className="text-brand-blue hover:text-brand-blue-dark">Edit</button>
+                                                <button onClick={() => onToggleUserStatus(user.email)} disabled={isCurrentUser} className={`${user.status === 'active' ? 'text-yellow-600 hover:text-yellow-900' : 'text-green-600 hover:text-green-900'} disabled:opacity-50 disabled:cursor-not-allowed`}>{user.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+                                                <button onClick={() => onDeleteUser(user.email)} disabled={isCurrentUser} className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed">Delete</button>
                                             </td>
                                         </tr>
-                                    )
+                                    );
                                 })}
                             </tbody>
-                        </table>
-                    </TableContainer>
+                       </table>
+                   </TableContainer>
                 );
             case 'listings':
                 return (
-                    <TableContainer title="Vehicle Listings Management">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                   <TableContainer title="All Listings">
+                       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             <thead className="bg-gray-50 dark:bg-gray-800"><tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Vehicle</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Price</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Listing</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Seller</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium uppercase">Featured</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase">Actions</th>
                             </tr></thead>
                             <tbody className="bg-white dark:bg-brand-gray-dark divide-y divide-gray-200 dark:divide-gray-700">
                                 {vehicles.map(v => (
                                     <tr key={v.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model} {v.variant || ''}</td>
-                                        <td className="px-6 py-4">₹{v.price.toLocaleString('en-IN')}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full capitalize ${v.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{v.status}</span>
-                                            {v.isFeatured && <span className="ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">Featured</span>}
-                                        </td>
-                                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">{v.sellerEmail}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <button onClick={() => setEditingVehicle(v)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
-                                            <button onClick={() => onToggleVehicleStatus(v.id)} className="ml-3 text-yellow-600 hover:text-yellow-900">{v.status === 'published' ? 'Un-publish' : 'Publish'}</button>
-                                            <button onClick={() => onToggleVehicleFeature(v.id)} className="ml-3 text-purple-600 hover:text-purple-900">{v.isFeatured ? 'Un-feature' : 'Feature'}</button>
-                                            <button onClick={() => onDeleteVehicle(v.id)} className="ml-3 text-red-600 hover:text-red-900">Delete</button>
+                                        <td className="px-6 py-4 whitespace-nowrap font-medium">{v.year} {v.make} {v.model}</td>
+                                        <td className="px-6 py-4 text-sm">{v.sellerEmail}</td>
+                                        <td className="px-6 py-4"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${v.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>{v.status}</span></td>
+                                        <td className="px-6 py-4">{v.isFeatured ? 'Yes' : 'No'}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                            <button onClick={() => setEditingVehicle(v)} className="text-brand-blue hover:text-brand-blue-dark">Edit</button>
+                                            <button onClick={() => onToggleVehicleStatus(v.id)} className="text-yellow-600 hover:text-yellow-900">{v.status === 'published' ? 'Unpublish' : 'Publish'}</button>
+                                            <button onClick={() => onToggleVehicleFeature(v.id)} className="text-purple-600 hover:text-purple-900">{v.isFeatured ? 'Un-feature' : 'Feature'}</button>
+                                            <button onClick={() => onDeleteVehicle(v.id)} className="text-red-600 hover:text-red-900">Delete</button>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
-                        </table>
-                    </TableContainer>
+                       </table>
+                   </TableContainer>
                 );
             case 'moderation':
                 return <ModerationQueueView vehicles={vehicles} conversations={conversations} onResolveFlag={onResolveFlag} onToggleVehicleStatus={onToggleVehicleStatus} onToggleUserStatus={onToggleUserStatus} />;
+            case 'certificationRequests':
+                return <CertificationRequestsView requests={vehicles.filter(v => v.certificationStatus === 'requested')} users={users} onCertificationApproval={onCertificationApproval} />;
             case 'vehicleData':
                 return <VehicleDataEditor vehicleData={vehicleData} onUpdate={onUpdateVehicleData} />;
             case 'auditLog':
                 return <AuditLogView auditLog={auditLog} />;
             case 'settings':
                 return <PlatformSettingsView settings={platformSettings} onUpdate={onUpdateSettings} onSendBroadcast={onSendBroadcast} />;
-            case 'support':
+             case 'support':
                 return <SupportTicketsView tickets={supportTickets} onUpdateTicket={onUpdateSupportTicket} currentUser={currentUser} />;
+            case 'faq':
+                return <FAQEditorView faqItems={faqItems} onAdd={onAddFaq} onUpdate={onUpdateFaq} onDelete={onDeleteFaq} />;
             default:
-                return null;
+                return <div>Select a view</div>;
         }
     };
-    
+
+    const NavItem: React.FC<{ view: AdminView, label: string, count?: number }> = ({ view, label, count }) => (
+        <li>
+            <button
+                onClick={() => setActiveView(view)}
+                className={`w-full text-left px-4 py-2.5 rounded-lg transition-colors flex justify-between items-center ${activeView === view ? 'bg-brand-blue text-white shadow-md' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+            >
+                <span className="font-semibold">{label}</span>
+                {count !== undefined && count > 0 && <span className={`text-xs font-bold rounded-full px-2 py-0.5 ${activeView === view ? 'bg-white text-brand-blue' : 'bg-red-500 text-white'}`}>{count}</span>}
+            </button>
+        </li>
+    );
+
     return (
         <div className="container mx-auto py-8 animate-fade-in">
+            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-gray-100 mb-6">Administrator Dashboard</h1>
             <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-8">
-                <aside>
-                <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md space-y-2">
-                    <AdminNavItem view="analytics">Analytics</AdminNavItem>
-                    <AdminNavItem view="users">User Management</AdminNavItem>
-                    <AdminNavItem view="listings">Vehicle Listings</AdminNavItem>
-                    <AdminNavItem view="moderation" count={analyticsData.moderationQueueCount}>Moderation Queue</AdminNavItem>
-                    <AdminNavItem view="support" count={analyticsData.openSupportTickets}>Support Tickets</AdminNavItem>
-                    <AdminNavItem view="vehicleData">Vehicle Data</AdminNavItem>
-                    <AdminNavItem view="auditLog">Audit Log</AdminNavItem>
-                    <AdminNavItem view="settings">Settings</AdminNavItem>
-                </div>
+                <aside className="self-start md:sticky top-24">
+                    <div className="bg-white dark:bg-brand-gray-dark p-4 rounded-lg shadow-md">
+                        <ul className="space-y-1">
+                            <NavItem view="analytics" label="Analytics" />
+                            <NavItem view="users" label="User Management" />
+                            <NavItem view="listings" label="Listings" />
+                            <NavItem view="moderation" label="Moderation Queue" count={analytics.flaggedContent} />
+                            <NavItem view="certificationRequests" label="Certification Requests" count={analytics.certificationRequests} />
+                             <NavItem view="support" label="Support Tickets" count={supportTickets.filter(t => t.status === 'Open').length} />
+                            <NavItem view="faq" label="FAQ Management" />
+                            <NavItem view="vehicleData" label="Vehicle Data" />
+                            <NavItem view="auditLog" label="Audit Log" />
+                            <NavItem view="settings" label="Settings" />
+                        </ul>
+                    </div>
                 </aside>
                 <main>
                     {renderContent()}
                 </main>
             </div>
-            {isEditModalOpen && selectedUser && (
-                <EditUserModal
-                    user={selectedUser}
-                    onClose={() => setIsEditModalOpen(false)}
-                    onSave={handleSaveUser}
-                />
-            )}
-            {editingVehicle && (
-                <EditVehicleModal
-                    vehicle={editingVehicle}
-                    onClose={() => setEditingVehicle(null)}
-                    onSave={handleSaveVehicle}
-                />
-            )}
+
+            {editingUser && <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onSave={handleSaveUser} />}
+            {editingVehicle && <EditVehicleModal vehicle={editingVehicle} onClose={() => setEditingVehicle(null)} onSave={handleSaveVehicle} />}
         </div>
     );
 };

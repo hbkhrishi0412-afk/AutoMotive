@@ -65,7 +65,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
   }, [allCommands, query]);
   
   const groupedCommands = useMemo(() => {
-    // FIX: Explicitly type the initial value of reduce to prevent TypeScript from inferring it as `unknown`.
+    // FIX: Explicitly type the initial value of reduce to prevent TypeScript from inferring the accumulator as `unknown`.
     return filteredCommands.reduce((acc, command) => {
         const section = command.section;
         if (!acc[section]) {

@@ -95,6 +95,7 @@ export interface Vehicle {
     fixesDone: string[];
   };
   certifiedInspection?: CertifiedInspection | null;
+  certificationStatus?: 'none' | 'requested' | 'approved' | 'rejected';
   // New features
   videoUrl?: string;
   serviceRecords?: ServiceRecord[];
@@ -111,6 +112,7 @@ export interface PlanDetails {
     features: string[];
     listingLimit: number | 'unlimited';
     featuredCredits: number;
+    freeCertifications: number;
     isMostPopular?: boolean;
 }
 
@@ -133,6 +135,7 @@ export interface User {
   // New monetization fields for sellers
   subscriptionPlan?: SubscriptionPlan;
   featuredCredits?: number;
+  usedCertifications?: number;
 }
 
 export interface ChatMessage {

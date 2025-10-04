@@ -96,7 +96,7 @@ const Header: React.FC<HeaderProps> = ({
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center space-x-8">
             <button onClick={() => handleNavigate(ViewEnum.HOME)} className="text-2xl font-bold">
-              AutoVerse AI
+              ReRide
             </button>
             <nav className="hidden md:flex items-center space-x-6">
               <div className="relative" ref={buyMenuRef}>

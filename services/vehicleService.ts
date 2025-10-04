@@ -1,7 +1,7 @@
 import type { Vehicle } from '../types';
 import { MOCK_VEHICLES } from '../constants';
 
-const VEHICLE_STORAGE_KEY = 'autoVerseVehicles';
+const VEHICLE_STORAGE_KEY = 'reRideVehicles';
 
 /**
  * Retrieves all vehicles from localStorage, or seeds it with mock data if empty.

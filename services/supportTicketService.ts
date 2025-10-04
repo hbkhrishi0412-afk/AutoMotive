@@ -1,6 +1,6 @@
 import type { SupportTicket } from '../types';
 
-const SUPPORT_TICKET_STORAGE_KEY = 'autoVerseSupportTickets';
+const SUPPORT_TICKET_STORAGE_KEY = 'reRideSupportTickets';
 
 export const getSupportTickets = (): SupportTicket[] | null => {
   try {

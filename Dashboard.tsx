@@ -7,8 +7,8 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Toolti
 import AiAssistant from './AiAssistant';
 import ChatWidget from './ChatWidget';
 import { INDIAN_STATES, CITIES_BY_STATE, PLAN_DETAILS } from '../constants';
-import PricingGuidance from './PricingGuidance';
 import BulkUploadModal from './BulkUploadModal';
+import { getPlaceholderImage } from './vehicleData';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController);
 import { Bar, Line } from 'react-chartjs-2';
@@ -16,10 +16,9 @@ import { Bar, Line } from 'react-chartjs-2';
 
 interface DashboardProps {
   seller: User;
-  allVehicles: Vehicle[];
   sellerVehicles: Vehicle[];
   reportedVehicles: Vehicle[];
-  onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
+  onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, isFeaturing: boolean) => void;
   onAddMultipleVehicles: (vehicles: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>[]) => void;
   onUpdateVehicle: (vehicle: Vehicle) => void;
   onDeleteVehicle: (vehicleId: number) => void;
@@ -33,7 +32,7 @@ interface DashboardProps {
   onUpdateSellerProfile: (details: { dealershipName: string; bio: string; logoUrl: string; }) => void;
   vehicleData: VehicleData;
   onFeatureListing: (vehicleId: number) => void;
-  onPurchaseInspection: (vehicleId: number) => void;
+  onRequestCertification: (vehicleId: number) => void;
   onNavigate: (view: View) => void;
   onTestDriveResponse?: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
 }
@@ -107,6 +106,10 @@ const PlanStatusCard: React.FC<{
                     <span>Featured Credits:</span>
                     <span className="font-semibold">{seller.featuredCredits ?? 0} remaining</span>
                 </div>
+                 <div className="flex justify-between">
+                    <span>Free Certifications:</span>
+                    <span className="font-semibold">{plan.freeCertifications - (seller.usedCertifications || 0)} remaining</span>
+                </div>
             </div>
             {plan.id !== 'premium' && (
                 <button
@@ -120,7 +123,7 @@ const PlanStatusCard: React.FC<{
     );
 });
 
-const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount' | 'reviews'> = {
+const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
   make: '', model: '', variant: '', year: new Date().getFullYear(), price: 0, mileage: 0,
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Petrol', fuelEfficiency: '',
   color: '', features: [], images: [], documents: [],
@@ -143,6 +146,7 @@ const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount' | '
     fixesDone: [],
   },
   certifiedInspection: null,
+  certificationStatus: 'none',
 };
 
 const FormFieldset: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
@@ -160,20 +164,24 @@ const FormFieldset: React.FC<{ title: string; children: React.ReactNode }> = ({ 
     );
 };
 
-const VehicleForm: React.FC<{
+interface VehicleFormProps {
+    seller: User;
     editingVehicle: Vehicle | null;
-    allVehicles: Vehicle[];
-    onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => void;
+    onAddVehicle: (vehicle: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, isFeaturing: boolean) => void;
     onUpdateVehicle: (vehicle: Vehicle) => void;
+    onFeatureListing: (vehicleId: number) => void;
     onCancel: () => void;
     vehicleData: VehicleData;
-}> = memo(({ editingVehicle, allVehicles, onAddVehicle, onUpdateVehicle, onCancel, vehicleData }) => {
+}
+
+const VehicleForm: React.FC<VehicleFormProps> = memo(({ editingVehicle, onAddVehicle, onUpdateVehicle, onCancel, vehicleData, seller, onFeatureListing }) => {
     const [formData, setFormData] = useState(editingVehicle ? { ...initialFormState, ...editingVehicle, sellerEmail: editingVehicle.sellerEmail } : initialFormState);
     const [featureInput, setFeatureInput] = useState('');
     const [fixInput, setFixInput] = useState('');
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>, string>>>({});
     const [isUploading, setIsUploading] = useState(false);
+    const [isFeaturing, setIsFeaturing] = useState(false);
     
     const [aiSuggestions, setAiSuggestions] = useState<{
         structuredSpecs: Partial<Pick<Vehicle, 'engine' | 'transmission' | 'fuelType' | 'fuelEfficiency' | 'displacement' | 'groundClearance' | 'bootSpace'>>;
@@ -387,20 +395,23 @@ const VehicleForm: React.FC<{
     };
 
     const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (editingVehicle) {
-        onUpdateVehicle({ ...editingVehicle, ...formData });
-      } else {
-        onAddVehicle(formData);
-      }
-      onCancel(); // Return to listings view
+        e.preventDefault();
+        if (editingVehicle) {
+            onUpdateVehicle({ ...editingVehicle, ...formData });
+            if (isFeaturing && !editingVehicle.isFeatured) {
+                onFeatureListing(editingVehicle.id);
+            }
+        } else {
+            onAddVehicle(formData, isFeaturing);
+        }
+        onCancel();
     };
 
     const previewVehicle: Vehicle = {
         id: editingVehicle?.id || Date.now(),
         averageRating: 0, ratingCount: 0,
         ...formData,
-        images: formData.images.length > 0 ? formData.images : ['https://via.placeholder.com/800x600/E5E7EB/374151?text=Your+Image+Here'],
+        images: formData.images.length > 0 ? formData.images : [getPlaceholderImage(formData.make, formData.model)],
     };
 
     const applyAiSpec = (specKey: keyof typeof aiSuggestions.structuredSpecs) => {
@@ -444,7 +455,6 @@ const VehicleForm: React.FC<{
                     <FormInput label="Registration Year" name="registrationYear" type="number" value={formData.registrationYear} onChange={handleChange} required />
                     <div>
                         <FormInput label="Price (₹)" name="price" type="number" value={formData.price} onChange={handleChange} onBlur={handleBlur} error={errors.price} tooltip="Enter the listing price without commas or symbols." required />
-                        <PricingGuidance vehicleDetails={formData} allVehicles={allVehicles} />
                     </div>
                     <FormInput label="Km Driven" name="mileage" type="number" value={formData.mileage} onChange={handleChange} onBlur={handleBlur} error={errors.mileage} />
                     <FormInput label="No. of Owners" name="noOfOwners" type="number" value={formData.noOfOwners} onChange={handleChange} />
@@ -589,6 +599,33 @@ const VehicleForm: React.FC<{
                         <textarea id="description" name="description" rows={4} value={formData.description} onChange={handleChange} className="block w-full p-3 border border-brand-gray dark:border-gray-600 rounded-lg" />
                     </div>
                 </div>
+            </FormFieldset>
+
+            <FormFieldset title="Promotion">
+                {(!editingVehicle || !editingVehicle.isFeatured) && (
+                    <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <label htmlFor="feature-listing" className="font-bold text-purple-800 dark:text-purple-200 flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                                    Feature this Listing
+                                </label>
+                                <p className="text-xs text-purple-600 dark:text-purple-300 mt-1">
+                                    Use 1 of your {seller.featuredCredits || 0} available credits.
+                                </p>
+                            </div>
+                            <input
+                                id="feature-listing"
+                                type="checkbox"
+                                checked={isFeaturing}
+                                onChange={(e) => setIsFeaturing(e.target.checked)}
+                                disabled={(seller.featuredCredits || 0) <= 0}
+                                className="h-6 w-6 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            />
+                        </div>
+                        {(seller.featuredCredits || 0) <= 0 && <p className="text-xs text-red-500 mt-2">You have no featured credits. Upgrade your plan to get more.</p>}
+                    </div>
+                )}
             </FormFieldset>
 
             <div className="pt-4 flex flex-col sm:flex-row items-center gap-4">
@@ -860,7 +897,7 @@ const ReportsView: React.FC<{
 
 
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicles, reportedVehicles, onAddVehicle, onAddMultipleVehicles, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData, onFeatureListing, onPurchaseInspection, onNavigate, onTestDriveResponse }) => {
+const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedVehicles, onAddVehicle, onAddMultipleVehicles, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData, onFeatureListing, onRequestCertification, onNavigate, onTestDriveResponse }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
@@ -951,6 +988,21 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
     };
     return { totalSalesValue, totalViews, totalInquiries, chartData };
   }, [activeListings, soldListings]);
+
+  const getCertificationButton = (vehicle: Vehicle) => {
+      const status = vehicle.certificationStatus || 'none';
+      switch (status) {
+          case 'requested':
+              return <button disabled className="text-yellow-600 text-sm font-semibold">Pending Approval</button>;
+          case 'approved':
+              return <span className="text-green-600 text-sm font-semibold">Certified</span>;
+          case 'rejected':
+              return <button onClick={() => onRequestCertification(vehicle.id)} className="text-red-600 hover:text-red-800" title="Certification was rejected, you can request again.">Request Again</button>;
+          case 'none':
+          default:
+              return <button onClick={() => onRequestCertification(vehicle.id)} className="text-teal-600 hover:text-teal-800" title="Request a certified inspection report">Get Certified</button>;
+      }
+  };
 
   const renderContent = () => {
     switch(activeView) {
@@ -1050,9 +1102,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
                           {!v.isFeatured && (seller.featuredCredits ?? 0) > 0 && (
                               <button onClick={() => onFeatureListing(v.id)} className="text-purple-600 hover:text-purple-800" title="Use a credit to feature this listing">Feature</button>
                           )}
-                          {!v.certifiedInspection && (
-                              <button onClick={() => onPurchaseInspection(v.id)} className="text-teal-600 hover:text-teal-800" title="Purchase a certified inspection report">Get Certified</button>
-                          )}
+                          {getCertificationButton(v)}
                           <button onClick={() => onMarkAsSold(v.id)} className="text-green-600 hover:text-green-800">Sold</button>
                           <button onClick={() => handleEditClick(v)} className="text-brand-blue hover:text-brand-blue-dark">Edit</button>
                           <button onClick={() => onDeleteVehicle(v.id)} className="text-red-600 hover:text-red-800">Delete</button>
@@ -1105,7 +1155,15 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, allVehicles, sellerVehicl
           </div>
         );
       case 'form':
-        return <VehicleForm editingVehicle={editingVehicle} allVehicles={allVehicles} onAddVehicle={onAddVehicle} onUpdateVehicle={onUpdateVehicle} onCancel={handleFormCancel} vehicleData={vehicleData} />;
+        return <VehicleForm 
+            seller={seller}
+            editingVehicle={editingVehicle} 
+            onAddVehicle={onAddVehicle} 
+            onUpdateVehicle={onUpdateVehicle} 
+            onCancel={handleFormCancel} 
+            vehicleData={vehicleData} 
+            onFeatureListing={onFeatureListing}
+        />;
       case 'inquiries':
         return <InquiriesView 
                     conversations={conversations} 

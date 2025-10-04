@@ -38,7 +38,7 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
           Frequently Asked Questions
         </h1>
         <p className="mt-4 text-lg text-brand-gray-600 dark:text-brand-gray-400">
-          Find answers to common questions about buying and selling on AutoVerse AI.
+          Find answers to common questions about buying and selling on ReRide.
         </p>
       </div>
 
