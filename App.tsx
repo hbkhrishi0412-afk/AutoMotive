@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -40,6 +39,7 @@ import SupportPage from './components/SupportPage';
 import { getFaqs, saveFaqs } from './services/faqService';
 import { getSupportTickets, saveSupportTickets } from './services/supportTicketService';
 import FAQPage from './components/FAQPage';
+import { getPlaceholderImage } from './components/vehicleData';
 
 
 export type Theme = 'light' | 'dark' | 'sunset' | 'oceanic' | 'cyber';
@@ -654,13 +654,13 @@ const App: React.FC = () => {
     });
   }, [vehicles, ratings, usersWithRatingsAndBadges]);
   
-  const handleAddVehicle = useCallback((vehicleData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount' | 'status' | 'isFeatured'>) => {
+  const handleAddVehicle = useCallback((vehicleData: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'>) => {
     const newVehicle: Vehicle = {
       ...vehicleData,
       id: Date.now(),
       images: vehicleData.images && vehicleData.images.length > 0 ? vehicleData.images : [
-        `https://picsum.photos/seed/${Date.now()}/800/600`,
-        `https://picsum.photos/seed/${Date.now() + 1}/800/600`,
+        getPlaceholderImage(vehicleData.make, vehicleData.model),
+        getPlaceholderImage(vehicleData.make, `${vehicleData.model}-2`),
       ],
       sellerEmail: currentUser?.email || 'seller@test.com',
       status: 'published',
@@ -1426,7 +1426,6 @@ const App: React.FC = () => {
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        {/* FIX: Changed onToggleCompare to handleToggleCompare */}
         return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} allVehicles={allPublishedVehicles} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
@@ -1511,7 +1510,6 @@ const App: React.FC = () => {
         return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
-        {/* FIX: Changed onToggleCompare to handleToggleCompare and onToggleWishlist to handleToggleWishlist */}
         return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} onNavigate={navigate} />;
     }
   };

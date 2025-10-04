@@ -1,6 +1,6 @@
 import type { Vehicle, User, PlanDetails, FAQItem, SupportTicket } from './types';
 import { VehicleCategory, type SubscriptionPlan } from './types';
-import { VEHICLE_DATA } from './components/vehicleData';
+import { VEHICLE_DATA, getPlaceholderImage } from './components/vehicleData';
 
 // Helper to generate past dates
 const daysAgo = (days: number): string => {
@@ -126,9 +126,15 @@ const generateMockVehicles = (count: number): Vehicle[] => {
 
     for (let i = 1; i <= count; i++) {
         const category = VehicleCategory.FOUR_WHEELER;
-        const make = randomItem(Object.keys(VEHICLE_DATA[category]));
-        const model = randomItem(Object.keys(VEHICLE_DATA[category][make]));
-        const variants = VEHICLE_DATA[category][make][model];
+        if (!VEHICLE_DATA[category] || VEHICLE_DATA[category].length === 0) continue;
+
+        const makeData = randomItem(VEHICLE_DATA[category]);
+        const make = makeData.name;
+        if (!makeData.models || makeData.models.length === 0) continue;
+
+        const modelData = randomItem(makeData.models);
+        const model = modelData.name;
+        const variants = modelData.variants;
         const variant = variants.length > 0 ? randomItem(variants) : undefined;
         
         const year = randomNumber(2015, new Date().getFullYear());
@@ -147,7 +153,7 @@ const generateMockVehicles = (count: number): Vehicle[] => {
             year,
             price,
             mileage,
-            images: [`https://picsum.photos/seed/${make}${model}${i}/800/600`, `https://picsum.photos/seed/${make}${model}${i+count}/800/600`],
+            images: [getPlaceholderImage(make, model), getPlaceholderImage(make, `${model}${i}`)],
             videoUrl: Math.random() > 0.7 ? 'https://cdn.coverr.co/videos/coverr-a-porsche-911-on-a-bridge-638/1080p.mp4' : undefined,
             features: [...new Set(Array.from({ length: randomNumber(3, 7) }, () => randomItem(FEATURES)))],
             description: `A well-maintained ${year} ${make} ${model} ${variant || ''}. Comes with features like ${randomItem(FEATURES)} and ${randomItem(FEATURES)}. Available in ${city}.`,

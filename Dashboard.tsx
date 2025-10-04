@@ -35,7 +35,7 @@ interface DashboardProps {
   onFeatureListing: (vehicleId: number) => void;
   onPurchaseInspection: (vehicleId: number) => void;
   onNavigate: (view: View) => void;
-  onTestDriveResponse: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
+  onTestDriveResponse?: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
 }
 
 type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile' | 'reports';
@@ -120,7 +120,7 @@ const PlanStatusCard: React.FC<{
     );
 });
 
-const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount'> = {
+const initialFormState: Omit<Vehicle, 'id' | 'averageRating' | 'ratingCount' | 'reviews'> = {
   make: '', model: '', variant: '', year: new Date().getFullYear(), price: 0, mileage: 0,
   description: '', engine: '', transmission: 'Automatic', fuelType: 'Petrol', fuelEfficiency: '',
   color: '', features: [], images: [], documents: [],
@@ -183,17 +183,20 @@ const VehicleForm: React.FC<{
 
     const availableMakes = useMemo(() => {
         if (!formData.category || !vehicleData[formData.category]) return [];
-        return Object.keys(vehicleData[formData.category]).sort();
+        return vehicleData[formData.category].map(make => make.name).sort();
     }, [formData.category, vehicleData]);
 
     const availableModels = useMemo(() => {
-        if (!formData.category || !formData.make || !vehicleData[formData.category]?.[formData.make]) return [];
-        return Object.keys(vehicleData[formData.category][formData.make]).sort();
+        if (!formData.category || !formData.make || !vehicleData[formData.category]) return [];
+        const makeData = vehicleData[formData.category].find(m => m.name === formData.make);
+        return makeData ? makeData.models.map(model => model.name).sort() : [];
     }, [formData.category, formData.make, vehicleData]);
 
     const availableVariants = useMemo(() => {
-        if (!formData.category || !formData.make || !formData.model || !vehicleData[formData.category]?.[formData.make]?.[formData.model]) return [];
-        return vehicleData[formData.category][formData.make][formData.model].sort();
+        if (!formData.category || !formData.make || !formData.model || !vehicleData[formData.category]) return [];
+        const makeData = vehicleData[formData.category].find(m => m.name === formData.make);
+        const modelData = makeData?.models.find(m => m.name === formData.model);
+        return modelData ? [...modelData.variants].sort() : [];
     }, [formData.category, formData.make, formData.model, vehicleData]);
 
     const availableCities = useMemo(() => {
@@ -637,7 +640,7 @@ const InquiriesView: React.FC<{
   onMarkConversationAsReadBySeller: (conversationId: string) => void;
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onSelectConv: (conv: Conversation) => void;
-  onTestDriveResponse: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
+  onTestDriveResponse?: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
   onSellerSendMessage: (conversationId: string, messageText: string) => void;
 
 }> = memo(({ conversations, onMarkConversationAsReadBySeller, onMarkMessagesAsRead, onSelectConv, onTestDriveResponse, onSellerSendMessage }) => {
@@ -651,13 +654,13 @@ const InquiriesView: React.FC<{
     };
     
     const handleAcceptTestDrive = (convId: string, msgId: number, date: string, time: string) => {
-        onTestDriveResponse(convId, msgId, 'confirmed');
+        if(onTestDriveResponse) onTestDriveResponse(convId, msgId, 'confirmed');
         const confirmationText = `Sounds great! Your test drive for the ${conversations.find(c=>c.id === convId)?.vehicleName} is confirmed for ${new Date(date).toLocaleDateString()} at ${time}. We look forward to seeing you.`;
         onSellerSendMessage(convId, confirmationText);
     };
     
     const handleDeclineTestDrive = (convId: string, msgId: number) => {
-        onTestDriveResponse(convId, msgId, 'rejected');
+        if(onTestDriveResponse) onTestDriveResponse(convId, msgId, 'rejected');
         const declineText = `Apologies, but we are unable to accommodate your test drive request at this time. Please suggest an alternative date or time.`;
         onSellerSendMessage(convId, declineText);
     }

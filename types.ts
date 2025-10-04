@@ -1,6 +1,7 @@
 import { ChartData } from 'chart.js';
 // FIX: Added React import to resolve "Cannot find namespace 'React'" error.
 import React from 'react';
+import type { VehicleCategoryData } from './components/vehicleData';
 
 export enum VehicleCategory {
   FOUR_WHEELER = 'Four Wheeler',
@@ -220,7 +221,7 @@ export interface AuditLogEntry {
     details?: string;
 }
 
-export type VehicleData = Record<string, Record<string, Record<string, string[]>>>;
+export type VehicleData = Record<string, VehicleCategoryData>;
 
 export interface Suggestion {
   type: 'pricing' | 'listing_quality' | 'urgent_inquiry';
@@ -235,7 +236,7 @@ export interface Notification {
   recipientEmail: string;
   message: string;
   targetId: string | number;
-  targetType: 'vehicle' | 'conversation';
+  targetType: 'vehicle' | 'conversation' | 'price_drop' | 'insurance_expiry' | 'general_admin';
   isRead: boolean;
   timestamp: string; // ISO String
 }

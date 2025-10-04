@@ -3,6 +3,7 @@ import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, Vehi
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
 import { PLAN_DETAILS, INSPECTION_SERVICE_FEE } from '../constants';
+import VehicleDataBulkUploadModal from './VehicleDataBulkUploadModal';
 
 interface AdminPanelProps {
     users: User[];
@@ -37,7 +38,6 @@ interface AdminPanelProps {
 
 type AdminView = 'analytics' | 'users' | 'listings' | 'moderation' | 'vehicleData' | 'auditLog' | 'settings' | 'support' | 'faq';
 type RoleFilter = 'all' | 'customer' | 'seller' | 'admin';
-// FIX: Restrict sortable keys to 'name' and 'status' to prevent comparison errors on incompatible types.
 type SortableUserKey = 'name' | 'status';
 type SortConfig = {
     key: SortableUserKey;
@@ -124,13 +124,12 @@ const VehicleDataEditor: React.FC<{ vehicleData: VehicleData, onUpdate: (newData
     const [editingItem, setEditingItem] = useState<{ path: string[], value: string } | null>(null);
     const [addingAt, setAddingAt] = useState<{ path: string[], type: string } | null>(null);
     const [newItemValue, setNewItemValue] = useState('');
-    const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
-    const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
     useEffect(() => {
         if (selectedCategory && !vehicleData[selectedCategory]) setSelectedCategory(null);
-        if (selectedMake && (!selectedCategory || !vehicleData[selectedCategory]?.[selectedMake])) setSelectedMake(null);
-        if (selectedModel && (!selectedCategory || !selectedMake || !vehicleData[selectedCategory]?.[selectedMake]?.[selectedModel])) setSelectedModel(null);
+        if (selectedMake && (!selectedCategory || !vehicleData[selectedCategory]?.find(m => m.name === selectedMake))) setSelectedMake(null);
+        if (selectedModel && (!selectedCategory || !selectedMake || !vehicleData[selectedCategory]?.find(m => m.name === selectedMake)?.models.find(mo => mo.name === selectedModel))) setSelectedModel(null);
     }, [vehicleData, selectedCategory, selectedMake, selectedModel]);
 
     const handleAction = (updater: (draft: VehicleData) => void) => {
@@ -142,236 +141,164 @@ const VehicleDataEditor: React.FC<{ vehicleData: VehicleData, onUpdate: (newData
     const handleDelete = (path: string[]) => {
         if (!window.confirm(`Are you sure you want to delete "${path[path.length - 1]}"? This action cannot be undone.`)) return;
         handleAction(draft => {
-            let parent: any = draft;
-            for (let i = 0; i < path.length - 1; i++) parent = parent[path[i]];
-            const key = path[path.length - 1];
-            if (Array.isArray(parent)) parent.splice(parent.indexOf(key), 1);
-            else delete parent[key];
+            if (path.length === 1) { // Deleting a Category
+                delete draft[path[0]];
+            } else if (path.length === 2) { // Deleting a Make
+                const category = draft[path[0]];
+                const makeIndex = category.findIndex(m => m.name === path[1]);
+                if (makeIndex > -1) category.splice(makeIndex, 1);
+            } else if (path.length === 3) { // Deleting a Model
+                const make = draft[path[0]].find(m => m.name === path[1]);
+                if (make) {
+                    const modelIndex = make.models.findIndex(mo => mo.name === path[2]);
+                    if (modelIndex > -1) make.models.splice(modelIndex, 1);
+                }
+            } else if (path.length === 4) { // Deleting a Variant
+                const model = draft[path[0]].find(m => m.name === path[1])?.models.find(mo => mo.name === path[2]);
+                if (model) {
+                    const variantIndex = model.variants.indexOf(path[3]);
+                    if (variantIndex > -1) model.variants.splice(variantIndex, 1);
+                }
+            }
         });
         if (path.length === 1 && path[0] === selectedCategory) setSelectedCategory(null);
         if (path.length === 2 && path[1] === selectedMake) setSelectedMake(null);
         if (path.length === 3 && path[2] === selectedModel) setSelectedModel(null);
     };
-
+    
     const handleSaveEdit = () => {
         if (!editingItem || !editingItem.value.trim()) return setEditingItem(null);
-        handleAction(draft => {
-            let parent: any = draft;
-            for (let i = 0; i < editingItem.path.length - 1; i++) parent = parent[editingItem.path[i]];
-            const oldKey = editingItem.path[editingItem.path.length - 1];
-            const newKey = editingItem.value.trim();
-            if (oldKey === newKey) return;
+        const oldKey = editingItem.path[editingItem.path.length - 1];
+        const newKey = editingItem.value.trim();
+        if (oldKey === newKey) return setEditingItem(null);
 
-            if (!Array.isArray(parent)) {
-                 if (parent.hasOwnProperty(newKey)) {
-                    alert(`"${newKey}" already exists.`);
-                    return;
+        handleAction(draft => {
+            if (editingItem.path.length === 1) {
+                if (draft.hasOwnProperty(newKey)) return alert(`Category "${newKey}" already exists.`);
+                draft[newKey] = draft[oldKey];
+                delete draft[oldKey];
+            } else if (editingItem.path.length === 2) {
+                const make = draft[editingItem.path[0]].find(m => m.name === oldKey);
+                if (make) make.name = newKey;
+            } else if (editingItem.path.length === 3) {
+                const model = draft[editingItem.path[0]].find(m => m.name === editingItem.path[1])?.models.find(mo => mo.name === oldKey);
+                if (model) model.name = newKey;
+            } else if (editingItem.path.length === 4) {
+                const model = draft[editingItem.path[0]].find(m => m.name === editingItem.path[1])?.models.find(mo => mo.name === editingItem.path[2]);
+                if (model) {
+                    const variantIndex = model.variants.indexOf(oldKey);
+                    if (variantIndex > -1) model.variants[variantIndex] = newKey;
                 }
-                parent[newKey] = parent[oldKey];
-                delete parent[oldKey];
-            } else {
-                const index = parent.indexOf(oldKey);
-                 if (parent.includes(newKey)) {
-                    alert(`"${newKey}" already exists.`);
-                    return;
-                }
-                if (index > -1) parent[index] = newKey;
             }
         });
         setEditingItem(null);
     };
 
     const handleSaveNewItem = () => {
-        if (!addingAt || !newItemValue.trim()) {
-            setAddingAt(null);
-            setNewItemValue('');
-            return;
-        }
+        if (!addingAt || !newItemValue.trim()) return setAddingAt(null);
         const newValue = newItemValue.trim();
-        
-        // Perform case-insensitive duplicate check first
-        let parent: any = vehicleData;
-        for (const key of addingAt.path) {
-            parent = parent[key];
-        }
-    
-        let isDuplicate = false;
-        if (Array.isArray(parent)) {
-            isDuplicate = parent.some(item => item.toLowerCase() === newValue.toLowerCase());
-        } else {
-            isDuplicate = Object.keys(parent).some(key => key.toLowerCase() === newValue.toLowerCase());
-        }
-    
-        if (isDuplicate) {
-            alert(`"${newValue}" already exists.`);
-            return; // Stop execution
-        }
-    
-        // If not a duplicate, proceed with adding
+
         handleAction(draft => {
-            let draftParent: any = draft;
-            for (const key of addingAt.path) {
-                draftParent = draftParent[key];
-            }
-            if (Array.isArray(draftParent)) {
-                draftParent.push(newValue);
-            } else {
-                draftParent[newValue] = addingAt.type === 'Model' ? [] : {};
+            if (addingAt.path.length === 0) { // New Category
+                if (draft.hasOwnProperty(newValue)) return alert(`Category "${newValue}" already exists.`);
+                draft[newValue] = [];
+            } else if (addingAt.path.length === 1) { // New Make
+                if (draft[addingAt.path[0]].some(m => m.name === newValue)) return alert(`Make "${newValue}" already exists.`);
+                draft[addingAt.path[0]].push({ name: newValue, models: [] });
+            } else if (addingAt.path.length === 2) { // New Model
+                const make = draft[addingAt.path[0]].find(m => m.name === addingAt.path[1]);
+                if (make) {
+                    if (make.models.some(m => m.name === newValue)) return alert(`Model "${newValue}" already exists.`);
+                    make.models.push({ name: newValue, variants: [] });
+                }
+            } else if (addingAt.path.length === 3) { // New Variant
+                const model = draft[addingAt.path[0]].find(m => m.name === addingAt.path[1])?.models.find(mo => mo.name === addingAt.path[2]);
+                if (model) {
+                    if (model.variants.includes(newValue)) return alert(`Variant "${newValue}" already exists.`);
+                    model.variants.push(newValue);
+                }
             }
         });
-    
+
         setAddingAt(null);
         setNewItemValue('');
-    
-        // Auto-select the newly added item to activate the next column
-        if (addingAt.path.length === 0) {
-            setSelectedCategory(newValue);
-            setSelectedMake(null);
-            setSelectedModel(null);
-        } else if (addingAt.path.length === 1) {
-            setSelectedMake(newValue);
-            setSelectedModel(null);
-        } else if (addingAt.path.length === 2) {
-            setSelectedModel(newValue);
-        }
-    };
-
-    const handleSelectCategory = (item: string | null) => {
-        if (item === selectedCategory) {
-            setSelectedCategory(null); setSelectedMake(null); setSelectedModel(null);
-        } else {
-            setSelectedCategory(item); setSelectedMake(null); setSelectedModel(null);
-        }
-    };
-    const handleSelectMake = (item: string | null) => {
-        if (item === selectedMake) {
-            setSelectedMake(null); setSelectedModel(null);
-        } else {
-            setSelectedMake(item); setSelectedModel(null);
-        }
-    };
-    const handleSelectModel = (item: string | null) => {
-        setSelectedModel(item === selectedModel ? null : item);
-    };
-
-    // Drag and Drop handlers for Categories
-    const handleDragStart = (e: React.DragEvent<HTMLLIElement>, category: string) => {
-        setDraggedCategory(category);
-        e.dataTransfer.effectAllowed = 'move';
-        e.currentTarget.classList.add('opacity-50');
-    };
-
-    const handleDragOver = (e: React.DragEvent<HTMLLIElement>, targetCategory: string) => {
-        e.preventDefault();
-        if (draggedCategory && draggedCategory !== targetCategory) {
-            setDragOverTarget(targetCategory);
-        }
     };
     
-    const handleDragLeave = (e: React.DragEvent<HTMLLIElement>) => {
-        e.preventDefault();
-        setDragOverTarget(null);
-    };
+    const handleSelectCategory = (item: string | null) => { setSelectedCategory(item); setSelectedMake(null); setSelectedModel(null); };
+    const handleSelectMake = (item: string | null) => { setSelectedMake(item); setSelectedModel(null); };
+    const handleSelectModel = (item: string | null) => setSelectedModel(item);
 
-    const handleDrop = (e: React.DragEvent<HTMLLIElement>, targetCategory: string) => {
-        e.preventDefault();
-        if (!draggedCategory || draggedCategory === targetCategory) return;
-        
-        const currentKeys = Object.keys(vehicleData);
-        const draggedIndex = currentKeys.indexOf(draggedCategory);
-        currentKeys.splice(draggedIndex, 1);
-        const targetIndex = currentKeys.indexOf(targetCategory);
-        currentKeys.splice(targetIndex, 0, draggedCategory);
+    const categories = Object.keys(vehicleData).sort();
+    const makes = selectedCategory ? (vehicleData[selectedCategory] || []).map(m => m.name).sort() : [];
+    const models = selectedCategory && selectedMake ? (vehicleData[selectedCategory]?.find(m => m.name === selectedMake)?.models || []).map(mo => mo.name).sort() : [];
+    const variants = selectedCategory && selectedMake && selectedModel ? (vehicleData[selectedCategory]?.find(m => m.name === selectedMake)?.models.find(mo => mo.name === selectedModel)?.variants || []).sort() : [];
 
-        const reorderedData: VehicleData = {};
-        for (const key of currentKeys) {
-            reorderedData[key] = vehicleData[key];
-        }
-        onUpdate(reorderedData);
-        setDragOverTarget(null);
-    };
-
-    const handleDragEnd = (e: React.DragEvent<HTMLLIElement>) => {
-        e.currentTarget.classList.remove('opacity-50');
-        setDraggedCategory(null);
-        setDragOverTarget(null);
-    };
-
-
-    const renderColumn = (title: string, items: string[], pathPrefix: string[], selectedItem: string | null, onSelect: (item: string | null) => void, itemType: string, disabled: boolean = false) => {
-        const isDraggable = title === 'Categories';
-        return (
-            <div className={`bg-brand-gray-50 dark:bg-brand-gray-darker p-3 rounded-lg border dark:border-gray-700 flex flex-col transition-opacity ${disabled ? 'opacity-50' : ''}`}>
-                <h3 className="text-md font-bold text-gray-800 dark:text-gray-100 mb-2 px-1 flex items-center gap-1">{title} {isDraggable && <span className="text-xs font-normal text-gray-400">(Draggable)</span>}</h3>
-                <ul className="space-y-1 overflow-y-auto flex-grow min-h-[200px] max-h-[400px]">
-                    {items.map(item => {
-                        const path = [...pathPrefix, item];
-                        const isEditing = editingItem?.path.join() === path.join();
-                        const isDragOver = isDraggable && dragOverTarget === item && draggedCategory !== item;
-
-                        return (
-                            <li key={item}
-                                draggable={isDraggable}
-                                onDragStart={isDraggable ? (e) => handleDragStart(e, item) : undefined}
-                                onDragOver={isDraggable ? (e) => handleDragOver(e, item) : undefined}
-                                onDragLeave={isDraggable ? (e) => handleDragLeave(e) : undefined}
-                                onDrop={isDraggable ? (e) => handleDrop(e, item) : undefined}
-                                onDragEnd={isDraggable ? (e) => handleDragEnd(e) : undefined}
-                                className={`rounded-md transition-all ${isDragOver ? 'border-t-2 border-brand-blue pt-1' : ''}`}
-                            >
-                                {isEditing ? (
-                                    <div className="flex items-center gap-2 p-2">
-                                        <input type="text" value={editingItem.value} onChange={e => setEditingItem(prev => ({ ...prev!, value: e.target.value }))} autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveEdit()} onBlur={handleSaveEdit} className="w-full text-sm p-1 border rounded bg-white dark:bg-gray-900" />
-                                        <button onClick={handleSaveEdit} className="p-1 text-green-500 hover:text-green-700">&#x2713;</button>
-                                        <button onClick={() => setEditingItem(null)} className="p-1 text-red-500 hover:text-red-700">&times;</button>
+    const renderColumn = (title: string, items: string[], pathPrefix: string[], selectedItem: string | null, onSelect: (item: string | null) => void, itemType: string, disabled: boolean = false) => (
+        <div className={`bg-brand-gray-50 dark:bg-brand-gray-darker p-3 rounded-lg border dark:border-gray-700 flex flex-col transition-opacity ${disabled ? 'opacity-50' : ''}`}>
+            <h3 className="text-md font-bold text-gray-800 dark:text-gray-100 mb-2 px-1">{title}</h3>
+            <ul className="space-y-1 overflow-y-auto flex-grow min-h-[200px] max-h-[400px]">
+                {items.map(item => {
+                    const path = [...pathPrefix, item];
+                    const isEditing = editingItem?.path.join() === path.join();
+                    return (
+                        <li key={item} className="rounded-md">
+                            {isEditing ? (
+                                <div className="flex items-center gap-2 p-2">
+                                    <input type="text" value={editingItem.value} onChange={e => setEditingItem(prev => ({ ...prev!, value: e.target.value }))} autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveEdit()} onBlur={handleSaveEdit} className="w-full text-sm p-1 border rounded bg-white dark:bg-gray-900" />
+                                </div>
+                            ) : (
+                                <div onClick={() => !disabled && onSelect(item)} className={`group flex justify-between items-center p-2 rounded-md ${!disabled ? 'cursor-pointer' : 'cursor-default'} ${selectedItem === item ? 'bg-brand-blue text-white' : !disabled ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : ''}`}>
+                                    <span className="text-sm">{item}</span>
+                                    <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${selectedItem === item ? '!opacity-100' : ''}`}>
+                                        <button onClick={e => { e.stopPropagation(); if (!disabled) setEditingItem({ path, value: item }); }} disabled={disabled} className="p-1 hover:bg-white/20 rounded-md">&#x270E;</button>
+                                        <button onClick={e => { e.stopPropagation(); if (!disabled) handleDelete(path); }} disabled={disabled} className="p-1 hover:bg-white/20 rounded-md">&times;</button>
                                     </div>
-                                ) : (
-                                    <div onClick={() => !disabled && onSelect(item)} className={`group flex justify-between items-center p-2 rounded-md ${!disabled ? (isDraggable ? 'cursor-grab' : 'cursor-pointer') : 'cursor-default'} ${selectedItem === item ? 'bg-brand-blue text-white' : !disabled ? 'hover:bg-gray-200 dark:hover:bg-gray-700' : ''}`}>
-                                        <span className="text-sm">{item}</span>
-                                        <div className={`opacity-0 group-hover:opacity-100 transition-opacity ${selectedItem === item ? '!opacity-100' : ''}`}>
-                                            <button onClick={e => { e.stopPropagation(); if (!disabled) setEditingItem({ path, value: item }); }} disabled={disabled} className="p-1 hover:bg-white/20 rounded-md">&#x270E;</button>
-                                            <button onClick={e => { e.stopPropagation(); if (!disabled) handleDelete(path); }} disabled={disabled} className="p-1 hover:bg-white/20 rounded-md">&times;</button>
-                                        </div>
-                                    </div>
-                                )}
-                            </li>
-                        );
-                    })}
-                    {!disabled && items.length === 0 && <div className="text-center text-sm text-gray-500 py-4 px-2">No items yet. Add one below.</div>}
-                    {disabled && <div className="text-center text-sm text-gray-500 py-4 px-2">Select an item from the previous column to continue.</div>}
-                </ul>
-                <div className="mt-2 pt-2 border-t dark:border-gray-700">
-                    {addingAt?.path.join() === pathPrefix.join() ? (
-                        <div className="flex items-center gap-2 p-1">
-                            <input type="text" value={newItemValue} onChange={e => setNewItemValue(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveNewItem()} placeholder={`New ${itemType}...`} className="w-full text-sm p-1 border rounded bg-white dark:bg-gray-900" />
-                            <button onClick={handleSaveNewItem} className="p-1 text-green-500 hover:text-green-700">&#x2713;</button>
-                            <button onClick={() => { setAddingAt(null); setNewItemValue(''); }} className="p-1 text-red-500 hover:text-red-700">&times;</button>
-                        </div>
-                    ) : (
-                        <button onClick={() => !disabled && setAddingAt({ path: pathPrefix, type: itemType })} disabled={disabled} className="w-full text-sm p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-brand-blue dark:text-brand-blue-light disabled:opacity-50 disabled:cursor-not-allowed">+ Add New {itemType}</button>
-                    )}
-                </div>
-            </div>
-        )
-    };
-
-    return (
-        <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Manage Vehicle Data</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Manage the vehicle options available to sellers in their dashboard dropdowns. Click an item to view its children.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {renderColumn("Categories", Object.keys(vehicleData), [], selectedCategory, handleSelectCategory, "Category")}
-                
-                {renderColumn("Makes", selectedCategory ? Object.keys(vehicleData[selectedCategory] || {}).sort() : [], selectedCategory ? [selectedCategory] : [], selectedMake, handleSelectMake, "Make", !selectedCategory)}
-                
-                {renderColumn("Models", selectedCategory && selectedMake ? Object.keys(vehicleData[selectedCategory]?.[selectedMake] || {}).sort() : [], selectedCategory && selectedMake ? [selectedCategory, selectedMake] : [], selectedModel, handleSelectModel, "Model", !selectedMake)}
-                
-                {renderColumn("Variants", selectedCategory && selectedMake && selectedModel ? (vehicleData[selectedCategory]?.[selectedMake]?.[selectedModel] || []).sort() : [], selectedCategory && selectedMake && selectedModel ? [selectedCategory, selectedMake, selectedModel] : [], null, () => {}, "Variant", !selectedModel)}
+                                </div>
+                            )}
+                        </li>
+                    );
+                })}
+                {!disabled && items.length === 0 && <div className="text-center text-sm text-gray-500 py-4 px-2">No items.</div>}
+                {disabled && <div className="text-center text-sm text-gray-500 py-4 px-2">Select an item from the previous column.</div>}
+            </ul>
+            <div className="mt-2 pt-2 border-t dark:border-gray-700">
+                {addingAt?.path.join() === pathPrefix.join() ? (
+                    <div className="flex items-center gap-2 p-1">
+                        <input type="text" value={newItemValue} onChange={e => setNewItemValue(e.target.value)} autoFocus onKeyDown={e => e.key === 'Enter' && handleSaveNewItem()} placeholder={`New ${itemType}...`} className="w-full text-sm p-1 border rounded bg-white dark:bg-gray-900" />
+                    </div>
+                ) : (
+                    <button onClick={() => !disabled && setAddingAt({ path: pathPrefix, type: itemType })} disabled={disabled} className="w-full text-sm p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 text-brand-blue dark:text-brand-blue-light disabled:opacity-50 disabled:cursor-not-allowed">+ Add New {itemType}</button>
+                )}
             </div>
         </div>
     );
-};
 
+    return (
+        <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
+            <div className="flex justify-between items-center mb-4">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Manage Vehicle Data</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Manage dropdown options for the vehicle creation form.</p>
+                </div>
+                <button onClick={() => setIsBulkUploadOpen(true)} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">
+                    Bulk Upload
+                </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {renderColumn("Categories", categories, [], selectedCategory, handleSelectCategory, "Category")}
+                {renderColumn("Makes", makes, selectedCategory ? [selectedCategory] : [], selectedMake, handleSelectMake, "Make", !selectedCategory)}
+                {renderColumn("Models", models, selectedCategory && selectedMake ? [selectedCategory, selectedMake] : [], selectedModel, handleSelectModel, "Model", !selectedMake)}
+                {renderColumn("Variants", variants, selectedCategory && selectedMake && selectedModel ? [selectedCategory, selectedMake, selectedModel] : [], null, () => {}, "Variant", !selectedModel)}
+            </div>
+            {isBulkUploadOpen && (
+                <VehicleDataBulkUploadModal 
+                    onClose={() => setIsBulkUploadOpen(false)} 
+                    onUpdateData={onUpdate}
+                />
+            )}
+        </div>
+    );
+};
 
 // --- Audit Log View Component ---
 const AuditLogView: React.FC<{ auditLog: AuditLogEntry[] }> = ({ auditLog }) => {
@@ -761,8 +688,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
 
     // --- Memoized Analytics Calculations ---
     const analyticsData = useMemo(() => {
-        // FIX: Explicitly cast values to Number to prevent type errors in arithmetic operations.
-        const totalSalesValue = vehicles.reduce((sum, v) => Number(sum) + Number(v.price), 0);
+        const totalSalesValue = vehicles.reduce((sum, v) => Number(sum) + (v.status === 'sold' ? Number(v.price) : 0), 0);
         const averagePrice = vehicles.length > 0 ? totalSalesValue / vehicles.length : 0;
         
         const userRoleCounts = users.reduce((acc, user) => {
@@ -779,23 +705,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ users, currentUser, vehicles, c
         
         const userRoleChartData = Object.entries(userRoleCounts).map(([label, value]) => ({ label: label.charAt(0).toUpperCase() + label.slice(1), value })).sort((a,b) => b.value - a.value);
         const listingsByMakeChartData = Object.entries(listingsByMake).map(([label, value]) => ({ label, value })).sort((a,b) => b.value - a.value);
-        const moderationQueueCount = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
+        // FIX: Explicitly cast operands to Number to prevent arithmetic errors with inferred types.
+        const moderationQueueCount = Number(vehicles.filter(v => v.isFlagged).length) + Number(conversations.filter(c => c.isFlagged).length);
 
-        // New monetization metrics
-        // FIX: Explicitly cast values to Number to prevent type errors in arithmetic operations.
         const monthlySubscriptionRevenue = users
             .filter(u => u.role === 'seller' && u.subscriptionPlan)
             .reduce((total, user) => {
                 if (user.subscriptionPlan) {
                     const plan = PLAN_DETAILS[user.subscriptionPlan];
+                    // FIX: Explicitly cast operands to Number to prevent arithmetic errors with inferred types.
                     return Number(total) + (plan ? Number(plan.price) : 0);
                 }
-                return Number(total);
+                return total;
             }, 0);
 
-        // FIX: Explicitly cast INSPECTION_SERVICE_FEE to Number to prevent type errors in arithmetic operations.
         const inspectionServiceRevenue = vehicles
             .filter(v => v.certifiedInspection)
+            // FIX: Explicitly cast operand to Number to prevent arithmetic errors with inferred types.
             .length * Number(INSPECTION_SERVICE_FEE);
 
         const featuredListingsCount = vehicles.filter(v => v.isFeatured).length;

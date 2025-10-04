@@ -2,6 +2,7 @@ import React, { useState, useEffect, memo, useRef, useMemo } from 'react';
 import type { User, Notification, VehicleCategory } from '../types';
 import { View as ViewEnum } from '../types';
 import type { Theme } from '../App';
+import NotificationCenter from './NotificationCenter';
 
 interface HeaderProps {
     onNavigate: (view: ViewEnum) => void;
@@ -16,6 +17,7 @@ interface HeaderProps {
     notifications: Notification[];
     onNotificationClick: (notification: Notification) => void;
     onMarkNotificationsAsRead: (ids: number[]) => void;
+    onMarkAllNotificationsAsRead: () => void;
     onSelectCategory: (category: VehicleCategory) => void;
 }
 
@@ -28,7 +30,7 @@ const DropdownLink: React.FC<{ children: React.ReactNode; onClick: () => void; c
 const Header: React.FC<HeaderProps> = ({ 
     onNavigate, currentUser, onLogout, compareCount, wishlistCount, inboxCount, theme, 
     onChangeTheme, isHomePage = false, notifications, onNotificationClick, 
-    onMarkNotificationsAsRead, onSelectCategory
+    onMarkNotificationsAsRead, onMarkAllNotificationsAsRead, onSelectCategory
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileBuyOpen, setIsMobileBuyOpen] = useState(false);
@@ -83,8 +85,9 @@ const Header: React.FC<HeaderProps> = ({
     setIsBuyMenuOpen(false);
   };
   
-  const handleMarkAllRead = () => {
-    onMarkNotificationsAsRead(unreadNotifications.map(n => n.id));
+  const handleNotificationItemClick = (notification: Notification) => {
+    onNotificationClick(notification);
+    setIsNotificationsOpen(false);
   };
   
   return (
@@ -116,6 +119,21 @@ const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
+            {currentUser && (
+              <div className="relative" ref={notificationsRef}>
+                <button onClick={() => setIsNotificationsOpen(p => !p)} className={`relative p-2 rounded-full ${navLinkClasses}`}>
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                   {unreadNotifications.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadNotifications.length}</span>}
+                </button>
+                {isNotificationsOpen && (
+                  <NotificationCenter 
+                    notifications={notifications}
+                    onNotificationClick={handleNotificationItemClick}
+                    onMarkAllAsRead={onMarkAllNotificationsAsRead}
+                  />
+                )}
+              </div>
+            )}
             {/* Action buttons */}
             <button onClick={() => handleNavigate(ViewEnum.COMPARISON)} className={`relative p-2 rounded-full ${navLinkClasses}`}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
@@ -165,6 +183,14 @@ const Header: React.FC<HeaderProps> = ({
           </div>
           
           <div className="md:hidden flex items-center space-x-2">
+             {currentUser && (
+               <div className="relative">
+                <button onClick={() => setIsNotificationsOpen(p => !p)} className={`relative p-2 rounded-full ${navLinkClasses}`}>
+                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                   {unreadNotifications.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadNotifications.length}</span>}
+                </button>
+              </div>
+            )}
             <button data-mobile-menu-button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
             </button>

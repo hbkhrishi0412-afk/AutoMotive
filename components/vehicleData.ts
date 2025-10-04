@@ -1,71 +1,133 @@
 import { VehicleCategory } from '../types';
 
-export const VEHICLE_DATA: Record<string, Record<string, Record<string, string[]>>> = {
-    [VehicleCategory.FOUR_WHEELER]: {
-        "Maruti Suzuki": {
-            "Swift": ["LXi", "VXi", "VXi (O)", "ZXi", "ZXi+"],
-            "Baleno": ["Sigma", "Delta", "Zeta", "Alpha"],
-            "Brezza": ["LXi", "VXi", "ZXi", "ZXi+"],
-            "Ertiga": ["LXi", "VXi", "ZXi", "ZXi+"],
+export interface VehicleModel {
+    name: string;
+    variants: string[];
+}
+
+export interface VehicleMake {
+    name: string;
+    models: VehicleModel[];
+}
+
+export type VehicleCategoryData = VehicleMake[];
+
+const DEFAULT_PLACEHOLDER = 'https://via.placeholder.com/800x600/E5E7EB/4B5563?text=AutoVerse+AI';
+
+export const getPlaceholderImage = (make?: string, model?: string): string => {
+    if (make && model) {
+        // Use a consistent seed for the same make/model combination
+        return `https://picsum.photos/seed/${make}${model}/800/600`;
+    }
+    if (make) {
+        // Fallback to a make-specific placeholder
+        return `https://picsum.photos/seed/${make}/800/600`;
+    }
+    return DEFAULT_PLACEHOLDER;
+};
+
+export const VEHICLE_DATA: Record<string, VehicleCategoryData> = {
+    [VehicleCategory.FOUR_WHEELER]: [
+        {
+            name: "Maruti Suzuki",
+            models: [
+                { name: "Swift", variants: ["LXi", "VXi", "VXi (O)", "ZXi", "ZXi+"] },
+                { name: "Baleno", variants: ["Sigma", "Delta", "Zeta", "Alpha"] },
+                { name: "Brezza", variants: ["LXi", "VXi", "ZXi", "ZXi+"] },
+                { name: "Ertiga", variants: ["LXi", "VXi", "ZXi", "ZXi+"] },
+            ],
         },
-        "Hyundai": {
-            "Creta": ["E", "EX", "S", "S+", "SX", "SX(O)"],
-            "Venue": ["E", "S", "S(O)", "SX", "SX(O)"],
-            "i20": ["Magna", "Sportz", "Asta", "Asta (O)"],
-            "Verna": ["EX", "S", "SX", "SX(O)"],
+        {
+            name: "Hyundai",
+            models: [
+                { name: "Creta", variants: ["E", "EX", "S", "S+", "SX", "SX(O)"] },
+                { name: "Venue", variants: ["E", "S", "S(O)", "SX", "SX(O)"] },
+                { name: "i20", variants: ["Magna", "Sportz", "Asta", "Asta (O)"] },
+                { name: "Verna", variants: ["EX", "S", "SX", "SX(O)"] },
+            ],
         },
-        "Tata": {
-            "Nexon": ["XE", "XM", "XM (S)", "XZ+", "XZ+ (HS)", "XZ+ (L)"],
-            "Nexon EV": ["Creative+", "Fearless", "Fearless+", "Empowered"],
-            "Punch": ["Pure", "Adventure", "Accomplished", "Creative"],
-            "Harrier": ["Smart", "Pure", "Adventure", "Fearless"],
-            "Safari": ["Smart", "Pure", "Adventure", "Fearless"],
+        {
+            name: "Tata",
+            models: [
+                { name: "Nexon", variants: ["XE", "XM", "XM (S)", "XZ+", "XZ+ (HS)", "XZ+ (L)"] },
+                { name: "Nexon EV", variants: ["Creative+", "Fearless", "Fearless+", "Empowered"] },
+                { name: "Punch", variants: ["Pure", "Adventure", "Accomplished", "Creative"] },
+                { name: "Harrier", variants: ["Smart", "Pure", "Adventure", "Fearless"] },
+                { name: "Safari", variants: ["Smart", "Pure", "Adventure", "Fearless"] },
+            ],
         },
-        "Mahindra": {
-            "XUV700": ["MX", "AX3", "AX5", "AX7", "AX7L"],
-            "Scorpio-N": ["Z2", "Z4", "Z6", "Z8", "Z8L"],
-            "Thar": ["AX (O)", "LX"],
-            "XUV300": ["W4", "W6", "W8", "W8 (O)"],
+        {
+            name: "Mahindra",
+            models: [
+                { name: "XUV700", variants: ["MX", "AX3", "AX5", "AX7", "AX7L"] },
+                { name: "Scorpio-N", variants: ["Z2", "Z4", "Z6", "Z8", "Z8L"] },
+                { name: "Thar", variants: ["AX (O)", "LX"] },
+                { name: "XUV300", variants: ["W4", "W6", "W8", "W8 (O)"] },
+            ],
         },
-        "Kia": {
-            "Seltos": ["HTE", "HTK", "HTK+", "HTX", "HTX+", "GTX+", "X-Line"],
-            "Sonet": ["HTE", "HTK", "HTK+", "HTX", "HTX+", "GTX+", "X-Line"],
-            "Carens": ["Premium", "Prestige", "Prestige+", "Luxury", "Luxury+"],
+        {
+            name: "Kia",
+            models: [
+                { name: "Seltos", variants: ["HTE", "HTK", "HTK+", "HTX", "HTX+", "GTX+", "X-Line"] },
+                { name: "Sonet", variants: ["HTE", "HTK", "HTK+", "HTX", "HTX+", "GTX+", "X-Line"] },
+                { name: "Carens", variants: ["Premium", "Prestige", "Prestige+", "Luxury", "Luxury+"] },
+            ],
         },
-        "Honda": {
-            "City": ["SV", "V", "VX", "ZX"],
-            "Amaze": ["E", "S", "VX"],
+        {
+            name: "Honda",
+            models: [
+                { name: "City", variants: ["SV", "V", "VX", "ZX"] },
+                { name: "Amaze", variants: ["E", "S", "VX"] },
+            ],
         },
-        "Toyota": {
-            "Fortuner": ["4x2 MT", "4x2 AT", "4x4 MT", "4x4 AT", "Legender", "GR-S"],
-            "Innova Crysta": ["GX", "VX", "ZX"],
-            "Urban Cruiser Hyryder": ["E", "S", "G", "V"],
+        {
+            name: "Toyota",
+            models: [
+                { name: "Fortuner", variants: ["4x2 MT", "4x2 AT", "4x4 MT", "4x4 AT", "Legender", "GR-S"] },
+                { name: "Innova Crysta", variants: ["GX", "VX", "ZX"] },
+                { name: "Urban Cruiser Hyryder", variants: ["E", "S", "G", "V"] },
+            ],
         },
-    },
-    [VehicleCategory.TWO_WHEELER]: {
-        "Honda": {
-            "Activa 6G": ["Standard", "DLX", "Smart"],
-            "Shine": ["Drum", "Disc"],
+    ],
+    [VehicleCategory.TWO_WHEELER]: [
+        {
+            name: "Honda",
+            models: [
+                { name: "Activa 6G", variants: ["Standard", "DLX", "Smart"] },
+                { name: "Shine", variants: ["Drum", "Disc"] },
+            ],
         },
-        "Hero": {
-            "Splendor Plus": ["Self Start", "i3s", "Black and Accent"],
-            "Passion Pro": ["Drum", "Disc"],
-            "Glamour": ["Drum", "Disc", "Blaze Edition"],
+        {
+            name: "Hero",
+            models: [
+                { name: "Splendor Plus", variants: ["Self Start", "i3s", "Black and Accent"] },
+                { name: "Passion Pro", variants: ["Drum", "Disc"] },
+                { name: "Glamour", variants: ["Drum", "Disc", "Blaze Edition"] },
+            ],
         },
-        "Royal Enfield": {
-            "Classic 350": ["Redditch", "Halcyon", "Dark", "Chrome"],
-            "Hunter 350": ["Retro", "Metro", "Metro Rebel"],
-            "Meteor 350": ["Fireball", "Stellar", "Supernova"],
+        {
+            name: "Royal Enfield",
+            models: [
+                { name: "Classic 350", variants: ["Redditch", "Halcyon", "Dark", "Chrome"] },
+                { name: "Hunter 350", variants: ["Retro", "Metro", "Metro Rebel"] },
+                { name: "Meteor 350", variants: ["Fireball", "Stellar", "Supernova"] },
+            ],
         },
-        "TVS": {
-            "Jupiter": ["Standard", "ZX", "Classic", "SmartXonnect"],
-            "Apache RTR 160": ["2V", "4V", "4V Special Edition"],
-            "Raider 125": ["Drum", "Disc", "SmartXonnect"],
+        {
+            name: "TVS",
+            models: [
+                { name: "Jupiter", variants: ["Standard", "ZX", "Classic", "SmartXonnect"] },
+                { name: "Apache RTR 160", variants: ["2V", "4V", "4V Special Edition"] },
+                { name: "Raider 125", variants: ["Drum", "Disc", "SmartXonnect"] },
+            ],
         },
-        "Bajaj": {
-            "Pulsar 150": ["Neon", "Standard", "Twin Disc"],
-            "Pulsar NS200": ["Standard"],
-            "Platina 110": ["Drum", "Disc", "ABS"],
+        {
+            name: "Bajaj",
+            models: [
+                { name: "Pulsar 150", variants: ["Neon", "Standard", "Twin Disc"] },
+                { name: "Pulsar NS200", variants: ["Standard"] },
+                { name: "Platina 110", variants: ["Drum", "Disc", "ABS"] },
+            ],
         },
-    },
+    ],
 };
