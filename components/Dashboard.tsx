@@ -7,7 +7,6 @@ import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
 import AiAssistant from './AiAssistant';
-// FIX: Changed import from default to named to resolve "no default export" error.
 import { ChatWidget } from './ChatWidget';
 import { INDIAN_STATES, CITIES_BY_STATE, PLAN_DETAILS } from '../constants';
 import BulkUploadModal from './BulkUploadModal';

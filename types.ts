@@ -1,6 +1,5 @@
 
 import { ChartData } from 'chart.js';
-// FIX: Added React import to resolve "Cannot find namespace 'React'" error.
 import React from 'react';
 import type { VehicleCategoryData } from './components/vehicleData';
 

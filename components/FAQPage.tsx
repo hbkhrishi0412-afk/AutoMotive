@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { FAQItem } from '../types';
 
@@ -17,7 +18,6 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
         item.answer.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // FIX: The initial value for reduce must be explicitly typed to prevent it from being inferred as `unknown` when using Object.entries.
     return filtered.reduce((acc, item) => {
       const category = item.category;
       if (!acc[category]) {
@@ -54,12 +54,13 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
       </div>
 
       <div className="space-y-8">
-        {Object.entries(filteredAndGroupedFAQs).map(([category, items]) => (
+        {Object.entries(filteredAndGroupedFAQs).map(([category, items]: [string, FAQItem[]]) => (
           <div key={category}>
             <h2 className="text-2xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-4 border-b border-brand-gray-200 dark:border-brand-gray-700 pb-2">
               {category}
             </h2>
             <div className="space-y-4">
+              {/* FIX: Explicitly type the items array to avoid 'unknown' type error. */}
               {items.map((item) => (
                 <div key={item.id} className="border-b border-brand-gray-200 dark:border-brand-gray-700 last:border-b-0">
                   <button

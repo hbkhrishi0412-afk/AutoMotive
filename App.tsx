@@ -20,7 +20,6 @@ import { getAuditLog, logAction, saveAuditLog } from './services/auditLogService
 import { exportToCsv } from './services/exportService';
 import { showNotification } from './services/notificationService';
 import { getVehicleData, saveVehicleData } from './services/vehicleDataService';
-// FIX: Changed import from default to named to resolve "no default export" error.
 import { ChatWidget } from './components/ChatWidget';
 import { getVehicleRecommendations } from './services/geminiService';
 import { getSellerBadges } from './services/badgeService';
@@ -1604,18 +1603,14 @@ const App: React.FC = () => {
                   vehicles={vehiclesWithRatings.filter(v => v.sellerEmail === publicSellerProfile.email && v.status === 'published')}
                   onSelectVehicle={handleSelectVehicle}
                   comparisonList={comparisonList}
-// FIX: Changed onToggleCompare prop to handleToggleCompare.
                   onToggleCompare={handleToggleCompare}
                   wishlist={wishlist}
-// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
                   onToggleWishlist={handleToggleWishlist}
                   onBack={() => navigate(previousView || View.HOME)}
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} 
-// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
-onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={usersWithRatingsAndBadges.find(u => u.email === currentUser.email)!}
@@ -1679,23 +1674,16 @@ onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent=
       case View.INBOX:
         return currentUser && <CustomerInbox conversations={conversations.filter(c => c.customerId === currentUser.email)} onSendMessage={handleCustomerSendMessage} onMarkAsRead={handleMarkConversationAsReadByCustomer} users={users} typingStatus={typingStatus} onUserTyping={handleUserTyping} onMarkMessagesAsRead={handleMarkMessagesAsRead} onFlagContent={handleFlagContent} onOfferResponse={handleOfferResponse} />;
       case View.USED_CARS:
-        return <VehicleList vehicles={allPublishedVehicles} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} 
-// FIX: Changed onToggleCompare prop to handleToggleCompare.
-onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="All Used Cars" initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onViewSellerProfile={handleViewSellerProfile} />;
+        return <VehicleList vehicles={allPublishedVehicles} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="All Used Cars" initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onViewSellerProfile={handleViewSellerProfile} />;
       case View.NEW_CARS:
         return <NewCars />;
       case View.DEALER_PROFILES:
         return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller')} onViewProfile={handleViewSellerProfile} />;
       case View.WISHLIST:
-        return <VehicleList vehicles={vehiclesInWishlist} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} 
-// FIX: Changed onToggleCompare prop to handleToggleCompare.
-// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
-onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="My Wishlist" isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
+        return <VehicleList vehicles={vehiclesInWishlist} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="My Wishlist" isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
-        return <Home onSearch={handleHomeSearch} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} 
-// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
-onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
+        return <Home onSearch={handleHomeSearch} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
     }
   };
   

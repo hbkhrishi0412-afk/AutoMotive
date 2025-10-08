@@ -1,6 +1,5 @@
 
 import React, { useState, useCallback } from 'react';
-// FIX: Import VehicleMake and VehicleModel from their source file, not types.ts
 import type { VehicleData } from '../types';
 import type { VehicleMake, VehicleModel } from './vehicleData';
 import { VEHICLE_DATA } from './vehicleData';
@@ -33,7 +32,6 @@ const parseCSV = (text: string): Record<string, string>[] => {
 };
 
 
-// FIX: Changed to a named export to resolve the "no default export" error reported by the build tool.
 export const VehicleDataBulkUploadModal: React.FC<BulkUploadModalProps> = ({ onClose, onUpdateData }) => {
     const [step, setStep] = useState(1);
     const [file, setFile] = useState<File | null>(null);
@@ -83,7 +81,6 @@ export const VehicleDataBulkUploadModal: React.FC<BulkUploadModalProps> = ({ onC
                         newData[category].push(makeObj);
                     }
 
-// FIX: The compiler cannot infer that makeObj is defined here. Use a non-null assertion to fix the type error.
                     let modelObj = makeObj!.models.find((m: VehicleModel) => m.name === model);
                     if (!modelObj) {
                         modelObj = { name: model, variants: [] };
@@ -134,4 +131,17 @@ export const VehicleDataBulkUploadModal: React.FC<BulkUploadModalProps> = ({ onC
         const csvContent = rows.map(row => row.join(',')).join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
-        const url =
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'vehicle_data_template.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
+            <div className="bg-white dark:bg-brand-gray

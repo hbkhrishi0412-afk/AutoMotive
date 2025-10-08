@@ -30,7 +30,6 @@ const TypingIndicator: React.FC<{ name: string }> = ({ name }) => (
     </div>
 );
 
-// FIX: Changed to a named export to resolve "no default export" error.
 export const ChatWidget: React.FC<ChatWidgetProps> = memo(({ conversation, currentUserRole, otherUserName, onClose, onSendMessage, typingStatus, onUserTyping, onMarkMessagesAsRead, onFlagContent, onOfferResponse, onMakeOffer }) => {
   const [inputText, setInputText] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
@@ -150,7 +149,6 @@ export const ChatWidget: React.FC<ChatWidgetProps> = memo(({ conversation, curre
                     {msg.sender !== 'system' && (
                         <>
                             <div className={`px-4 py-3 max-w-xs ${ msg.sender === senderType ? 'bg-brand-blue text-white rounded-l-xl rounded-t-xl' : 'bg-white dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 rounded-r-xl rounded-t-xl'}`}>
-                                {/* FIX: Wrap onOfferResponse to pass the conversationId to match the expected signature. */}
                                 {msg.type === 'offer' ? <OfferMessage msg={msg} currentUserRole={currentUserRole} listingPrice={conversation.vehiclePrice} onRespond={(messageId, response, counterPrice) => onOfferResponse(conversation.id, messageId, response, counterPrice)} /> : <p className="text-sm break-words">{msg.text}</p>}
                             </div>
                             <div className="text-xs text-brand-gray-400 mt-1 px-1 flex items-center">
@@ -177,9 +175,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = memo(({ conversation, curre
                 </div>
             )}
             <form onSubmit={handleSendMessage} className="flex gap-2 items-center">
-                <button type="button" 
-// FIX: Corrected typo `p` to `prev` in state updater.
-onClick={() => setShowEmojiPicker(prev => !prev)} className="p-2 text-brand-gray-500 hover:text-brand-blue" aria-label="Add emoji">
+                <button type="button" onClick={() => setShowEmojiPicker(prev => !prev)} className="p-2 text-brand-gray-500 hover:text-brand-blue" aria-label="Add emoji">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </button>
                 {currentUserRole === 'customer' ? (
@@ -215,4 +211,3 @@ onClick={() => setShowEmojiPicker(prev => !prev)} className="p-2 text-brand-gray
     </>
   );
 });
-
