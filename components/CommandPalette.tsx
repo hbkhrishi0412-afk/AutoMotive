@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import type { User } from '../types';
 import { View } from '../types';
@@ -65,7 +66,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
   }, [allCommands, query]);
   
   const groupedCommands = useMemo(() => {
-    // FIX: Explicitly type the initial value of reduce to prevent TypeScript from inferring the accumulator as `unknown`.
+    // FIX: The initial value for reduce must be explicitly typed to prevent it from being inferred as `unknown` when using Object.entries.
     return filteredCommands.reduce((acc, command) => {
         const section = command.section;
         if (!acc[section]) {
@@ -119,7 +120,8 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
     <div className="fixed inset-0 bg-black/60 z-[100] flex items-start justify-center pt-20" onClick={onClose}>
       <div className="bg-white dark:bg-brand-gray-800 rounded-lg shadow-2xl w-full max-w-xl animate-fade-in" onClick={e => e.stopPropagation()}>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3">
-          <ICONS.SEARCH />
+          {/* FIX: ICONS.SEARCH is a JSX element, not a component. It should be rendered directly. */}
+          {ICONS.SEARCH}
           <input
             ref={inputRef}
             type="text"

@@ -1,3 +1,4 @@
+
 import { ChartData } from 'chart.js';
 // FIX: Added React import to resolve "Cannot find namespace 'React'" error.
 import React from 'react';
@@ -144,11 +145,16 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
   isRead: boolean;
-  type?: 'text' | 'test_drive_request';
+  type?: 'text' | 'test_drive_request' | 'offer';
   payload?: {
+    // for test drive
     date?: string;
     time?: string;
-    status?: 'pending' | 'confirmed' | 'rejected';
+    // for offer
+    offerPrice?: number;
+    /** If this message is a counter-offer, this field holds the price of the offer it is countering. */
+    counterPrice?: number;
+    status?: 'pending' | 'accepted' | 'rejected' | 'countered' | 'confirmed';
   };
 }
 
@@ -159,6 +165,7 @@ export interface Conversation {
   sellerId: string;
   vehicleId: number;
   vehicleName: string;
+  vehiclePrice?: number;
   messages: ChatMessage[];
   lastMessageAt: string;
   isReadBySeller: boolean;

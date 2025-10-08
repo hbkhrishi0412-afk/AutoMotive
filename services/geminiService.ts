@@ -1,4 +1,5 @@
 
+
 import { Type } from "@google/genai";
 import type { Vehicle, ProsAndCons, Conversation, Suggestion } from '../types';
 import type { SearchFilters } from "../types";
@@ -66,7 +67,6 @@ export const parseSearchQuery = async (query: string): Promise<SearchFilters> =>
                     },
                 },
             },
-            // FIX: Disable thinking for low-latency tasks like parsing search queries.
             thinkingConfig: { thinkingBudget: 0 },
         },
     };
@@ -214,7 +214,6 @@ Respond ONLY with a single JSON object matching this schema. If a value is not a
         const parsed = JSON.parse(jsonText.trim());
         return {
             structuredSpecs: parsed.structuredSpecs || {},
-            // FIX: Check if featureSuggestions exists before returning.
             featureSuggestions: parsed.featureSuggestions || {}
         };
     } catch (error) {

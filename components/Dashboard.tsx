@@ -1,18 +1,21 @@
+
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
 import type { Vehicle, User, Conversation, VehicleData, ChatMessage, VehicleDocument } from '../types';
 import { VehicleCategory, View } from '../types';
 import { generateVehicleDescription, getAiVehicleSuggestions } from '../services/geminiService';
 import VehicleCard from './VehicleCard';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
+import { Bar, Line } from 'react-chartjs-2';
 import AiAssistant from './AiAssistant';
-import ChatWidget from './ChatWidget';
+// FIX: Changed import from default to named to resolve "no default export" error.
+import { ChatWidget } from './ChatWidget';
 import { INDIAN_STATES, CITIES_BY_STATE, PLAN_DETAILS } from '../constants';
 import BulkUploadModal from './BulkUploadModal';
 import { getPlaceholderImage } from './vehicleData';
 import PricingGuidance from './PricingGuidance';
+import { OfferModal, OfferMessage } from './ReadReceiptIcon';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController);
-import { Bar, Line } from 'react-chartjs-2';
 
 
 interface DashboardProps {
@@ -37,6 +40,7 @@ interface DashboardProps {
   onRequestCertification: (vehicleId: number) => void;
   onNavigate: (view: View) => void;
   onTestDriveResponse?: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
+  onOfferResponse: (conversationId: string, messageId: number, response: 'accepted' | 'rejected' | 'countered', counterPrice?: number) => void;
 }
 
 type DashboardView = 'overview' | 'listings' | 'form' | 'inquiries' | 'analytics' | 'salesHistory' | 'profile' | 'reports';
@@ -368,7 +372,13 @@ const VehicleForm: React.FC<VehicleFormProps> = memo(({ editingVehicle, onAddVeh
         
         const readPromises = files.map((file: File) => new Promise<{ fileName: string, url: string }>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onloadend = () => typeof reader.result === 'string' ? resolve({ fileName: file.name, url: reader.result }) : reject(new Error('File read error.'));
+            reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                    resolve({ fileName: file.name, url: reader.result });
+                } else {
+                    reject(new Error('File read error.'));
+                }
+            };
             reader.onerror = (error) => reject(error);
             reader.readAsDataURL(file);
         }));
@@ -696,9 +706,10 @@ const InquiriesView: React.FC<{
   onMarkMessagesAsRead: (conversationId: string, readerRole: 'customer' | 'seller') => void;
   onSelectConv: (conv: Conversation) => void;
   onTestDriveResponse?: (conversationId: string, messageId: number, newStatus: 'confirmed' | 'rejected') => void;
-  onSellerSendMessage: (conversationId: string, messageText: string) => void;
+  onSellerSendMessage: (conversationId: string, messageText: string, type?: ChatMessage['type'], payload?: ChatMessage['payload']) => void;
+  onOfferResponse: (conversationId: string, messageId: number, response: 'accepted' | 'rejected' | 'countered', counterPrice?: number) => void;
 
-}> = memo(({ conversations, onMarkConversationAsReadBySeller, onMarkMessagesAsRead, onSelectConv, onTestDriveResponse, onSellerSendMessage }) => {
+}> = memo(({ conversations, onMarkConversationAsReadBySeller, onMarkMessagesAsRead, onSelectConv, onTestDriveResponse, onSellerSendMessage, onOfferResponse }) => {
 
     const handleSelectConversation = (conv: Conversation) => {
       onSelectConv(conv);
@@ -915,11 +926,12 @@ const ReportsView: React.FC<{
 
 
 // Main Dashboard Component
-const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedVehicles, onAddVehicle, onAddMultipleVehicles, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData, onFeatureListing, onRequestCertification, onNavigate, onTestDriveResponse, allVehicles }) => {
+const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedVehicles, onAddVehicle, onAddMultipleVehicles, onUpdateVehicle, onDeleteVehicle, onMarkAsSold, conversations, onSellerSendMessage, onMarkConversationAsReadBySeller, typingStatus, onUserTyping, onMarkMessagesAsRead, onUpdateSellerProfile, vehicleData, onFeatureListing, onRequestCertification, onNavigate, onTestDriveResponse, allVehicles, onOfferResponse }) => {
   const [activeView, setActiveView] = useState<DashboardView>('overview');
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
 
   useEffect(() => {
     if (selectedConv) {
@@ -970,6 +982,18 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedV
     if (conv) {
         setSelectedConv(conv);
         handleNavigate('inquiries');
+    }
+  };
+
+  const handleSendOffer = (price: number) => {
+    if (selectedConv) {
+        const lastOffer = [...selectedConv.messages].reverse().find(m => m.type === 'offer' && m.payload?.status === 'pending');
+        onSellerSendMessage(selectedConv.id, `Offer: ${price}`, 'offer', {
+            offerPrice: price,
+            counterPrice: lastOffer?.payload?.offerPrice, // If this is a counter, record the price it counters
+            status: 'pending'
+        });
+        setIsOfferModalOpen(false);
     }
   };
 
@@ -1191,6 +1215,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedV
                     onSelectConv={setSelectedConv}
                     onTestDriveResponse={onTestDriveResponse}
                     onSellerSendMessage={onSellerSendMessage}
+                    onOfferResponse={onOfferResponse}
                 />;
       case 'reports':
         return <ReportsView
@@ -1204,7 +1229,7 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedV
   const NavItem: React.FC<{ view: DashboardView, children: React.ReactNode, count?: number }> = ({ view, children, count }) => (
     <button onClick={() => handleNavigate(view)} className={`flex justify-between items-center w-full text-left px-4 py-3 rounded-lg transition-colors ${activeView === view ? 'bg-brand-blue text-white' : 'hover:bg-brand-gray-lightest dark:hover:bg-brand-gray-darker'}`}>
       <span className="font-semibold">{children}</span>
-      {count !== undefined && count > 0 && <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">{count}</span>}
+      {count !== undefined && count > 0 && <span className={`bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 ${activeView === view ? 'bg-white text-brand-blue' : ''}`}>{count}</span>}
     </button>
   );
 
@@ -1231,12 +1256,22 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedV
                     conversation={selectedConv}
                     currentUserRole="seller"
                     otherUserName={selectedConv.customerName}
-                    onSendMessage={(messageText) => onSellerSendMessage(selectedConv.id, messageText)}
+                    onSendMessage={(messageText, type, payload) => onSellerSendMessage(selectedConv.id, messageText, type, payload)}
                     onClose={() => setSelectedConv(null)}
                     onUserTyping={onUserTyping}
                     onMarkMessagesAsRead={onMarkMessagesAsRead}
                     onFlagContent={() => {}}
                     typingStatus={typingStatus}
+                    onOfferResponse={onOfferResponse}
+                    onMakeOffer={() => setIsOfferModalOpen(true)}
+                />
+            )}
+            {isOfferModalOpen && selectedConv && (
+                <OfferModal
+                    title="Make an Offer"
+                    listingPrice={selectedConv.vehiclePrice}
+                    onClose={() => setIsOfferModalOpen(false)}
+                    onSubmit={handleSendOffer}
                 />
             )}
              {isBulkUploadOpen && (

@@ -79,8 +79,9 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
             files.forEach((file: File) => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    if (typeof reader.result === 'string') {
-                        setFormData(prev => ({ ...prev, images: [...prev.images, reader.result] }));
+                    const result = reader.result;
+                    if (typeof result === 'string') {
+                        setFormData(prev => ({ ...prev, images: [...prev.images, result] }));
                     }
                 };
                 reader.readAsDataURL(file);
@@ -108,7 +109,7 @@ const EditVehicleModal: React.FC<EditVehicleModalProps> = ({ vehicle, onClose, o
     );
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in" onClick={onClose}>
             <div className="bg-white dark:bg-brand-gray-dark rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
                 <form onSubmit={handleSubmit} className="flex flex-col h-full">
                     <div className="p-6 overflow-y-auto">

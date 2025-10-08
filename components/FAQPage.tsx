@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { FAQItem } from '../types';
 
@@ -16,7 +17,7 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
         item.answer.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // FIX: Explicitly type the initial value of reduce to prevent TypeScript from inferring it as `unknown`.
+    // FIX: The initial value for reduce must be explicitly typed to prevent it from being inferred as `unknown` when using Object.entries.
     return filtered.reduce((acc, item) => {
       const category = item.category;
       if (!acc[category]) {

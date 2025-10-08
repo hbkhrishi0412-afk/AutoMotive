@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -19,7 +20,8 @@ import { getAuditLog, logAction, saveAuditLog } from './services/auditLogService
 import { exportToCsv } from './services/exportService';
 import { showNotification } from './services/notificationService';
 import { getVehicleData, saveVehicleData } from './services/vehicleDataService';
-import ChatWidget from './components/ChatWidget';
+// FIX: Changed import from default to named to resolve "no default export" error.
+import { ChatWidget } from './components/ChatWidget';
 import { getVehicleRecommendations } from './services/geminiService';
 import { getSellerBadges } from './services/badgeService';
 import CommandPalette from './components/CommandPalette';
@@ -82,6 +84,7 @@ const App: React.FC = () => {
   const [recommendations, setRecommendations] = useState<Vehicle[]>([]);
   const [initialSearchQuery, setInitialSearchQuery] = useState<string>('');
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<string>('Mumbai'); // Default location
 
   const [users, setUsers] = useState<User[]>([]);
   
@@ -93,6 +96,18 @@ const App: React.FC = () => {
 
   const addToast = useCallback((message: string, type: ToastType['type']) => {
     setToasts(prev => [...prev, { id: Date.now(), message, type }]);
+  }, []);
+
+  // Load location from localStorage on initial load
+  useEffect(() => {
+    try {
+      const savedLocation = localStorage.getItem('reRideUserLocation');
+      if (savedLocation) {
+        setUserLocation(savedLocation);
+      }
+    } catch (error) {
+      console.error("Failed to load user location from localStorage", error);
+    }
   }, []);
   
   const processAndSetData = useCallback((vehiclesData: Vehicle[], usersData: User[]) => {
@@ -511,6 +526,7 @@ const App: React.FC = () => {
             sellerId: vehicle.sellerEmail,
             vehicleId: vehicle.id,
             vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.variant || ''}`.trim(),
+            vehiclePrice: vehicle.price,
             messages: [],
             lastMessageAt: new Date().toISOString(),
             isReadBySeller: false,
@@ -520,7 +536,7 @@ const App: React.FC = () => {
     }
   }, [currentUser, conversations, addToast]);
 
-  const handleCustomerSendMessage = useCallback((vehicleId: number, messageText: string) => {
+  const handleCustomerSendMessage = useCallback((vehicleId: number, messageText: string, type: ChatMessage['type'] = 'text', payload?: ChatMessage['payload']) => {
     if (!currentUser || currentUser.role !== 'customer') return;
 
     const vehicle = vehicles.find(v => v.id === vehicleId);
@@ -551,6 +567,8 @@ const App: React.FC = () => {
       text: messageText,
       timestamp: new Date().toISOString(),
       isRead: false,
+      type,
+      payload
     };
 
     setConversations(prev => {
@@ -575,6 +593,7 @@ const App: React.FC = () => {
                 sellerId: vehicle.sellerEmail,
                 vehicleId: vehicle.id,
                 vehicleName: `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.variant || ''}`.trim(),
+                vehiclePrice: vehicle.price,
                 messages: [userMessage],
                 lastMessageAt: userMessage.timestamp,
                 isReadBySeller: false,
@@ -585,7 +604,7 @@ const App: React.FC = () => {
     });
   }, [currentUser, vehicles, addToast]);
   
-  const handleSellerSendMessage = useCallback((conversationId: string, messageText: string) => {
+  const handleSellerSendMessage = useCallback((conversationId: string, messageText: string, type: ChatMessage['type'] = 'text', payload?: ChatMessage['payload']) => {
     if (!currentUser || currentUser.role !== 'seller') return;
 
     setConversations(prev => {
@@ -598,6 +617,8 @@ const App: React.FC = () => {
             text: messageText,
             timestamp: new Date().toISOString(),
             isRead: false,
+            type,
+            payload
         };
 
         const updatedConv = {
@@ -610,6 +631,66 @@ const App: React.FC = () => {
         const newConversations = [...prev];
         newConversations[convIndex] = updatedConv;
         return newConversations;
+    });
+  }, [currentUser]);
+
+  const handleOfferResponse = useCallback((conversationId: string, messageId: number, response: 'accepted' | 'rejected' | 'countered', counterPrice?: number) => {
+    setConversations(prevConvs => {
+        const convIndex = prevConvs.findIndex(c => c.id === conversationId);
+        if (convIndex === -1) return prevConvs;
+
+        const newConvs = [...prevConvs];
+        const conv = { ...newConvs[convIndex] };
+        const msgIndex = conv.messages.findIndex(m => m.id === messageId);
+        if (msgIndex === -1) return prevConvs;
+
+        const originalMessage = { ...conv.messages[msgIndex] };
+        if (!originalMessage.payload) return prevConvs;
+
+        // 1. Update the original offer message's status
+        originalMessage.payload.status = response;
+        conv.messages[msgIndex] = originalMessage;
+
+        const now = new Date().toISOString();
+
+        // 2. Add a new message based on the response
+        if (response === 'countered' && counterPrice && currentUser) {
+            const counterOfferMessage: ChatMessage = {
+                id: Date.now(),
+                sender: currentUser.role === 'customer' ? 'user' : 'seller',
+                text: `Counter-offer: ${counterPrice}`,
+                timestamp: now,
+                isRead: false,
+                type: 'offer',
+                payload: {
+                    offerPrice: counterPrice,
+                    counterPrice: originalMessage.payload.offerPrice, // The price being countered
+                    status: 'pending'
+                }
+            };
+            conv.messages.push(counterOfferMessage);
+        } else {
+            // Add a system message for accept/reject
+            const systemMessage: ChatMessage = {
+                id: Date.now(),
+                sender: 'system',
+                text: `Offer ${response}.`,
+                timestamp: now,
+                isRead: false
+            };
+            conv.messages.push(systemMessage);
+        }
+
+        // 3. Update conversation metadata
+        conv.lastMessageAt = now;
+        if (currentUser?.role === 'customer') {
+            conv.isReadBySeller = false;
+        } else {
+            conv.isReadByCustomer = false;
+        }
+
+        newConvs[convIndex] = conv;
+        return newConvs;
     });
   }, [currentUser]);
   
@@ -1383,25 +1464,6 @@ const App: React.FC = () => {
         // Future enhancement: navigate to specific sub-view
     }
   }, [currentUser, navigate, handleMarkNotificationsAsRead]);
-  
-  const handleSelectCategory = useCallback((category: VehicleCategory) => {
-    setSelectedCategory(category);
-    setCurrentView(View.USED_CARS);
-    setSelectedVehicle(null);
-  }, []);
-  
-  const handleViewSellerProfile = useCallback((sellerEmail: string) => {
-    const sellerUser = usersWithRatingsAndBadges.find(u => u.email === sellerEmail && u.role === 'seller');
-    if (sellerUser) {
-        setPreviousView(currentView);
-        setPublicSellerProfile(sellerUser);
-        // Use navigate function to ensure state preservation logic is triggered
-        navigate(View.SELLER_PROFILE);
-        window.history.pushState({}, '', `${window.location.pathname}?seller=${sellerEmail}`);
-    } else {
-        addToast('Seller profile not found.', 'error');
-    }
-  }, [currentView, usersWithRatingsAndBadges, addToast, navigate]);
 
   const handleAddSupportTicket = useCallback((ticketData: Omit<SupportTicket, 'id' | 'createdAt' | 'updatedAt' | 'replies' | 'status'>) => {
     const newTicket: SupportTicket = {
@@ -1454,6 +1516,32 @@ const App: React.FC = () => {
     setFaqItems(prev => prev.filter(f => f.id !== faqId));
     addToast('FAQ item deleted!', 'info');
   }, [faqItems, addLogEntry, addToast]);
+
+  const handleLocationChange = useCallback((newLocation: string) => {
+    if (newLocation && newLocation !== userLocation) {
+      setUserLocation(newLocation);
+      try {
+        localStorage.setItem('reRideUserLocation', newLocation);
+        addToast(`Location set to ${newLocation}`, 'info');
+      } catch (error) {
+        console.error("Failed to save user location to localStorage", error);
+        addToast("Could not save your location preference.", "error");
+      }
+    }
+  }, [addToast, userLocation]);
+  
+  const handleViewSellerProfile = useCallback((sellerEmail: string) => {
+    const sellerUser = usersWithRatingsAndBadges.find(u => u.email === sellerEmail && u.role === 'seller');
+    if (sellerUser) {
+        setPreviousView(currentView);
+        setPublicSellerProfile(sellerUser);
+        // Use navigate function to ensure state preservation logic is triggered
+        navigate(View.SELLER_PROFILE);
+        window.history.pushState({}, '', `${window.location.pathname}?seller=${sellerEmail}`);
+    } else {
+        addToast('Seller profile not found.', 'error');
+    }
+  }, [currentView, usersWithRatingsAndBadges, addToast, navigate]);
 
   const vehiclesToCompare = useMemo(() => {
     return vehiclesWithRatings.filter(v => comparisonList.includes(v.id));
@@ -1516,41 +1604,47 @@ const App: React.FC = () => {
                   vehicles={vehiclesWithRatings.filter(v => v.sellerEmail === publicSellerProfile.email && v.status === 'published')}
                   onSelectVehicle={handleSelectVehicle}
                   comparisonList={comparisonList}
+// FIX: Changed onToggleCompare prop to handleToggleCompare.
                   onToggleCompare={handleToggleCompare}
                   wishlist={wishlist}
+// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
                   onToggleWishlist={handleToggleWishlist}
                   onBack={() => navigate(previousView || View.HOME)}
                   onViewSellerProfile={() => {}}
               />;
       case View.DETAIL:
-        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
+        return selectedVehicleWithRating && <VehicleDetail vehicle={selectedVehicleWithRating} onBack={() => navigate(View.USED_CARS)} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onAddSellerRating={handleAddSellerRating} wishlist={wishlist} 
+// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
+onToggleWishlist={handleToggleWishlist} currentUser={currentUser} onFlagContent={handleFlagContent} users={usersWithRatingsAndBadges} onViewSellerProfile={handleViewSellerProfile} onStartChat={handleStartChat} recommendations={recommendations} onSelectVehicle={handleSelectVehicle} />;
       case View.SELLER_DASHBOARD:
         return currentUser?.role === 'seller' ? <Dashboard 
                   seller={usersWithRatingsAndBadges.find(u => u.email === currentUser.email)!}
-                  sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)} 
-                  reportedVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email && v.isFlagged)}
-                  onAddVehicle={handleAddVehicle} 
+                  sellerVehicles={vehiclesWithRatings.filter(v => v.sellerEmail === currentUser.email)}
+                  reportedVehicles={vehicles.filter(v => v.sellerEmail === currentUser.email && v.isFlagged)}
+                  onAddVehicle={handleAddVehicle}
                   onAddMultipleVehicles={handleAddMultipleVehicles}
-                  onUpdateVehicle={handleUpdateVehicle} 
+                  onUpdateVehicle={handleUpdateVehicle}
                   onDeleteVehicle={handleDeleteVehicle}
                   onMarkAsSold={handleMarkAsSold}
                   conversations={conversations.filter(c => c.sellerId === currentUser.email)}
                   onSellerSendMessage={handleSellerSendMessage}
                   onMarkConversationAsReadBySeller={handleMarkConversationAsReadBySeller}
-                  onUserTyping={handleUserTyping}
                   typingStatus={typingStatus}
+                  onUserTyping={handleUserTyping}
                   onMarkMessagesAsRead={handleMarkMessagesAsRead}
                   onUpdateSellerProfile={handleUpdateSellerProfile}
                   vehicleData={vehicleData}
-                  onNavigate={navigate}
                   onFeatureListing={handleFeatureListing}
                   onRequestCertification={handleRequestCertification}
-                /> : <LoginPortal onNavigate={navigate} />;
+                  onNavigate={navigate}
+                  allVehicles={allPublishedVehicles}
+                  onOfferResponse={handleOfferResponse}
+              /> : <LoadingSpinner />;
       case View.ADMIN_PANEL:
         return currentUser?.role === 'admin' ? <AdminPanel 
-                  users={usersWithRatingsAndBadges}
+                  users={users}
                   currentUser={currentUser}
-                  vehicles={vehiclesWithRatings}
+                  vehicles={vehicles}
                   conversations={conversations}
                   onToggleUserStatus={handleToggleUserStatus}
                   onDeleteUser={handleDeleteUser}
@@ -1577,111 +1671,109 @@ const App: React.FC = () => {
                   onUpdateFaq={handleUpdateFaq}
                   onDeleteFaq={handleDeleteFaq}
                   onCertificationApproval={handleCertificationApproval}
-                /> : <AdminLogin onLogin={handleAdminLogin} onNavigate={navigate} />;
-      case View.PROFILE:
-        return currentUser ? <Profile 
-                  currentUser={currentUser}
-                  onUpdateProfile={handleUpdateUserProfile}
-                  onUpdatePassword={handleUpdateUserPassword}
-                /> : <LoginPortal onNavigate={navigate} />;
-      case View.INBOX:
-        return currentUser?.role === 'customer' ? <CustomerInbox
-                  conversations={conversations.filter(c => c.customerId === currentUser.email)}
-                  onSendMessage={handleCustomerSendMessage}
-                  onMarkAsRead={handleMarkConversationAsReadByCustomer}
-                  users={usersWithRatingsAndBadges}
-                  onUserTyping={handleUserTyping}
-                  typingStatus={typingStatus}
-                  onMarkMessagesAsRead={handleMarkMessagesAsRead}
-                  onFlagContent={handleFlagContent}
-                /> : <LoginPortal onNavigate={navigate} />;
+              /> : <LoadingSpinner />;
       case View.COMPARISON:
         return <Comparison vehicles={vehiclesToCompare} onBack={() => navigate(View.USED_CARS)} onToggleCompare={handleToggleCompare} />;
-      case View.WISHLIST:
-        return <VehicleList categoryTitle="Your Wishlist" vehicles={vehiclesInWishlist} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
+      case View.PROFILE:
+        return currentUser && <Profile currentUser={currentUser} onUpdateProfile={handleUpdateUserProfile} onUpdatePassword={handleUpdateUserPassword} />;
+      case View.INBOX:
+        return currentUser && <CustomerInbox conversations={conversations.filter(c => c.customerId === currentUser.email)} onSendMessage={handleCustomerSendMessage} onMarkAsRead={handleMarkConversationAsReadByCustomer} users={users} typingStatus={typingStatus} onUserTyping={handleUserTyping} onMarkMessagesAsRead={handleMarkMessagesAsRead} onFlagContent={handleFlagContent} onOfferResponse={handleOfferResponse} />;
+      case View.USED_CARS:
+        return <VehicleList vehicles={allPublishedVehicles} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} 
+// FIX: Changed onToggleCompare prop to handleToggleCompare.
+onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="All Used Cars" initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onViewSellerProfile={handleViewSellerProfile} />;
       case View.NEW_CARS:
         return <NewCars />;
       case View.DEALER_PROFILES:
-        return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller' && u.status === 'active')} onViewProfile={handleViewSellerProfile} />;
-      case View.USED_CARS:
-        return <VehicleList vehicles={allPublishedVehicles} initialCategory={selectedCategory} initialSearchQuery={initialSearchQuery} onSelectVehicle={handleSelectVehicle} isLoading={isLoading} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} onViewSellerProfile={handleViewSellerProfile} />;
+        return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller')} onViewProfile={handleViewSellerProfile} />;
+      case View.WISHLIST:
+        return <VehicleList vehicles={vehiclesInWishlist} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} 
+// FIX: Changed onToggleCompare prop to handleToggleCompare.
+// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
+onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="My Wishlist" isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
       default:
-        return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategory} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={vehiclesWithRatings} onNavigate={navigate} />;
+        return <Home onSearch={handleHomeSearch} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} 
+// FIX: Changed onToggleWishlist prop to handleToggleWishlist.
+onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
     }
   };
-
+  
+  const inboxCount = useMemo(() => {
+    if(!currentUser) return 0;
+    if(currentUser.role === 'customer') {
+      return conversations.filter(c => c.customerId === currentUser.email && !c.isReadByCustomer).length;
+    }
+    return 0; // Sellers see their inbox in the dashboard
+  }, [conversations, currentUser]);
+  
   return (
-    <div className="flex flex-col min-h-screen bg-brand-gray-50 dark:bg-brand-gray-900 font-sans">
-      <Header 
-        onNavigate={navigate} 
-        currentUser={currentUser} 
-        onLogout={handleLogout} 
-        compareCount={comparisonList.length} 
-        wishlistCount={wishlist.length} 
-        inboxCount={inboxUnreadCount} 
-        theme={theme} 
-        onChangeTheme={handleChangeTheme} 
+    <div className="flex flex-col min-h-screen">
+      <Header
+        onNavigate={navigate}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        compareCount={comparisonList.length}
+        wishlistCount={wishlist.length}
+        inboxCount={inboxCount}
+        theme={theme}
+        onChangeTheme={handleChangeTheme}
         isHomePage={isHomePage}
         notifications={notifications.filter(n => n.recipientEmail === currentUser?.email)}
         onNotificationClick={handleNotificationClick}
         onMarkNotificationsAsRead={handleMarkNotificationsAsRead}
-        onMarkAllNotificationsAsRead={() => handleMarkNotificationsAsRead(notifications.map(n => n.id))}
-        onSelectCategory={handleSelectCategory}
+        onMarkAllNotificationsAsRead={() => {
+            const unreadIds = notifications.filter(n => !n.isRead && n.recipientEmail === currentUser?.email).map(n => n.id);
+            handleMarkNotificationsAsRead(unreadIds);
+        }}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
+        userLocation={userLocation}
+        onLocationChange={handleLocationChange}
+        addToast={addToast}
       />
-      {platformSettings.siteAnnouncement && isAnnouncementVisible && (
-          <div className="bg-brand-blue text-white py-2 px-4 text-center text-sm relative animate-fade-in z-40">
-              <span>{platformSettings.siteAnnouncement}</span>
-              <button 
-                  onClick={() => setIsAnnouncementVisible(false)}
-                  className="absolute top-1/2 right-4 -translate-y-1/2 p-1 rounded-full hover:bg-white/20 transition-colors"
-                  aria-label="Dismiss announcement"
-              >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-              </button>
-          </div>
-      )}
-      <main className="flex-grow">
+      <main className="flex-grow pt-16">
         <Suspense fallback={<LoadingSpinner />}>
-            {renderContent()}
+          {renderContent()}
         </Suspense>
       </main>
-      <Footer onNavigate={navigate} />
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-       {activeChat && currentUser?.role === 'customer' && (
-          <ChatWidget
-              conversation={conversations.find(c => c.id === activeChat.id) || activeChat}
-              currentUserRole={currentUser.role}
-              otherUserName={users.find(u => u.email === activeChat.sellerId)?.name || 'Seller'}
-              onSendMessage={(messageText) => handleCustomerSendMessage(activeChat.vehicleId, messageText)}
-              onClose={() => setActiveChat(null)}
-              onUserTyping={handleUserTyping}
-              onMarkMessagesAsRead={handleMarkMessagesAsRead}
-              onFlagContent={handleFlagContent}
-              typingStatus={typingStatus}
-          />
+      {activeChat && currentUser && (
+        <ChatWidget
+            conversation={activeChat}
+            currentUserRole={currentUser.role as 'customer' | 'seller'}
+            otherUserName={currentUser.role === 'customer' ? (users.find(u => u.email === activeChat.sellerId)?.name || 'Seller') : activeChat.customerName}
+            onClose={() => setActiveChat(null)}
+            onSendMessage={(msg, type, payload) => {
+                if (currentUser.role === 'customer') {
+                    handleCustomerSendMessage(activeChat.vehicleId, msg, type, payload);
+                }
+            }}
+            typingStatus={typingStatus}
+            onUserTyping={handleUserTyping}
+            onMarkMessagesAsRead={handleMarkMessagesAsRead}
+            onFlagContent={handleFlagContent}
+            onOfferResponse={handleOfferResponse}
+        />
       )}
-       <CommandPalette
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <Footer onNavigate={navigate} />
+      <CommandPalette 
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
         onNavigate={(view) => {
-          navigate(view);
-          setIsCommandPaletteOpen(false);
+            navigate(view);
+            setIsCommandPaletteOpen(false);
         }}
         currentUser={currentUser}
         onChangeTheme={(theme) => {
-          handleChangeTheme(theme);
-          setIsCommandPaletteOpen(false);
+            handleChangeTheme(theme);
+            setIsCommandPaletteOpen(false);
         }}
         onLogout={() => {
-          handleLogout();
-          setIsCommandPaletteOpen(false);
+            handleLogout();
+            setIsCommandPaletteOpen(false);
         }}
       />
     </div>
   );
 };
-
 export default App;
