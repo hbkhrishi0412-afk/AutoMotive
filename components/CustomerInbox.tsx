@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Conversation, User, ChatMessage } from '../types';
 import ReadReceiptIcon, { OfferMessage, OfferModal } from './ReadReceiptIcon';

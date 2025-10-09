@@ -1010,7 +1010,7 @@ const App: React.FC = () => {
   }, [addToast]);
 
   const handleSellerLogin = useCallback((credentials: { email: string; password: string; }) => {
-    const user = users.find(u => u.email === credentials.email && u.password === credentials.password && u.role === 'seller');
+    const user = users.find(u => u.email.toLowerCase() === credentials.email.trim().toLowerCase() && u.password === credentials.password && u.role === 'seller');
     if (user && user.status === 'active') {
       loginUser(user);
       setCurrentView(View.SELLER_DASHBOARD);
@@ -1025,7 +1025,7 @@ const App: React.FC = () => {
   }, [users, loginUser, addToast]);
   
   const handleCustomerLogin = useCallback((credentials: { email: string; password: string; }) => {
-    const user = users.find(u => u.email === credentials.email && u.password === credentials.password && u.role === 'customer');
+    const user = users.find(u => u.email.toLowerCase() === credentials.email.trim().toLowerCase() && u.password === credentials.password && u.role === 'customer');
     if (user && user.status === 'active') {
       loginUser(user);
       setCurrentView(View.HOME);
@@ -1040,7 +1040,7 @@ const App: React.FC = () => {
   }, [users, loginUser, addToast]);
 
   const handleAdminLogin = useCallback((credentials: { email: string; password: string; }) => {
-    const user = users.find(u => u.email === credentials.email && u.password === credentials.password && u.role === 'admin');
+    const user = users.find(u => u.email.toLowerCase() === credentials.email.trim().toLowerCase() && u.password === credentials.password && u.role === 'admin');
     if (user) {
       loginUser(user);
       setCurrentView(View.ADMIN_PANEL);

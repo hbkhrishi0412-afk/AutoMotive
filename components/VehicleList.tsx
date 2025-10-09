@@ -287,8 +287,13 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
     setMileageRange({ min: MIN_MILEAGE, max: MAX_MILEAGE }); setFuelTypeFilter('');
   };
 
-  const processedVehicles = useMemo(() => {
+  // Reset page to 1 when filters change
+  useEffect(() => {
     setCurrentPage(1);
+  }, [categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, colorFilter, stateFilter, selectedFeatures, sortOrder]);
+
+
+  const processedVehicles = useMemo(() => {
     const sourceVehicles = isWishlistMode ? vehicles.filter(v => wishlist.includes(v.id)) : vehicles;
 
     const filtered = sourceVehicles.filter(vehicle => {
