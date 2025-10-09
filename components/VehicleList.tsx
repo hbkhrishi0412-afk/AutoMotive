@@ -170,13 +170,13 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
     }
     
     setIsAiSearching(false);
-    setCurrentPage(1);
   };
   
   useEffect(() => {
       if (initialSearchQuery) {
           handleAiSearch(initialSearchQuery);
       }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSearchQuery]);
 
   useEffect(() => {
@@ -290,7 +290,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, colorFilter, stateFilter, selectedFeatures, sortOrder]);
+  }, [categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, colorFilter, stateFilter, selectedFeatures, sortOrder, aiSearchQuery]);
 
 
   const processedVehicles = useMemo(() => {
@@ -597,7 +597,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
               </div>
           </div>
 
-          <div className={viewMode === 'grid' ? "grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" : "flex flex-col gap-4"}>
+          <div className={viewMode === 'grid' ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
             {isLoading || isAiSearching ? (
               Array.from({ length: 8 }).map((_, index) => viewMode === 'grid' ? <VehicleCardSkeleton key={index} /> : <VehicleTileSkeleton key={index} />)
             ) : paginatedVehicles.length > 0 ? (
@@ -657,12 +657,12 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
                 </div>
                  <style>{`
                   .slider-thumb { -webkit-appearance: none; appearance: none; background-color: transparent; pointer-events: none; }
-                  .slider-thumb::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background-color: #007AFF; border: 3px solid white; box-shadow: 0 0 0 1px #9CA3AF; border-radius: 50%; cursor: pointer; pointer-events: auto; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+                  .slider-thumb::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background-color: hsl(var(--color-brand-blue-DEFAULT)); border: 3px solid white; box-shadow: 0 0 0 1px #9CA3AF; border-radius: 50%; cursor: pointer; pointer-events: auto; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
                   html.dark .slider-thumb::-webkit-slider-thumb { border-color: #1F2937; box-shadow: 0 0 0 1px #4B5563; }
-                  .slider-thumb:hover::-webkit-slider-thumb, .slider-thumb:focus::-webkit-slider-thumb { transform: scale(1.15); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
-                  .slider-thumb::-moz-range-thumb { width: 20px; height: 20px; background-color: #007AFF; border: 3px solid white; box-shadow: 0 0 0 1px #9CA3AF; border-radius: 50%; cursor: pointer; pointer-events: auto; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
+                  .slider-thumb:hover::-webkit-slider-thumb, .slider-thumb:focus::-webkit-slider-thumb { transform: scale(1.15); box-shadow: 0 0 0 4px hsla(var(--color-brand-blue-DEFAULT) / 0.3); }
+                  .slider-thumb::-moz-range-thumb { width: 20px; height: 20px; background-color: hsl(var(--color-brand-blue-DEFAULT)); border: 3px solid white; box-shadow: 0 0 0 1px #9CA3AF; border-radius: 50%; cursor: pointer; pointer-events: auto; transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; }
                   html.dark .slider-thumb::-moz-range-thumb { border-color: #1F2937; box-shadow: 0 0 0 1px #4B5563; }
-                  .slider-thumb:hover::-moz-range-thumb, .slider-thumb:focus::-moz-range-thumb { transform: scale(1.15); box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.3); }
+                  .slider-thumb:hover::-moz-range-thumb, .slider-thumb:focus::-moz-range-thumb { transform: scale(1.15); box-shadow: 0 0 0 4px hsla(var(--color-brand-blue-DEFAULT) / 0.3); }
                 `}</style>
             </div>
         </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import type { FAQItem } from '../types';
 
@@ -60,7 +61,7 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
             </h2>
             <div className="space-y-4">
               {/* FIX: Explicitly type the items array to avoid 'unknown' type error. */}
-              {(items as FAQItem[]).map((item) => (
+              {(items).map((item) => (
                 <div key={item.id} className="border-b border-brand-gray-200 dark:border-brand-gray-700 last:border-b-0">
                   <button
                     onClick={() => toggleItem(item.id)}
