@@ -1,3 +1,4 @@
+
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import type { User, Vehicle } from '../types';
@@ -13,9 +14,9 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ) {
-  const userEmail = req.headers.authorization;
-
   try {
+    const userEmail = req.headers.authorization;
+
     // PUBLIC: Get all vehicles
     if (req.method === 'GET') {
       const { rows } = await sql`SELECT * FROM vehicles ORDER BY "isFeatured" DESC, id DESC;`;

@@ -1,3 +1,4 @@
+
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import type { User } from '../types';
@@ -12,9 +13,9 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ) {
-  const userEmail = req.headers.authorization;
-
   try {
+    const userEmail = req.headers.authorization;
+
     if (req.method === 'GET') {
       const { rows } = await sql`SELECT name, email, mobile, role, status, "createdAt", "isVerified", "dealershipName", bio, "logoUrl", "subscriptionPlan", "featuredCredits", "usedCertifications" FROM users ORDER BY name ASC;`;
       return res.status(200).json(rows);

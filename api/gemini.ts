@@ -1,15 +1,20 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 // This is the main handler for the API route.
 // It now uses Vercel's native request/response objects for better compatibility.
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    // Only allow POST requests
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-
     try {
+        // Only allow POST requests
+        if (req.method !== 'POST') {
+            return res.status(405).json({ error: 'Method not allowed' });
+        }
+        
+        if (!req.body) {
+            return res.status(400).json({ error: 'Request body is missing.' });
+        }
+
         // The VercelRequest object has a pre-parsed body.
         // We expect the client to send `{ "payload": { ... } }`
         const { payload } = req.body;

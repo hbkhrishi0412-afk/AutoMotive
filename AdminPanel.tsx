@@ -1,6 +1,3 @@
-
-
-
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
 import EditUserModal from './EditUserModal';
@@ -137,7 +134,10 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const soldListings = vehicles.filter(v => v.status === 'sold');
         // FIX: Explicitly type the accumulator in the reduce function.
         const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
-        const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
+        // FIX: Refactor calculation to avoid potential type inference issues with arithmetic operations.
+        const flaggedVehiclesCount = vehicles.reduce((count, v) => v.isFlagged ? count + 1 : count, 0);
+        const flaggedConversationsCount = conversations.reduce((count, c) => c.isFlagged ? count + 1 : count, 0);
+        const flaggedContent = flaggedVehiclesCount + flaggedConversationsCount;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
         
         const listingsByMake = vehicles.reduce((acc, v) => {

@@ -1,5 +1,4 @@
 
-
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import type { User } from '../types';
@@ -8,13 +7,16 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse,
 ) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
-
-  const { action, ...credentials } = req.body;
-
   try {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ error: 'Method Not Allowed' });
+    }
+
+    if (!req.body) {
+        return res.status(400).json({ error: 'Request body is missing.' });
+    }
+    const { action, ...credentials } = req.body;
+
     if (action === 'login') {
       const { email, password, role } = credentials;
       if (!email || !password) {

@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -13,9 +10,9 @@ import { getConversations, saveConversations } from './services/chatService';
 import * as vehicleService from './services/vehicleService';
 import * as userService from './services/userService';
 import LoginPortal from './components/LoginPortal';
-import CustomerLogin from './components/CustomerLogin';
-import AdminLogin from './components/AdminLogin';
-import Login from './components/Login';
+import CustomerLogin from './CustomerLogin';
+import AdminLogin from './AdminLogin';
+import Login from './Login';
 import ToastContainer from './components/ToastContainer';
 import ForgotPassword from './components/ForgotPassword';
 import { getSettings, saveSettings } from './services/settingsService';
