@@ -127,8 +127,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
             <div key={section} className="p-2">
               <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-2 mb-1">{section}</h3>
               <ul>
-                {/* FIX: Explicitly type the commands array to avoid 'unknown' type error. */}
-                {(commands).map((command) => {
+                {(commands as Command[]).map((command) => {
                   const globalIndex = filteredCommands.findIndex(c => c.id === command.id);
                   return (
                     <li key={command.id}>

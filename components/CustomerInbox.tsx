@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Conversation, User, ChatMessage } from '../types';
 import ReadReceiptIcon, { OfferMessage, OfferModal } from './ReadReceiptIcon';
@@ -218,8 +217,7 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
                                   {msg.sender !== 'system' && (
                                       <>
                                           <div className={`px-4 py-3 max-w-lg ${ msg.sender === 'user' ? 'bg-brand-blue text-white rounded-l-xl rounded-t-xl' : 'bg-brand-gray-200 dark:bg-brand-gray-700 text-brand-gray-800 dark:text-brand-gray-200 rounded-r-xl rounded-t-xl'}`}>
-                                              {/* FIX: Wrap onOfferResponse to pass the conversationId to match the expected signature. */}
-                                              {msg.type === 'test_drive_request' ? <TestDriveRequestMessage msg={msg} /> : msg.type === 'offer' ? <OfferMessage msg={msg} currentUserRole="customer" listingPrice={selectedConv.vehiclePrice} onRespond={(messageId, response, counterPrice) => onOfferResponse(selectedConv!.id, messageId, response, counterPrice)} /> : <p className="text-sm">{msg.text}</p>}
+                                              {msg.type === 'test_drive_request' ? <TestDriveRequestMessage msg={msg} /> : msg.type === 'offer' ? <OfferMessage msg={msg} currentUserRole="customer" listingPrice={selectedConv.vehiclePrice} onRespond={(messageId, response, counterPrice) => { if (selectedConv) { onOfferResponse(selectedConv.id, messageId, response, counterPrice); }}} /> : <p className="text-sm">{msg.text}</p>}
                                           </div>
                                           <div className="text-xs text-brand-gray-400 mt-1 px-1 flex items-center">
                                               {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

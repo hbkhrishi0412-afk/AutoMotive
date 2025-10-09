@@ -1,12 +1,10 @@
 
 
-
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData, SupportTicket, FAQItem, TicketReply } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
 import { PLAN_DETAILS } from '../constants';
-// FIX: Change the import for VehicleDataBulkUploadModal to a named import to resolve the "no default export" error.
 import { VehicleDataBulkUploadModal } from './VehicleDataBulkUploadModal';
 
 interface AdminPanelProps {
@@ -840,8 +838,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const totalVehicles = vehicles.length;
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
-// FIX: Explicitly typing the accumulator `sum` as a number resolves the type inference issue.
-        const totalSales = soldListings.reduce((sum, v) => sum + v.price, 0);
+        const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
         const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
         

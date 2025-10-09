@@ -139,7 +139,7 @@ const App: React.FC = () => {
     const loadInitialData = async () => {
         setIsLoading(true);
         try {
-            // These services now get from localStorage or fall back to mock data
+            // These services now fetch from the backend API, providing persistent data
             const [vehiclesData, usersData] = await Promise.all([
                 getVehicles(),
                 getUsers()
@@ -397,18 +397,6 @@ const App: React.FC = () => {
     setRatings(getRatings());
     setSellerRatings(getSellerRatings());
   }, []);
-  
-  useEffect(() => {
-    if (!isLoading) { // Only save to localStorage after initial load from DB
-      saveUsers(users);
-    }
-  }, [users, isLoading]);
-  
-  useEffect(() => {
-     if (!isLoading) { // Only save to localStorage after initial load from DB
-      saveVehicles(vehicles);
-     }
-  }, [vehicles, isLoading]);
   
   useEffect(() => {
     saveConversations(conversations);

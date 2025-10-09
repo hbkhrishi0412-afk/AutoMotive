@@ -1,35 +1,29 @@
 import type { Vehicle } from '../types';
-import { MOCK_VEHICLES } from '../constants';
-
-const VEHICLE_STORAGE_KEY = 'reRideVehicles';
 
 /**
- * Retrieves all vehicles from localStorage, or seeds it with mock data if empty.
+ * Retrieves all vehicles from the backend API.
  * @returns A promise that resolves to an array of vehicles.
  */
 export const getVehicles = async (): Promise<Vehicle[]> => {
   try {
-    const vehiclesJson = localStorage.getItem(VEHICLE_STORAGE_KEY);
-    if (vehiclesJson) {
-      return JSON.parse(vehiclesJson);
+    const response = await fetch('/api/vehicles');
+    if (!response.ok) {
+        throw new Error(`Failed to fetch vehicles: ${response.statusText}`);
     }
+    const vehicles = await response.json();
+    return vehicles;
   } catch (error) {
-    console.error("Failed to parse vehicles from localStorage", error);
+    console.error("Error fetching vehicles from API:", error);
+    return []; // Return empty array on error
   }
-  
-  // If localStorage is empty or fails, use mock data and save it.
-  saveVehicles(MOCK_VEHICLES);
-  return MOCK_VEHICLES;
 };
 
 /**
- * Saves the vehicles array to localStorage.
+ * Saves the vehicles array. In a real app, this would make API calls.
+ * This is currently a no-op to prevent localStorage overwrites.
  * @param vehicles The array of vehicles to save.
  */
 export const saveVehicles = (vehicles: Vehicle[]) => {
-  try {
-    localStorage.setItem(VEHICLE_STORAGE_KEY, JSON.stringify(vehicles));
-  } catch (error) {
-    console.error("Failed to save vehicles to localStorage", error);
-  }
+  // This function is intentionally left empty.
+  // Data persistence should be handled by API calls to a backend.
 };

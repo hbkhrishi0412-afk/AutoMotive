@@ -1,6 +1,5 @@
 
 
-
 import React, { useState, useCallback } from 'react';
 import type { VehicleData } from '../types';
 import type { VehicleMake, VehicleModel } from './vehicleData';
@@ -170,7 +169,6 @@ export const VehicleDataBulkUploadModal: React.FC<BulkUploadModalProps> = ({ onC
                             {parsedData && (
                                 <div className="p-4 bg-gray-50 dark:bg-brand-gray-darker rounded-lg text-sm">
                                     <p className="font-bold text-green-600 dark:text-green-400">
-                                        {/* FIX: Explicitly type the accumulator `acc` as a number to resolve the 'unknown' type error. */}
                                         Found {Object.keys(parsedData).length} categories with a total of {Object.values(parsedData).reduce((acc: number, makes) => acc + (makes as VehicleMake[]).length, 0)} makes.
                                     </p>
                                     <p>This will <span className="font-bold text-red-500">overwrite</span> all existing vehicle dropdown data. This action cannot be undone.</p>

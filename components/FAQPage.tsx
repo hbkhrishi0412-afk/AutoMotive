@@ -60,8 +60,7 @@ const FAQPage: React.FC<FAQPageProps> = ({ faqItems }) => {
               {category}
             </h2>
             <div className="space-y-4">
-              {/* FIX: Explicitly type the items array to avoid 'unknown' type error. */}
-              {(items).map((item) => (
+              {(items as FAQItem[]).map((item) => (
                 <div key={item.id} className="border-b border-brand-gray-200 dark:border-brand-gray-700 last:border-b-0">
                   <button
                     onClick={() => toggleItem(item.id)}
