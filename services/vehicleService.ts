@@ -1,58 +1,110 @@
-import type { Vehicle } from '../types';
 import { MOCK_VEHICLES } from '../constants';
+import type { Vehicle, User } from '../types';
 
-const VEHICLE_STORAGE_KEY = 'reRideVehicles';
-// FIX: Replace import.meta.env.PROD with process.env.NODE_ENV to avoid TypeScript errors when Vite types are not configured.
-const isProduction = process.env.NODE_ENV === 'production';
+const IS_PROD = process.env.NODE_ENV === 'production';
 
-/**
- * Retrieves all vehicles. In production, it fetches from the backend API.
- * In development, it uses localStorage as a persistent store, falling back to mock data.
- * @returns A promise that resolves to an array of vehicles.
- */
-export const getVehicles = async (): Promise<Vehicle[]> => {
-  if (isProduction) {
-    try {
-      const response = await fetch('/api/vehicles');
-      if (!response.ok) {
-        throw new Error(`Failed to fetch vehicles: ${response.statusText}`);
-      }
-      const vehicles = await response.json();
-      return vehicles;
-    } catch (error) {
-      console.error("Error fetching vehicles from API:", error);
-      return []; // Return empty array on error
-    }
-  } else {
-    // Development mode: use localStorage, fallback to mocks
-    try {
-      const storedVehicles = localStorage.getItem(VEHICLE_STORAGE_KEY);
-      if (storedVehicles) {
-        return JSON.parse(storedVehicles);
-      }
-    } catch (e) {
-      console.error("Couldn't load vehicles from local storage", e);
-    }
-    // Seed localStorage with mock data if it's empty or fails
-    console.log("DEV MODE: Seeding localStorage with mock vehicles. For live data from Postgres, run `vercel dev`.");
-    localStorage.setItem(VEHICLE_STORAGE_KEY, JSON.stringify(MOCK_VEHICLES));
-    return MOCK_VEHICLES;
+// --- API Helpers ---
+const getAuthHeader = () => {
+  try {
+    const userJson = sessionStorage.getItem('currentUser');
+    if (!userJson) return {};
+    const user: User = JSON.parse(userJson);
+    return { 'Authorization': user.email };
+  } catch {
+    return {};
   }
 };
 
-/**
- * Saves vehicles. In production, this would make API calls to update data.
- * In development, it saves the entire array of vehicles to localStorage.
- * @param vehicles The array of vehicles to save.
- */
-export const saveVehicles = (vehicles: Vehicle[]) => {
-  if (!isProduction) {
-    try {
-      localStorage.setItem(VEHICLE_STORAGE_KEY, JSON.stringify(vehicles));
-    } catch (error) {
-      console.error("Failed to save vehicles to localStorage", error);
+const handleResponse = async (response: Response) => {
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: `API Error: ${response.statusText}` }));
+        throw new Error(error.error || `Failed to fetch: ${response.statusText}`);
     }
-  }
-  // In production, individual mutations (add, update, delete) would be separate API calls.
-  // A full save of the entire state is not performed against the API.
+    return response.json();
+}
+
+// --- Local Development (localStorage) Functions ---
+
+const getVehiclesLocal = async (): Promise<Vehicle[]> => {
+    let vehiclesJson = localStorage.getItem('reRideVehicles');
+    if (!vehiclesJson) {
+        localStorage.setItem('reRideVehicles', JSON.stringify(MOCK_VEHICLES));
+        vehiclesJson = JSON.stringify(MOCK_VEHICLES);
+    }
+    return JSON.parse(vehiclesJson);
+};
+
+const addVehicleLocal = async (vehicleData: Vehicle): Promise<Vehicle> => {
+    const vehicles = await getVehiclesLocal();
+    vehicles.unshift(vehicleData);
+    localStorage.setItem('reRideVehicles', JSON.stringify(vehicles));
+    return vehicleData;
+};
+
+const updateVehicleLocal = async (vehicleData: Vehicle): Promise<Vehicle> => {
+    let vehicles = await getVehiclesLocal();
+    vehicles = vehicles.map(v => v.id === vehicleData.id ? vehicleData : v);
+    localStorage.setItem('reRideVehicles', JSON.stringify(vehicles));
+    return vehicleData;
+};
+
+const deleteVehicleLocal = async (vehicleId: number): Promise<{ success: boolean, id: number }> => {
+    let vehicles = await getVehiclesLocal();
+    vehicles = vehicles.filter(v => v.id !== vehicleId);
+    localStorage.setItem('reRideVehicles', JSON.stringify(vehicles));
+    return { success: true, id: vehicleId };
+};
+
+
+// --- Production (API) Functions ---
+
+const getVehiclesApi = async (): Promise<Vehicle[]> => {
+  const response = await fetch('/api/vehicles');
+  return handleResponse(response);
+};
+
+const addVehicleApi = async (vehicleData: Vehicle): Promise<Vehicle> => {
+    const response = await fetch('/api/vehicles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(vehicleData),
+    });
+    return handleResponse(response);
+};
+
+const updateVehicleApi = async (vehicleData: Vehicle): Promise<Vehicle> => {
+    const response = await fetch('/api/vehicles', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify(vehicleData),
+    });
+    return handleResponse(response);
+};
+
+const deleteVehicleApi = async (vehicleId: number): Promise<{ success: boolean, id: number }> => {
+    const response = await fetch('/api/vehicles', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({ id: vehicleId }),
+    });
+    return handleResponse(response);
+};
+
+
+// --- Exported Environment-Aware Service Functions ---
+
+export const getVehicles = (): Promise<Vehicle[]> => {
+    return IS_PROD ? getVehiclesApi() : getVehiclesLocal();
+};
+
+export const addVehicle = (vehicleData: Vehicle): Promise<Vehicle> => {
+    return IS_PROD ? addVehicleApi(vehicleData) : addVehicleLocal(vehicleData);
+};
+
+export const updateVehicle = (vehicleData: Vehicle): Promise<Vehicle> => {
+    return IS_PROD ? updateVehicleApi(vehicleData) : updateVehicleLocal(vehicleData);
+};
+
+export const deleteVehicle = (vehicleId: number): Promise<{ success: boolean, id: number }> => {
+    return IS_PROD ? deleteVehicleApi(vehicleId) : deleteVehicleLocal(vehicleId);
 };

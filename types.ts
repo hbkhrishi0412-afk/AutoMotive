@@ -1,4 +1,6 @@
 
+
+
 import { ChartData } from 'chart.js';
 import React from 'react';
 import type { VehicleCategoryData } from './components/vehicleData';
@@ -119,7 +121,8 @@ export interface PlanDetails {
 export interface User {
   name: string;
   email: string;
-  password: string;
+  // FIX: Made password optional to align with auth services that strip the password before returning user data.
+  password?: string;
   mobile: string;
   role: 'seller' | 'customer' | 'admin';
   status: 'active' | 'inactive';

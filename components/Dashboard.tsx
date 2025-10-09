@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, memo } from 'react';
 import type { Vehicle, User, Conversation, VehicleData, ChatMessage, VehicleDocument } from '../types';
 import { VehicleCategory, View } from '../types';

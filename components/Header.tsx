@@ -187,7 +187,7 @@ const Header: React.FC<HeaderProps> = ({
                     {isUserMenuOpen && (
                     <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-brand-gray-800 rounded-md shadow-lg border dark:border-brand-gray-700 animate-fade-in z-20">
                         <div className="p-4 border-b dark:border-brand-gray-700">
-                        <p className="font-semibold text-sm text-brand-gray-900 dark:text-white">Hi, {currentUser.name.split(' ')[0]}</p>
+                        <p className="font-semibold text-sm text-brand-gray-900 dark:text-white">Hi, {currentUser.name ? currentUser.name.split(' ')[0] : ''}</p>
                         </div>
                         {currentUser.role === 'customer' && <DropdownLink onClick={() => handleNavigate(ViewEnum.INBOX)}>Inbox {inboxCount > 0 && `(${inboxCount})`}</DropdownLink>}
                         {currentUser.role === 'seller' && <DropdownLink onClick={() => handleNavigate(ViewEnum.SELLER_DASHBOARD)}>Dashboard</DropdownLink>}
