@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData, SupportTicket, FAQItem, TicketReply } from '../types';
 import EditUserModal from './EditUserModal';
@@ -838,8 +839,8 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const totalVehicles = vehicles.length;
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
-// FIX: The type of `v.price` is number, but the compiler might be getting confused. Casting to Number() ensures the operation is valid.
-        const totalSales = soldListings.reduce((sum: number, v) => sum + Number(v.price), 0);
+// FIX: Explicitly typing the accumulator `sum` as a number resolves the type inference issue.
+        const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
         const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
         
