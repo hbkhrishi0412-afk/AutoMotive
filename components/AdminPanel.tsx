@@ -854,6 +854,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         }, {} as Record<string, number>);
 
         const userSignupsChartData = Object.entries(userSignups)
+            // FIX: Use .getTime() for date subtraction to ensure numeric operation.
             .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
             .slice(-30) // Last 30 days
             .map(([label, value]) => ({ label, value }));
@@ -868,6 +869,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             listingsByMakeChartData,
             userSignupsChartData
         };
+    // FIX: Add missing dependency 'conversations' to the useMemo hook.
     }, [users, vehicles, conversations]);
 
     const filteredUsers = useMemo(() => {

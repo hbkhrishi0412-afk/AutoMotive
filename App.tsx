@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -416,6 +417,21 @@ const App: React.FC = () => {
   useEffect(() => {
     saveAuditLog(auditLog);
   }, [auditLog]);
+
+  // Persist vehicle and user data to localStorage in development
+  useEffect(() => {
+    // The save functions are smart enough to only work in dev mode.
+    // Avoid saving the initial empty array before data is loaded.
+    if (vehicles.length > 0) {
+      saveVehicles(vehicles);
+    }
+  }, [vehicles]);
+
+  useEffect(() => {
+    if (users.length > 0) {
+      saveUsers(users);
+    }
+  }, [users]);
 
   const handleAddSellerRating = useCallback((sellerEmail: string, rating: number) => {
     addSellerRating(sellerEmail, rating);

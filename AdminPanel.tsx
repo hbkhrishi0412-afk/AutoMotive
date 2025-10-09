@@ -1,9 +1,11 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
 import EditUserModal from './EditUserModal';
 import EditVehicleModal from './EditVehicleModal';
-import { PLAN_DETAILS, INSPECTION_SERVICE_FEE } from '../constants';
+// FIX: Removed unused import 'INSPECTION_SERVICE_FEE'.
+import { PLAN_DETAILS } from '../constants';
 
 interface AdminPanelProps {
     users: User[];
@@ -132,18 +134,15 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const totalVehicles = vehicles.length;
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
-        // FIX: Add explicit type for reduce accumulator to avoid implicit 'any' issues.
         const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
         const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
         
-        // FIX: Add explicit type for reduce accumulator.
         const listingsByMake = vehicles.reduce((acc, v) => {
             acc[v.make] = (acc[v.make] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
 
-        // FIX: Add explicit type for reduce accumulator.
         const userSignups = users.reduce((acc, u) => {
             const date = new Date(u.createdAt).toISOString().split('T')[0];
             acc[date] = (acc[date] || 0) + 1;
@@ -166,7 +165,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             listingsByMakeChartData,
             userSignupsChartData
         };
-    // FIX: Add missing 'conversations' dependency to the useMemo hook.
+    // FIX: Add missing dependency 'conversations'.
     }, [users, vehicles, conversations]);
 
     const filteredUsers = useMemo(() => {
