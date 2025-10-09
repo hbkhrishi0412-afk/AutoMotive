@@ -1,4 +1,5 @@
 
+
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import type { User } from '../types';
@@ -21,21 +22,21 @@ export default async function handler(
       }
 
       const { rows } = await sql<User>`
-        SELECT * FROM users WHERE email = ${email} AND password = ${password};
+        SELECT * FROM users WHERE email = ${email};
       `;
       
       const user = rows[0];
 
-      if (!user) {
+      if (!user || user.password !== password) {
         return res.status(401).json({ success: false, reason: 'Invalid credentials.' });
       }
 
       if (role && user.role !== role) {
-         return res.status(401).json({ success: false, reason: `User is not a registered ${role}.` });
+         return res.status(401).json({ success: false, reason: `User is not a registered ${role}. Please check your login portal.` });
       }
       
       if (user.status === 'inactive') {
-        return res.status(403).json({ success: false, reason: 'Your account has been deactivated.' });
+        return res.status(403).json({ success: false, reason: 'Your account has been deactivated by an administrator.' });
       }
       
       // Do not send password back to client

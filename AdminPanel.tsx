@@ -1,4 +1,6 @@
 
+
+
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
 import EditUserModal from './EditUserModal';
@@ -133,6 +135,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const totalVehicles = vehicles.length;
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
+        // FIX: Explicitly type the accumulator in the reduce function.
         const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
         const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
@@ -149,7 +152,6 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         }, {} as Record<string, number>);
 
         const userSignupsChartData = Object.entries(userSignups)
-            // FIX: Use .getTime() for date subtraction to ensure numeric operation.
             .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
             .slice(-30) // Last 30 days
             .map(([label, value]) => ({ label, value }));
@@ -164,7 +166,6 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             listingsByMakeChartData,
             userSignupsChartData
         };
-    // FIX: Add missing dependency 'conversations' to the useMemo hook.
     }, [users, vehicles, conversations]);
 
     const filteredUsers = useMemo(() => {
@@ -173,7 +174,6 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
             sortableUsers = sortableUsers.filter(user => user.role === roleFilter);
         }
         if (sortConfig !== null) {
-            // FIX: Convert values to string for safe comparison to avoid runtime errors on incompatible types.
             sortableUsers.sort((a, b) => {
                 const valA = String(a[sortConfig.key]);
                 const valB = String(b[sortConfig.key]);
