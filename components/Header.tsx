@@ -1,7 +1,6 @@
 import React, { useState, useEffect, memo, useRef, useMemo } from 'react';
 import type { User, Notification, Toast as ToastType } from '../types';
 import { View as ViewEnum } from '../types';
-import type { Theme } from '../App';
 import NotificationCenter from './NotificationCenter';
 import LocationModal from './LocationModal';
 
@@ -12,8 +11,6 @@ interface HeaderProps {
     compareCount: number;
     wishlistCount: number;
     inboxCount: number;
-    theme: Theme;
-    onChangeTheme: (theme: Theme) => void;
     isHomePage?: boolean;
     notifications: Notification[];
     onNotificationClick: (notification: Notification) => void;
@@ -42,20 +39,17 @@ const DropdownLink: React.FC<{ children: React.ReactNode; onClick: () => void; c
 );
 
 const Header: React.FC<HeaderProps> = ({ 
-    onNavigate, currentUser, onLogout, compareCount, wishlistCount, inboxCount, theme, 
-    onChangeTheme, isHomePage = false, notifications, onNotificationClick, 
+    onNavigate, currentUser, onLogout, compareCount, wishlistCount, inboxCount, 
+    isHomePage = false, notifications, onNotificationClick, 
     onMarkNotificationsAsRead, onMarkAllNotificationsAsRead,
     onOpenCommandPalette, userLocation, onLocationChange, addToast
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isNewCarsMenuOpen, setIsNewCarsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
-  const themeMenuRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const newCarsMenuRef = useRef<HTMLDivElement>(null);
@@ -64,21 +58,7 @@ const Header: React.FC<HeaderProps> = ({
   const unreadNotifications = useMemo(() => notifications.filter(n => !n.isRead), [notifications]);
 
   useEffect(() => {
-    if (!isHomePage) {
-        setIsScrolled(true);
-        return;
-    }
-    const handleScroll = () => {
-        setIsScrolled(window.scrollY > 10);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHomePage]);
-
-  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-        if (themeMenuRef.current && !themeMenuRef.current.contains(event.target as Node)) setIsThemeMenuOpen(false);
         if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) setIsNotificationsOpen(false);
         if (newCarsMenuRef.current && !newCarsMenuRef.current.contains(event.target as Node)) setIsNewCarsMenuOpen(false);
         if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) setIsUserMenuOpen(false);
@@ -91,16 +71,8 @@ const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const headerClasses = isHomePage
-    ? `fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white dark:bg-brand-gray-900 shadow-md' : 'bg-transparent'}`
-    : 'sticky top-0 z-50 bg-white dark:bg-brand-gray-900 shadow-md';
-
-  const navLinkClasses = (isHomePage && !isScrolled)
-    ? 'text-white hover:text-brand-gray-200'
-    : 'text-brand-gray-700 dark:text-brand-gray-300 hover:text-brand-blue dark:hover:text-brand-blue-light';
-  
-  const mainBarClasses = (isHomePage && !isScrolled) ? 'bg-transparent' : 'bg-brand-gray-800 dark:bg-brand-gray-800';
-  const mainNavLinkClasses = 'text-brand-gray-300 hover:text-white';
+  const headerClasses = 'sticky top-0 z-50 shadow-md';
+  const mainNavLinkClasses = 'text-brand-gray-200 hover:text-white';
   
   const handleNavigate = (view: ViewEnum) => {
     onNavigate(view);
@@ -118,7 +90,7 @@ const Header: React.FC<HeaderProps> = ({
     <>
     <header className={headerClasses} id="main-header">
       {/* Top Bar */}
-      <div className={`bg-brand-gray-900 dark:bg-black text-brand-gray-400 text-xs transition-colors duration-300 ${isHomePage && !isScrolled ? 'bg-black/30' : ''}`}>
+      <div className={`bg-brand-gray-darker text-brand-gray-400 text-xs transition-colors duration-300`}>
           <div className="container mx-auto px-4 flex justify-between items-center h-8">
               <div className="flex items-center gap-x-4">
                   <a href="#" onClick={(e) => { e.preventDefault(); handleNavigate(ViewEnum.SUPPORT) }} className="hover:text-white">Support</a>
@@ -129,30 +101,15 @@ const Header: React.FC<HeaderProps> = ({
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg> 
                     {userLocation}
                   </button>
-                   <div className="relative" ref={themeMenuRef}>
-                      <button onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)} className="flex items-center gap-1 hover:text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h8" /></svg>
-                        Theme
-                      </button>
-                      {isThemeMenuOpen && (
-                          <div className="absolute top-full right-0 mt-2 w-40 bg-white dark:bg-brand-gray-800 rounded-md shadow-lg border dark:border-brand-gray-700 z-10 animate-fade-in">
-                              <DropdownLink onClick={() => onChangeTheme('light')} className={theme === 'light' ? 'font-bold text-brand-blue' : ''}>Light</DropdownLink>
-                              <DropdownLink onClick={() => onChangeTheme('dark')} className={theme === 'dark' ? 'font-bold text-brand-blue' : ''}>Dark</DropdownLink>
-                              <DropdownLink onClick={() => onChangeTheme('sunset')} className={theme === 'sunset' ? 'font-bold text-brand-blue' : ''}>Sunset Glow</DropdownLink>
-                              <DropdownLink onClick={() => onChangeTheme('oceanic')} className={theme === 'oceanic' ? 'font-bold text-brand-blue' : ''}>Oceanic Teal</DropdownLink>
-                              <DropdownLink onClick={() => onChangeTheme('cyber')} className={theme === 'cyber' ? 'font-bold text-brand-blue' : ''}>Cyber Neon</DropdownLink>
-                          </div>
-                      )}
-                  </div>
               </div>
           </div>
       </div>
       {/* Main Bar */}
-      <div className={`transition-colors duration-300 ${mainBarClasses}`}>
+      <div className={`transition-colors duration-300 bg-brand-gray-900`}>
         <div className="container mx-auto px-4">
             <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
-                <button onClick={() => handleNavigate(ViewEnum.HOME)} className={`text-2xl font-bold ${isHomePage && !isScrolled ? 'text-white' : 'text-white'}`}>
+                <button onClick={() => handleNavigate(ViewEnum.HOME)} className={`text-2xl font-bold text-white`}>
                 ReRide
                 </button>
                 <nav className="hidden md:flex items-center space-x-6">
@@ -199,18 +156,18 @@ const Header: React.FC<HeaderProps> = ({
                 
                 <button onClick={() => handleNavigate(ViewEnum.WISHLIST)} className={`relative p-2 rounded-full ${mainNavLinkClasses}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>
-                {wishlistCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{wishlistCount}</span>}
+                {wishlistCount > 0 && <span className="absolute -top-1 -right-1 bg-brand-blue text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{wishlistCount}</span>}
                 </button>
                 <button onClick={() => handleNavigate(ViewEnum.COMPARISON)} className={`relative p-2 rounded-full ${mainNavLinkClasses}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                {compareCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{compareCount}</span>}
+                {compareCount > 0 && <span className="absolute -top-1 -right-1 bg-brand-blue text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{compareCount}</span>}
                 </button>
                 
                 {currentUser && (
                 <div className="relative" ref={notificationsRef}>
                     <button onClick={() => setIsNotificationsOpen(p => !p)} className={`relative p-2 rounded-full ${mainNavLinkClasses}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                    {unreadNotifications.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadNotifications.length}</span>}
+                    {unreadNotifications.length > 0 && <span className="absolute -top-1 -right-1 bg-brand-blue text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadNotifications.length}</span>}
                     </button>
                     {isNotificationsOpen && (
                     <NotificationCenter 
@@ -248,9 +205,9 @@ const Header: React.FC<HeaderProps> = ({
             <div className="md:hidden flex items-center space-x-2">
                 {currentUser && (
                 <div className="relative">
-                    <button onClick={() => setIsNotificationsOpen(p => !p)} className={`relative p-2 rounded-full ${navLinkClasses}`}>
+                    <button onClick={() => setIsNotificationsOpen(p => !p)} className={`relative p-2 rounded-full text-white hover:text-brand-gray-200`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                    {unreadNotifications.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadNotifications.length}</span>}
+                    {unreadNotifications.length > 0 && <span className="absolute -top-1 -right-1 bg-brand-blue text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">{unreadNotifications.length}</span>}
                     </button>
                     {isNotificationsOpen && (
                     <NotificationCenter 
@@ -261,8 +218,8 @@ const Header: React.FC<HeaderProps> = ({
                     )}
                 </div>
                 )}
-                <button data-mobile-menu-button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 ${navLinkClasses}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+                <button data-mobile-menu-button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className={`p-2 text-white hover:text-brand-gray-200`}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
                 </button>
             </div>
             </div>

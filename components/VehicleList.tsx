@@ -280,27 +280,6 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
       handleAiSearch(suggestion);
   };
   
-  const handleMakeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setMakeFilter(e.target.value);
-    setModelFilter('');
-  };
-  
-  const handleFeatureToggle = (feature: string) => {
-    setSelectedFeatures(prev => prev.includes(feature) ? prev.filter(f => f !== feature) : [...prev, feature]);
-  };
-  
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { name, value } = e.target;
-      const val = parseInt(value, 10);
-      setPriceRange(prev => {
-          const newRange = { ...prev, [name]: val };
-          if (newRange.min > newRange.max) {
-            return name === 'min' ? { ...newRange, max: newRange.min } : { ...newRange, min: newRange.max };
-          }
-          return newRange;
-      });
-  };
-
   const handleResetFilters = () => {
     setAiSearchQuery(''); setCategoryFilter('ALL'); setMakeFilter(''); setModelFilter('');
     setPriceRange({ min: MIN_PRICE, max: MAX_PRICE }); setYearFilter('0'); setColorFilter(''); setStateFilter('');
@@ -388,70 +367,93 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
 
   const renderFilterControls = (isMobile: boolean) => {
     const state = isMobile ? tempFilters : { categoryFilter, makeFilter, modelFilter, priceRange, mileageRange, fuelTypeFilter, yearFilter, colorFilter, stateFilter, selectedFeatures, featureSearch };
-    const setState = (updater: (prevState: typeof state) => typeof state) => {
-        if (isMobile) {
-            setTempFilters(updater as any);
-        } else {
-            const newState = updater(state);
-            if (newState.categoryFilter !== categoryFilter) setCategoryFilter(newState.categoryFilter);
-            if (newState.makeFilter !== makeFilter) { setMakeFilter(newState.makeFilter); setModelFilter(''); }
-            if (newState.modelFilter !== modelFilter) setModelFilter(newState.modelFilter);
-            if (newState.priceRange !== priceRange) setPriceRange(newState.priceRange);
-            if (newState.mileageRange !== mileageRange) setMileageRange(newState.mileageRange);
-            if (newState.fuelTypeFilter !== fuelTypeFilter) setFuelTypeFilter(newState.fuelTypeFilter);
-            if (newState.yearFilter !== yearFilter) setYearFilter(newState.yearFilter);
-            if (newState.colorFilter !== colorFilter) setColorFilter(newState.colorFilter);
-            if (newState.stateFilter !== stateFilter) setStateFilter(newState.stateFilter);
-            if (newState.selectedFeatures !== selectedFeatures) setSelectedFeatures(newState.selectedFeatures);
-            if (newState.featureSearch !== featureSearch) setFeatureSearch(newState.featureSearch);
-        }
-    };
-
+    
     const handleRangeChange = (e: React.ChangeEvent<HTMLInputElement>, rangeType: 'price' | 'mileage') => {
         const { name, value } = e.target;
         const val = parseInt(value, 10);
-        const minVal = rangeType === 'price' ? MIN_PRICE : MIN_MILEAGE;
-        const maxVal = rangeType === 'price' ? MAX_PRICE : MAX_MILEAGE;
-
-        setState(prev => {
-            const currentRange = rangeType === 'price' ? prev.priceRange : prev.mileageRange;
-            const newRange = { ...currentRange, [name]: val };
-            if (newRange.min > newRange.max) {
-                 if (name === 'min') newRange.max = newRange.min;
-                 else newRange.min = newRange.max;
-            }
-            return rangeType === 'price' ? { ...prev, priceRange: newRange } : { ...prev, mileageRange: newRange };
-        });
+        
+        if (isMobile) {
+            setTempFilters(prev => {
+                const currentRange = rangeType === 'price' ? prev.priceRange : prev.mileageRange;
+                const newRange = { ...currentRange, [name]: val };
+                if (newRange.min > newRange.max) {
+                     if (name === 'min') newRange.max = newRange.min;
+                     else newRange.min = newRange.max;
+                }
+                return rangeType === 'price' ? { ...prev, priceRange: newRange } : { ...prev, mileageRange: newRange };
+            });
+        } else {
+            const setter = rangeType === 'price' ? setPriceRange : setMileageRange;
+            setter(prev => {
+                const newRange = { ...prev, [name]: val };
+                if (newRange.min > newRange.max) {
+                     if (name === 'min') newRange.max = newRange.min;
+                     else newRange.min = newRange.max;
+                }
+                return newRange;
+            });
+        }
     };
     
     const handleFeatureToggleLocal = (feature: string) => {
-        setState(prev => ({
-            ...prev,
-            selectedFeatures: prev.selectedFeatures.includes(feature)
-                ? prev.selectedFeatures.filter(f => f !== feature)
-                : [...prev.selectedFeatures, feature]
-        }));
+        if (isMobile) {
+            setTempFilters(prev => ({
+                ...prev,
+                selectedFeatures: prev.selectedFeatures.includes(feature)
+                    ? prev.selectedFeatures.filter(f => f !== feature)
+                    : [...prev.selectedFeatures, feature]
+            }));
+        } else {
+            setSelectedFeatures(prev =>
+                prev.includes(feature)
+                    ? prev.filter(f => f !== feature)
+                    : [...prev, feature]
+            );
+        }
+    };
+
+    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        if (isMobile) {
+            setTempFilters(prev => {
+                const newState = { ...prev, [name]: value };
+                if (name === 'makeFilter') {
+                    newState.modelFilter = '';
+                }
+                return newState;
+            });
+        } else {
+            switch(name) {
+                case 'categoryFilter': setCategoryFilter(value as any); break;
+                case 'makeFilter': setMakeFilter(value); setModelFilter(''); break;
+                case 'modelFilter': setModelFilter(value); break;
+                case 'fuelTypeFilter': setFuelTypeFilter(value); break;
+                case 'yearFilter': setYearFilter(value); break;
+                case 'colorFilter': setColorFilter(value); break;
+                case 'stateFilter': setStateFilter(value); break;
+            }
+        }
     };
     
     return (
         <div className="space-y-4">
             <div>
                 <label htmlFor="category-select" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Category</label>
-                <select id="category-select" value={state.categoryFilter} onChange={(e) => setState(p => ({...p, categoryFilter: e.target.value as any}))} className={formElementClass}>
+                <select id="category-select" name="categoryFilter" value={state.categoryFilter} onChange={handleSelectChange} className={formElementClass}>
                     <option value="ALL">All Categories</option>
                     {Object.values(CategoryEnum).map(cat => (<option key={cat} value={cat}>{cat}</option>))}
                 </select>
             </div>
             <div>
                 <label htmlFor="make-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Make</label>
-                <select id="make-filter" value={state.makeFilter} onChange={(e) => setState(p => ({...p, makeFilter: e.target.value, modelFilter: ''}))} className={formElementClass}>
+                <select id="make-filter" name="makeFilter" value={state.makeFilter} onChange={handleSelectChange} className={formElementClass}>
                     <option value="">Any Make</option>
                     {uniqueMakes.map(make => <option key={make} value={make}>{make}</option>)}
                 </select>
             </div>
             <div>
                 <label htmlFor="model-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Model</label>
-                <select id="model-filter" value={state.modelFilter} onChange={(e) => setState(p => ({...p, modelFilter: e.target.value}))} disabled={!state.makeFilter || (isMobile ? tempAvailableModels.length === 0 : availableModels.length === 0)} className={formElementClass}>
+                <select id="model-filter" name="modelFilter" value={state.modelFilter} onChange={handleSelectChange} disabled={!state.makeFilter || (isMobile ? tempAvailableModels.length === 0 : availableModels.length === 0)} className={formElementClass}>
                     <option value="">Any Model</option>
                     {(isMobile ? tempAvailableModels : availableModels).map(model => <option key={model} value={model}>{model}</option>)}
                 </select>
@@ -486,28 +488,28 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
             </div>
             <div>
                 <label htmlFor="fuel-type-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Fuel Type</label>
-                <select id="fuel-type-filter" value={state.fuelTypeFilter} onChange={(e) => setState(p => ({...p, fuelTypeFilter: e.target.value}))} className={formElementClass}>
+                <select id="fuel-type-filter" name="fuelTypeFilter" value={state.fuelTypeFilter} onChange={handleSelectChange} className={formElementClass}>
                     <option value="">Any Fuel Type</option>
                     {FUEL_TYPES.map(fuel => <option key={fuel} value={fuel}>{fuel}</option>)}
                 </select>
             </div>
             <div>
                 <label htmlFor="year-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Year</label>
-                <select id="year-filter" value={state.yearFilter} onChange={(e) => setState(p => ({...p, yearFilter: e.target.value}))} className={formElementClass}>
+                <select id="year-filter" name="yearFilter" value={state.yearFilter} onChange={handleSelectChange} className={formElementClass}>
                     <option value="0">Any Year</option>
                     {uniqueYears.map(year => <option key={year} value={year}>{year}</option>)}
                 </select>
             </div>
             <div>
                 <label htmlFor="color-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">Color</label>
-                <select id="color-filter" value={state.colorFilter} onChange={(e) => setState(p => ({...p, colorFilter: e.target.value}))} className={formElementClass}>
+                <select id="color-filter" name="colorFilter" value={state.colorFilter} onChange={handleSelectChange} className={formElementClass}>
                     <option value="">Any Color</option>
                     {uniqueColors.map(color => <option key={color} value={color}>{color}</option>)}
                 </select>
             </div>
             <div>
                 <label htmlFor="state-filter" className="block text-sm font-medium text-brand-gray-700 dark:text-brand-gray-300 mb-1">State</label>
-                <select id="state-filter" value={state.stateFilter} onChange={(e) => setState(p => ({...p, stateFilter: e.target.value}))} className={formElementClass}>
+                <select id="state-filter" name="stateFilter" value={state.stateFilter} onChange={handleSelectChange} className={formElementClass}>
                     <option value="">Any State</option>
                     {uniqueStates.map(st => <option key={st.code} value={st.code}>{st.name}</option>)}
                 </select>
@@ -523,7 +525,7 @@ const VehicleList: React.FC<VehicleListProps> = ({ vehicles, onSelectVehicle, is
                 </button>
                 {(isMobile ? isMobileFeaturesOpen : isFeaturesOpen) && (
                     <div className="absolute top-full mt-2 w-full bg-white dark:bg-brand-gray-700 rounded-lg shadow-soft-xl border border-brand-gray-200 dark:border-brand-gray-600 z-20 overflow-hidden animate-fade-in">
-                        <div className="p-2"><input ref={featuresSearchInputRef} type="text" placeholder="Search features..." value={state.featureSearch} onChange={e => setState(p => ({...p, featureSearch: e.target.value}))} className="block w-full p-2 border border-brand-gray-300 dark:border-brand-gray-500 rounded-md bg-white dark:bg-brand-gray-800 text-sm focus:ring-2 focus:ring-brand-blue focus:outline-none" /></div>
+                        <div className="p-2"><input ref={featuresSearchInputRef} type="text" placeholder="Search features..." value={state.featureSearch} onChange={e => { isMobile ? setTempFilters(p => ({...p, featureSearch: e.target.value})) : setFeatureSearch(e.target.value) }} className="block w-full p-2 border border-brand-gray-300 dark:border-brand-gray-500 rounded-md bg-white dark:bg-brand-gray-800 text-sm focus:ring-2 focus:ring-brand-blue focus:outline-none" /></div>
                         <div className="max-h-48 overflow-y-auto">
                             {(isMobile ? tempFilteredFeatures : filteredFeatures).map(feature => ( <label key={feature} className="flex items-center space-x-3 cursor-pointer group p-3 transition-colors hover:bg-brand-gray-100 dark:hover:bg-brand-gray-600"><input type="checkbox" checked={state.selectedFeatures.includes(feature)} onChange={() => handleFeatureToggleLocal(feature)} className="h-4 w-4 text-brand-blue rounded border-brand-gray-300 dark:border-brand-gray-500 focus:ring-brand-blue bg-transparent" /><span className="text-sm text-brand-gray-800 dark:text-brand-gray-200">{feature}</span></label> ))}
                             {(isMobile ? tempFilteredFeatures.length === 0 : filteredFeatures.length === 0) && ( <p className="p-3 text-sm text-center text-brand-gray-500 dark:text-brand-gray-400">No features found.</p> )}

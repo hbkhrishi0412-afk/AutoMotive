@@ -89,4 +89,3 @@ const BarChart: React.FC<{ title: string; data: { label: string; value: number }
         <div className="bg-white dark:bg-brand-gray-dark p-6 rounded-lg shadow-md">
             <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">{title}</h3>
             <div className="space-y-4">
-                

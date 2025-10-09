@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef, useMemo, memo } from 'react';
 import type { User } from '../types';
 import { View } from '../types';
 import type { Command } from '../types';
-import type { Theme } from '../App';
 
 
 interface CommandPaletteProps {
@@ -11,7 +10,6 @@ interface CommandPaletteProps {
   onClose: () => void;
   onNavigate: (view: View) => void;
   currentUser: User | null;
-  onChangeTheme: (theme: Theme) => void;
   onLogout: () => void;
 }
 
@@ -29,7 +27,7 @@ const ICONS = {
   PRICE: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>,
 };
 
-const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavigate, currentUser, onChangeTheme, onLogout }) => {
+const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavigate, currentUser, onLogout }) => {
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,15 +48,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
       ...(currentUser?.role === 'seller' ? [{ id: 'dashboard', title: 'Seller Dashboard', icon: ICONS.DASHBOARD, action: () => onNavigate(View.SELLER_DASHBOARD), section: 'Navigation' as const }] : []),
       // Actions
       ...(currentUser ? [{ id: 'logout', title: 'Logout', icon: ICONS.LOGOUT, action: onLogout, section: 'Actions' as const }] : []),
-      // Theme
-      { id: 'theme_light', title: 'Change Theme to Light', icon: ICONS.THEME, action: () => onChangeTheme('light'), section: 'Theme' as const },
-      { id: 'theme_dark', title: 'Change Theme to Dark', icon: ICONS.THEME, action: () => onChangeTheme('dark'), section: 'Theme' as const },
-      { id: 'theme_sunset', title: 'Change Theme to Sunset', icon: ICONS.THEME, action: () => onChangeTheme('sunset'), section: 'Theme' as const },
-      { id: 'theme_oceanic', title: 'Change Theme to Oceanic', icon: ICONS.THEME, action: () => onChangeTheme('oceanic'), section: 'Theme' as const },
-      { id: 'theme_cyber', title: 'Change Theme to Cyber', icon: ICONS.THEME, action: () => onChangeTheme('cyber'), section: 'Theme' as const },
     ];
     return commands;
-  }, [currentUser, onNavigate, onChangeTheme, onLogout]);
+  }, [currentUser, onNavigate, onLogout]);
 
   const filteredCommands = useMemo(() => {
     if (!query) return allCommands;
@@ -130,12 +122,12 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavi
           />
         </div>
         <div className="max-h-96 overflow-y-auto">
-          {Object.entries(groupedCommands).map(([section, commands]: [string, Command[]]) => (
+          {Object.entries(groupedCommands).map(([section, commands]) => (
             <div key={section} className="p-2">
               <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-2 mb-1">{section}</h3>
               <ul>
                 {/* FIX: Explicitly type the commands array to avoid 'unknown' type error. */}
-                {commands.map((command) => {
+                {(commands as Command[]).map((command) => {
                   const globalIndex = filteredCommands.findIndex(c => c.id === command.id);
                   return (
                     <li key={command.id}>

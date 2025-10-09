@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -46,7 +47,6 @@ const SupportPage = lazy(() => import('./components/SupportPage'));
 const FAQPage = lazy(() => import('./components/FAQPage'));
 
 
-export type Theme = 'light' | 'dark' | 'sunset' | 'oceanic' | 'cyber';
 
 const LoadingSpinner: React.FC = () => (
     <div className="min-h-[calc(100vh-140px)] flex items-center justify-center">
@@ -68,7 +68,6 @@ const App: React.FC = () => {
   const [comparisonList, setComparisonList] = useState<number[]>([]);
   const [ratings, setRatings] = useState<{ [key: string]: number[] }>({});
   const [sellerRatings, setSellerRatings] = useState<{ [key: string]: number[] }>({});
-  const [theme, setTheme] = useState<Theme>('light');
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [toasts, setToasts] = useState<ToastType[]>([]);
@@ -288,14 +287,6 @@ const App: React.FC = () => {
     if (sessionUserJson) {
         setCurrentUser(JSON.parse(sessionUserJson));
     }
-
-    const savedTheme = localStorage.getItem('theme') as Theme | null;
-    if (savedTheme) {
-        setTheme(savedTheme);
-    } else {
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setTheme(prefersDark ? 'dark' : 'light');
-    }
     
     const savedWishlist = localStorage.getItem('wishlist');
     if (savedWishlist) {
@@ -326,19 +317,6 @@ const App: React.FC = () => {
         }
     }
   }, [addToast, users]); // Depend on users to run after they are loaded
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', theme);
-
-    if (theme === 'dark' || theme === 'cyber') {
-        root.classList.add('dark');
-    } else {
-        root.classList.remove('dark');
-    }
-    
-    localStorage.setItem('theme', theme);
-  }, [theme]);
   
    useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -414,10 +392,6 @@ const App: React.FC = () => {
     // After checking, update the ref for the next render.
     prevConversationsRef.current = conversations;
   }, [conversations, currentUser, users, activeChat]);
-
-  const handleChangeTheme = useCallback((newTheme: Theme) => {
-    setTheme(newTheme);
-  }, []);
 
   useEffect(() => {
     setRatings(getRatings());
@@ -1704,8 +1678,6 @@ const App: React.FC = () => {
         compareCount={comparisonList.length}
         wishlistCount={wishlist.length}
         inboxCount={inboxCount}
-        theme={theme}
-        onChangeTheme={handleChangeTheme}
         isHomePage={isHomePage}
         notifications={notifications.filter(n => n.recipientEmail === currentUser?.email)}
         onNotificationClick={handleNotificationClick}
@@ -1752,10 +1724,6 @@ const App: React.FC = () => {
             setIsCommandPaletteOpen(false);
         }}
         currentUser={currentUser}
-        onChangeTheme={(theme) => {
-            handleChangeTheme(theme);
-            setIsCommandPaletteOpen(false);
-        }}
         onLogout={() => {
             handleLogout();
             setIsCommandPaletteOpen(false);
