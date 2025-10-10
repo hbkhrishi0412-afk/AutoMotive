@@ -4,7 +4,7 @@ import { seedDatabase } from '../database/seed';
 const initDatabase = async () => {
   try {
     console.log('Initializing database...');
-    initializeDatabase();
+    await initializeDatabase();
     
     console.log('Seeding database...');
     seedDatabase();
