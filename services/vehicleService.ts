@@ -2,8 +2,6 @@
 import { MOCK_VEHICLES } from '../constants';
 import type { Vehicle, User } from '../types';
 
-const IS_PROD = process.env.NODE_ENV === 'production';
-
 // --- API Helpers ---
 const getAuthHeader = () => {
   try {
@@ -94,18 +92,7 @@ const deleteVehicleApi = async (vehicleId: number): Promise<{ success: boolean, 
 
 // --- Exported Environment-Aware Service Functions ---
 
-export const getVehicles = (): Promise<Vehicle[]> => {
-    return IS_PROD ? getVehiclesApi() : getVehiclesLocal();
-};
-
-export const addVehicle = (vehicleData: Vehicle): Promise<Vehicle> => {
-    return IS_PROD ? addVehicleApi(vehicleData) : addVehicleLocal(vehicleData);
-};
-
-export const updateVehicle = (vehicleData: Vehicle): Promise<Vehicle> => {
-    return IS_PROD ? updateVehicleApi(vehicleData) : updateVehicleLocal(vehicleData);
-};
-
-export const deleteVehicle = (vehicleId: number): Promise<{ success: boolean, id: number }> => {
-    return IS_PROD ? deleteVehicleApi(vehicleId) : deleteVehicleLocal(vehicleId);
-};
+export const getVehicles = getVehiclesApi;
+export const addVehicle = addVehicleApi;
+export const updateVehicle = updateVehicleApi;
+export const deleteVehicle = deleteVehicleApi;

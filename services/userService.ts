@@ -2,8 +2,6 @@
 import { MOCK_USERS } from '../constants';
 import type { User } from '../types';
 
-const IS_PROD = process.env.NODE_ENV === 'production';
-
 // --- API Helpers ---
 const getAuthHeader = () => {
   try {
@@ -125,8 +123,8 @@ const authApi = async (body: any): Promise<any> => {
 
 // --- Exported Environment-Aware Service Functions ---
 
-export const getUsers = (): Promise<User[]> => IS_PROD ? getUsersApi() : getUsersLocal();
-export const updateUser = (userData: Partial<User> & { email: string }): Promise<User> => IS_PROD ? updateUserApi(userData) : updateUserLocal(userData);
-export const deleteUser = (email: string): Promise<{ success: boolean, email: string }> => IS_PROD ? deleteUserApi(email) : deleteUserLocal(email);
-export const login = (credentials: any): Promise<{ success: boolean, user?: User, reason?: string }> => IS_PROD ? authApi({ action: 'login', ...credentials }) : loginLocal(credentials);
-export const register = (credentials: any): Promise<{ success: boolean, user?: User, reason?: string }> => IS_PROD ? authApi({ action: 'register', ...credentials }) : registerLocal(credentials);
+export const getUsers = getUsersApi;
+export const updateUser = updateUserApi;
+export const deleteUser = deleteUserApi;
+export const login = (credentials: any): Promise<{ success: boolean, user?: User, reason?: string }> => authApi({ action: 'login', ...credentials });
+export const register = (credentials: any): Promise<{ success: boolean, user?: User, reason?: string }> => authApi({ action: 'register', ...credentials });

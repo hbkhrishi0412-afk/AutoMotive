@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import type { User } from '../types';
 
 interface ProfileProps {
   currentUser: User;
-  onUpdateProfile: (details: { name: string; mobile: string }) => void;
+  onUpdateProfile: (details: { name: string; mobile: string; avatarUrl?: string }) => void;
   // FIX: Changed onUpdatePassword to return a Promise<boolean> as it's an async function.
   onUpdatePassword: (passwords: { current: string; new: string }) => Promise<boolean>;
 }
@@ -29,6 +30,7 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
   const [formData, setFormData] = useState({
     name: currentUser.name,
     mobile: currentUser.mobile,
+    avatarUrl: currentUser.avatarUrl || '',
   });
   const [passwordData, setPasswordData] = useState({
     current: '',
@@ -42,12 +44,25 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
     setFormData({
       name: currentUser.name,
       mobile: currentUser.mobile,
+      avatarUrl: currentUser.avatarUrl || '',
     });
   }, [currentUser]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target && typeof event.target.result === 'string') {
+          setFormData(prev => ({ ...prev, avatarUrl: event.target.result as string }));
+        }
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +74,7 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
   const handleEditToggle = () => {
     if (isEditing) {
       // If canceling, revert changes
-      setFormData({ name: currentUser.name, mobile: currentUser.mobile });
+      setFormData({ name: currentUser.name, mobile: currentUser.mobile, avatarUrl: currentUser.avatarUrl || '' });
     }
     setIsEditing(!isEditing);
   };
@@ -102,6 +117,21 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
         <div className="p-6">
           <h2 className="text-2xl font-bold text-brand-gray-800 dark:text-brand-gray-100 mb-4">Account Details</h2>
           <form onSubmit={handleProfileSave}>
+             <div className="flex flex-col items-center space-y-4 mb-6">
+              <div className="relative">
+                <img
+                  src={formData.avatarUrl || `https://i.pravatar.cc/150?u=${currentUser.email}`}
+                  alt="Profile Avatar"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-brand-gray-200 dark:border-brand-gray-700"
+                />
+                {isEditing && (
+                  <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-brand-blue text-white rounded-full p-2 cursor-pointer hover:bg-brand-blue-dark transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                    <input id="avatar-upload" type="file" className="sr-only" accept="image/*" onChange={handleAvatarUpload} />
+                  </label>
+                )}
+              </div>
+            </div>
             <div className="space-y-4">
               <ProfileInput
                 label="Full Name"

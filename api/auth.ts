@@ -1,7 +1,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import connectToDatabase from '../lib/db';
-import User from '../models/User';
+import connectToDatabase from '../lib/db.js';
+import User from '../models/User.js';
 
 export default async function handler(
   req: VercelRequest,
@@ -52,6 +52,7 @@ export default async function handler(
             mobile,
             role,
             status: 'active',
+            avatarUrl: `https://i.pravatar.cc/150?u=${email}`,
             subscriptionPlan: role === 'seller' ? 'free' : undefined,
             featuredCredits: role === 'seller' ? 0 : undefined,
             usedCertifications: role === 'seller' ? 0 : undefined,

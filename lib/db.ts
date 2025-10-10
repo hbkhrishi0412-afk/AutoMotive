@@ -1,12 +1,15 @@
 
+
 import mongoose from 'mongoose';
 import type { Mongoose } from 'mongoose';
 
 // Connection caching logic to prevent multiple connections in a serverless environment.
-let cached = (global as any).mongoose;
+// FIX: Replace 'global' with 'globalThis' for broader environment compatibility.
+let cached = (globalThis as any).mongoose;
 
 if (!cached) {
-  cached = (global as any).mongoose = { conn: null, promise: null };
+// FIX: Replace 'global' with 'globalThis' for broader environment compatibility.
+  cached = (globalThis as any).mongoose = { conn: null, promise: null };
 }
 
 async function connectToDatabase(): Promise<Mongoose> {

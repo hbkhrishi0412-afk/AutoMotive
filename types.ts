@@ -1,6 +1,5 @@
 
 
-
 import { ChartData } from 'chart.js';
 import React from 'react';
 import type { VehicleCategoryData } from './components/vehicleData';
@@ -127,6 +126,7 @@ export interface User {
   role: 'seller' | 'customer' | 'admin';
   status: 'active' | 'inactive';
   createdAt: string; // ISO String
+  avatarUrl?: string;
   isVerified?: boolean;
   // Seller-specific profile info
   dealershipName?: string;

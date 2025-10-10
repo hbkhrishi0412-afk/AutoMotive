@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, memo, useRef, useMemo } from 'react';
 import type { User, Notification, Toast as ToastType } from '../types';
 import { View as ViewEnum } from '../types';
@@ -182,7 +183,7 @@ const Header: React.FC<HeaderProps> = ({
                 {currentUser ? (
                 <div className="relative" ref={userMenuRef}>
                     <button onClick={() => setIsUserMenuOpen(p => !p)} className={`flex items-center space-x-2 p-2 rounded-full ${mainNavLinkClasses}`}>
-                    <img src={`https://i.pravatar.cc/40?u=${currentUser.email}`} alt="User" className="h-7 w-7 rounded-full" />
+                    <img src={currentUser.avatarUrl || `https://i.pravatar.cc/40?u=${currentUser.email}`} alt="User" className="h-7 w-7 rounded-full" />
                     </button>
                     {isUserMenuOpen && (
                     <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-brand-gray-800 rounded-md shadow-lg border dark:border-brand-gray-700 animate-fade-in z-20">

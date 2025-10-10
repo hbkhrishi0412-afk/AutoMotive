@@ -37,6 +37,7 @@ const userSchema = new Schema({
     enum: ['active', 'inactive'],
     default: 'active'
   },
+  avatarUrl: String,
   isVerified: {
     type: Boolean,
     default: false,

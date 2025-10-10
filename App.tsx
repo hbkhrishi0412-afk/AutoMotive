@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -35,7 +34,7 @@ import { getPlaceholderImage } from './components/vehicleData';
 const Home = lazy(() => import('./components/Home'));
 const VehicleList = lazy(() => import('./components/VehicleList'));
 const VehicleDetail = lazy(() => import('./components/VehicleDetail').then(module => ({ default: module.VehicleDetail })));
-const Dashboard = lazy(() => import('./components/Dashboard'));
+const Dashboard = lazy(() => import('./Dashboard'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Comparison = lazy(() => import('./components/Comparison'));
 const Profile = lazy(() => import('./components/Profile'));
@@ -647,7 +646,7 @@ const App: React.FC = () => {
     }
   }, [addToast]);
 
-  const handleUpdateUserProfile = useCallback(async (updatedDetails: { name: string; mobile: string; }) => {
+  const handleUpdateUserProfile = useCallback(async (updatedDetails: { name: string; mobile: string; avatarUrl?: string }) => {
     if (!currentUser) return;
     try {
         const updatedUser = await userService.updateUser({ email: currentUser.email, ...updatedDetails });
@@ -837,7 +836,8 @@ const App: React.FC = () => {
       case View.DEALER_PROFILES: return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller')} onViewProfile={handleViewSellerProfile} />;
       case View.WISHLIST: return <VehicleList vehicles={vehiclesInWishlist} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="My Wishlist" isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
-      default: return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategoryFromHome} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
+      default:
+        return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategoryFromHome} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
     }
   };
   
