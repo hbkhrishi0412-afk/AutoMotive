@@ -1,8 +1,16 @@
 {
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@5.3.24"
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!api/|_).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "MONGO_URI": "@mongo_uri"
+  }
 }
