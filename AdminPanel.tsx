@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData } from '../types';
 import EditUserModal from './EditUserModal';
@@ -134,7 +135,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
 // FIX: Explicitly type the accumulator `sum` to ensure it's treated as a number, preventing arithmetic errors.
-        const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
+        const totalSales = soldListings.reduce((sum: number, v) => sum + (Number(v.price) || 0), 0);
         const flaggedContent = vehicles.filter(v => v.isFlagged).length + conversations.filter(c => c.isFlagged).length;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
         

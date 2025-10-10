@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData, SupportTicket, FAQItem, TicketReply } from '../types';
 import EditUserModal from './EditUserModal';
@@ -839,8 +840,8 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const totalVehicles = vehicles.length;
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
-// FIX: Added Number() to ensure v.price is treated as a number, preventing arithmetic errors on potentially mixed types.
-        const totalSales = soldListings.reduce((sum: number, v) => sum + Number(v.price || 0), 0);
+        // FIX: Added Number() to ensure v.price is treated as a number, preventing arithmetic errors on potentially mixed types.
+        const totalSales = soldListings.reduce((sum: number, v) => sum + (Number(v.price) || 0), 0);
         const flaggedVehiclesCount = vehicles.reduce((sum: number, v) => v.isFlagged ? sum + 1 : sum, 0);
         const flaggedConversationsCount = conversations.reduce((sum: number, c) => c.isFlagged ? sum + 1 : sum, 0);
         const flaggedContent = flaggedVehiclesCount + flaggedConversationsCount;
@@ -923,7 +924,7 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
                             <StatCard title="Active Listings" value={analytics.activeListings} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 17v-2a4 4 0 00-4-4h-1.5m1.5 4H13m-2 0a2 2 0 104 0 2 2 0 00-4 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 11V7a4 4 0 00-4-4H7a4 4 0 00-4 4v4" /></svg>} onClick={() => setActiveView('listings')} />
                             <StatCard title="Total Sales" value={`₹${(analytics.totalSales / 100000).toFixed(2)}L`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>} />
                             <StatCard title="Flagged Content" value={analytics.flaggedContent} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6H8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>} onClick={() => setActiveView('moderation')} />
-                            <StatCard title="Open Support Tickets" value={supportTickets.filter(t => t.status !== 'Closed').length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>} onClick={() => setActiveView('support')} />
+                            <StatCard title="Open Support Tickets" value={supportTickets.filter(t => t.status !== 'Closed').length} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" /></svg>} onClick={() => setActiveView('support')} />
                             <StatCard title="Certification Requests" value={analytics.certificationRequests} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-brand-blue" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812z" clipRule="evenodd" /></svg>} onClick={() => setActiveView('certificationRequests')} />
                         </div>
                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

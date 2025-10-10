@@ -1001,7 +1001,8 @@ const Dashboard: React.FC<DashboardProps> = ({ seller, sellerVehicles, reportedV
   const reportedCount = useMemo(() => reportedVehicles.length, [reportedVehicles]);
   
   const analyticsData = useMemo(() => {
-    const totalSalesValue = soldListings.reduce((sum, v) => sum + v.price, 0);
+    // FIX: Explicitly type accumulator and cast value to number for safety.
+    const totalSalesValue = soldListings.reduce((sum: number, v) => sum + (Number(v.price) || 0), 0);
     const totalViews = activeListings.reduce((sum, v) => sum + (v.views || 0), 0);
     const totalInquiries = activeListings.reduce((sum, v) => sum + (v.inquiriesCount || 0), 0);
     const chartLabels = activeListings.map(v => `${v.year} ${v.model} ${v.variant || ''}`.trim().slice(0, 25));

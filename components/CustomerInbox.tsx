@@ -1,6 +1,4 @@
-
-
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import type { Conversation, User, ChatMessage } from '../types';
 import ReadReceiptIcon, { OfferMessage, OfferModal } from './ReadReceiptIcon';
 
@@ -60,6 +58,14 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
     return [...conversations].sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }, [conversations]);
 
+  const handleSelectConversation = useCallback((conv: Conversation) => {
+    setSelectedConv(conv);
+    if (conv.isReadByCustomer === false) {
+      onMarkAsRead(conv.id);
+      onMarkMessagesAsRead(conv.id, 'customer');
+    }
+  }, [onMarkAsRead, onMarkMessagesAsRead]);
+
   useEffect(() => {
     if (!selectedConv && sortedConversations.length > 0) {
       const firstConv = sortedConversations[0];
@@ -68,11 +74,11 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
     if (selectedConv && !conversations.find(c => c.id === selectedConv.id)) {
         setSelectedConv(null);
     }
-  }, [conversations, sortedConversations]);
+  }, [conversations, sortedConversations, selectedConv, handleSelectConversation]);
 
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView();
   }, [selectedConv?.messages, typingStatus]);
 
   useEffect(() => {
@@ -83,14 +89,6 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
           }
       }
   }, [conversations, selectedConv]);
-
-  const handleSelectConversation = (conv: Conversation) => {
-    setSelectedConv(conv);
-    if (conv.isReadByCustomer === false) {
-      onMarkAsRead(conv.id);
-      onMarkMessagesAsRead(conv.id, 'customer');
-    }
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setReplyText(e.target.value);
@@ -254,8 +252,8 @@ const CustomerInbox: React.FC<CustomerInboxProps> = ({ conversations, onSendMess
         <OfferModal
             title="Make an Offer"
             listingPrice={selectedConv.vehiclePrice}
-            onClose={() => setIsOfferModalOpen(false)}
             onSubmit={handleSendOffer}
+            onClose={() => setIsOfferModalOpen(false)}
         />
       )}
     </>
