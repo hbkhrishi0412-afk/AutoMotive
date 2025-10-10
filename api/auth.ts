@@ -26,9 +26,13 @@ export default async function handler(
         SELECT * FROM users WHERE email = ${email};
       `;
       
-      const user = rows[0];
+      const user = rows?.[0];
 
-      if (!user || user.password !== password) {
+      if (!user) {
+        return res.status(401).json({ success: false, reason: 'Invalid credentials.' });
+      }
+
+      if (user.password !== password) {
         return res.status(401).json({ success: false, reason: 'Invalid credentials.' });
       }
 
@@ -52,7 +56,7 @@ export default async function handler(
 
       // Check if user already exists
       const { rowCount } = await sql`SELECT 1 FROM users WHERE email = ${email}`;
-      if (rowCount > 0) {
+      if (rowCount) {
         return res.status(409).json({ success: false, reason: 'An account with this email already exists.' });
       }
 
