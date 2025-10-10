@@ -1,12 +1,11 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import connectToDatabase from '../lib/db';
-import mongoose from 'mongoose';
+import client from '../lib/db';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
-    await connectToDatabase();
-    if (mongoose.connection.readyState === 1) {
+    await client.connect();
+    if (client.topology?.isConnected()) {
       res.status(200).json({ status: 'ok', message: 'Database connected successfully.' });
     } else {
       res.status(503).json({ status: 'error', message: 'Database connection failed.' });
