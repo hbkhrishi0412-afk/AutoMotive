@@ -37,10 +37,6 @@ const userSchema = new Schema({
     enum: ['active', 'inactive'],
     default: 'active'
   },
-  createdAt: {
-    type: String,
-    default: () => new Date().toISOString()
-  },
   isVerified: {
     type: Boolean,
     default: false,

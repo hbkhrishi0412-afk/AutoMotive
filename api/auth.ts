@@ -52,7 +52,6 @@ export default async function handler(
             mobile,
             role,
             status: 'active',
-            createdAt: new Date().toISOString(),
             subscriptionPlan: role === 'seller' ? 'free' : undefined,
             featuredCredits: role === 'seller' ? 0 : undefined,
             usedCertifications: role === 'seller' ? 0 : undefined,
