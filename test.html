@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReRide Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background-color: #0056b3;
+        }
+        .test-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .test-input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-range {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .test-result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>ReRide Deployment Test</h1>
+        
+        <div class="test-section">
+            <h2>Button Functionality Test</h2>
+            <button class="test-button" onclick="testButtonClick()">Test Button Click</button>
+            <button class="test-button" onclick="testButtonClick()" disabled>Test Disabled Button</button>
+            <div id="button-result" class="test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Filter Functionality Test</h2>
+            <label>Test Range Slider (Price):</label>
+            <input type="range" class="test-range" min="50000" max="5000000" value="1000000" onchange="testRangeChange(this.value)">
+            <div>Value: <span id="range-value">1000000</span></div>
+            
+            <label>Test Select Filter:</label>
+            <select class="test-input" onchange="testSelectChange(this.value)">
+                <option value="">Select an option</option>
+                <option value="option1">Option 1</option>
+                <option value="option2">Option 2</option>
+                <option value="option3">Option 3</option>
+            </select>
+            
+            <div id="filter-result" class="test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Form Input Test</h2>
+            <input type="text" class="test-input" placeholder="Test text input" onchange="testInputChange(this.value)">
+            <input type="number" class="test-input" placeholder="Test number input" onchange="testNumberChange(this.value)">
+            <div id="form-result" class="test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>API Test</h2>
+            <button class="test-button" onclick="testAPI()">Test API Connection</button>
+            <div id="api-result" class="test-result"></div>
+        </div>
+    </div>
+
+    <script>
+        function testButtonClick() {
+            document.getElementById('button-result').innerHTML = 'Button clicked successfully! ✅';
+        }
+
+        function testRangeChange(value) {
+            document.getElementById('range-value').textContent = value;
+            document.getElementById('filter-result').innerHTML = `Range slider working! Value: ${value} ✅`;
+        }
+
+        function testSelectChange(value) {
+            document.getElementById('filter-result').innerHTML = `Select filter working! Selected: ${value || 'None'} ✅`;
+        }
+
+        function testInputChange(value) {
+            document.getElementById('form-result').innerHTML = `Text input working! Value: "${value}" ✅`;
+        }
+
+        function testNumberChange(value) {
+            document.getElementById('form-result').innerHTML = `Number input working! Value: ${value} ✅`;
+        }
+
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = 'Testing API connection...';
+            
+            try {
+                const response = await fetch('/api/db-health');
+                if (response.ok) {
+                    resultDiv.innerHTML = 'API connection successful! ✅';
+                } else {
+                    resultDiv.innerHTML = `API connection failed! Status: ${response.status} ❌`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `API connection error: ${error.message} ❌`;
+            }
+        }
+
+        // Test on page load
+        window.onload = function() {
+            console.log('ReRide test page loaded successfully');
+            document.getElementById('button-result').innerHTML = 'Page loaded successfully! ✅';
+        };
+    </script>
+</body>
+</html>
