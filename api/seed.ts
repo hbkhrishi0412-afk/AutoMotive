@@ -1,7 +1,7 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelResponse } from '@vercel/node';
 
 export default async function handler(
-  request: VercelRequest,
+  _request: any,
   response: VercelResponse,
 ) {
   try {

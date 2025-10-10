@@ -1,10 +1,10 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelResponse } from '@vercel/node';
 
 const reasonMessage = 'Database functionality is disabled.';
 const errorMessage = { success: false, reason: reasonMessage };
 
 export default async function handler(
-  req: VercelRequest,
+  _req: any,
   res: VercelResponse,
 ) {
   try {
