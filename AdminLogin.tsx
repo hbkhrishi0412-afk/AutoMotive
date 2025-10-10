@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, User } from '../types';
-import { login } from '../services/userService';
+import { View, User } from './types';
+import { login } from './services/userService';
 
 interface AdminLoginProps {
   onLogin: (user: User) => void;

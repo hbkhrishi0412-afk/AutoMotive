@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, User } from '../types';
-import { login, register } from '../services/userService';
+import { View, User } from './types';
+import { login, register } from './services/userService';
 
 interface CustomerLoginProps {
   onLogin: (user: User) => void;
@@ -76,6 +76,7 @@ const CustomerLogin: React.FC<CustomerLoginProps> = ({ onLogin, onRegister, onNa
   const isLogin = mode === 'login';
   const formInputClass = "appearance-none relative block w-full px-4 py-3 border border-brand-gray-300 dark:border-brand-gray-600 placeholder-brand-gray-500 text-brand-gray-900 dark:text-brand-gray-200 bg-white dark:bg-brand-gray-800 focus:outline-none focus:ring-brand-blue focus:border-brand-blue focus:z-10 sm:text-sm";
 
+
   return (
     <div className="w-full max-w-md space-y-8 bg-white dark:bg-brand-gray-800 p-10 rounded-xl shadow-soft-xl">
       <div>
@@ -89,24 +90,49 @@ const CustomerLogin: React.FC<CustomerLoginProps> = ({ onLogin, onRegister, onNa
             <>
               <div>
                 <label htmlFor="full-name" className="sr-only">Full name</label>
-                <input id="full-name" name="name" type="text" autoComplete="name" required className={`${formInputClass} rounded-md`} placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+                <input
+                  id="full-name" name="name" type="text" autoComplete="name" required
+                  className={`${formInputClass} rounded-md`}
+                  placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)}
+                />
               </div>
               <div>
                 <label htmlFor="mobile-number" className="sr-only">Mobile number</label>
-                <input id="mobile-number" name="mobile" type="tel" autoComplete="tel" required className={`${formInputClass} rounded-md`} placeholder="Mobile number" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+                <input
+                  id="mobile-number" name="mobile" type="tel" autoComplete="tel" required
+                  className={`${formInputClass} rounded-md`}
+                  placeholder="Mobile number" value={mobile} onChange={(e) => setMobile(e.target.value)}
+                />
               </div>
             </>
           )}
           <div>
             <label htmlFor="email-address" className="sr-only">Email address</label>
-            <input id="email-address" name="email" type="email" autoComplete="email" required className={`${formInputClass} rounded-md`} placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input
+              id="email-address" name="email" type="email" autoComplete="email" required
+              className={`${formInputClass} rounded-md`}
+              placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
           <div>
             <label htmlFor="password" className="sr-only">Password</label>
             <div className="relative">
-              <input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required className={`${formInputClass} rounded-md`} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 px-3 flex items-center text-brand-gray-500 hover:text-brand-gray-700" aria-label={showPassword ? "Hide password" : "Show password"}>
-                  {showPassword ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274-4.057 5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
+              <input
+                id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required
+                className={`${formInputClass} rounded-md`}
+                placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 px-3 flex items-center text-brand-gray-500 hover:text-brand-gray-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                  {showPassword ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 1.274-4.057 5.064-7 9.542-7 .847 0 1.67.111 2.458.324M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 2l20 20" /></svg>
+                  ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274-4.057 5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  )}
               </button>
             </div>
           </div>
@@ -114,11 +140,16 @@ const CustomerLogin: React.FC<CustomerLoginProps> = ({ onLogin, onRegister, onNa
         {isLogin && (
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="h-4 w-4 text-brand-blue focus:ring-brand-blue-light border-brand-gray-300 rounded" />
+              <input id="remember-me" name="remember-me" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-brand-blue focus:ring-brand-blue-light border-brand-gray-300 rounded" />
               <label htmlFor="remember-me" className="ml-2 block text-sm text-brand-gray-900 dark:text-brand-gray-300">Remember me</label>
             </div>
             <div className="text-sm">
-              <button type="button" onClick={onForgotPassword} className="font-medium text-brand-blue hover:text-brand-blue-dark">
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="font-medium text-brand-blue hover:text-brand-blue-dark"
+              >
                 Forgot your password?
               </button>
             </div>

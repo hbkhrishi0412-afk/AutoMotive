@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Vehicle, User, Conversation, PlatformSettings, AuditLogEntry, VehicleData, SupportTicket, FAQItem, TicketReply } from '../types';
 import EditUserModal from './EditUserModal';
@@ -348,6 +349,7 @@ const VehicleDataEditor: React.FC<{ vehicleData: VehicleData, onUpdate: (newData
                 {renderColumn("Variants", variants, selectedCategory && selectedMake && selectedModel ? [selectedCategory, selectedMake, selectedModel] : [], null, () => {}, "Variant", !selectedModel)}
             </div>
             {isBulkUploadOpen && (
+// FIX: Changed 'onUpdateVehicleData' to 'onUpdate' to pass the correct prop within the component's scope.
                 <VehicleDataBulkUploadModal 
                     onClose={() => setIsBulkUploadOpen(false)} 
                     onUpdateData={onUpdate}
@@ -837,11 +839,10 @@ const AdminPanel: React.FC<AdminPanelProps> = (props) => {
         const totalVehicles = vehicles.length;
         const activeListings = vehicles.filter(v => v.status === 'published').length;
         const soldListings = vehicles.filter(v => v.status === 'sold');
-        // FIX: Explicitly type the accumulator in the reduce function.
-        const totalSales = soldListings.reduce((sum: number, v) => sum + v.price, 0);
-        // FIX: Refactor calculation to avoid potential type inference issues with arithmetic operations.
-        const flaggedVehiclesCount = vehicles.reduce((count, v) => v.isFlagged ? count + 1 : count, 0);
-        const flaggedConversationsCount = conversations.reduce((count, c) => c.isFlagged ? count + 1 : count, 0);
+// FIX: Added Number() to ensure v.price is treated as a number, preventing arithmetic errors on potentially mixed types.
+        const totalSales = soldListings.reduce((sum: number, v) => sum + Number(v.price || 0), 0);
+        const flaggedVehiclesCount = vehicles.reduce((sum: number, v) => v.isFlagged ? sum + 1 : sum, 0);
+        const flaggedConversationsCount = conversations.reduce((sum: number, c) => c.isFlagged ? sum + 1 : sum, 0);
         const flaggedContent = flaggedVehiclesCount + flaggedConversationsCount;
         const certificationRequests = vehicles.filter(v => v.certificationStatus === 'requested').length;
         
