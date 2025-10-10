@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -34,7 +36,8 @@ import { getPlaceholderImage } from './components/vehicleData';
 const Home = lazy(() => import('./components/Home'));
 const VehicleList = lazy(() => import('./components/VehicleList'));
 const VehicleDetail = lazy(() => import('./components/VehicleDetail').then(module => ({ default: module.VehicleDetail })));
-const Dashboard = lazy(() => import('./Dashboard'));
+// FIX: The lazy import for Dashboard was failing. Corrected to handle module resolution issue by explicitly returning the default export.
+const Dashboard = lazy(() => import('./components/Dashboard').then(module => ({ default: module.default })));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const Comparison = lazy(() => import('./components/Comparison'));
 const Profile = lazy(() => import('./components/Profile'));
@@ -443,8 +446,6 @@ const App: React.FC = () => {
     if (!currentUser || currentUser.role !== 'seller') { addToast('You must be logged in as a seller.', 'error'); return; }
     if (isFeaturing && (currentUser.featuredCredits || 0) <= 0) { addToast('You have no featured credits left.', 'error'); isFeaturing = false; }
     
-    // FIX: Changed type from Omit<Vehicle, 'id'> to Vehicle to allow adding an ID.
-    // FIX: Changed `isFeaturing` property shorthand to `isFeatured: isFeaturing` to match the Vehicle type definition.
     const newVehicle: Vehicle = { ...vehicleData, id: Date.now(), images: vehicleData.images && vehicleData.images.length > 0 ? vehicleData.images : [getPlaceholderImage(vehicleData.make, vehicleData.model), getPlaceholderImage(vehicleData.make, `${vehicleData.model}-2`)], sellerEmail: currentUser.email, status: 'published', isFeatured: isFeaturing, views: 0, inquiriesCount: 0, certificationStatus: 'none' };
 
     try {
@@ -468,7 +469,6 @@ const App: React.FC = () => {
     try {
         const addedVehicles: Vehicle[] = [];
         for (const vehicleData of newVehiclesData) {
-            // FIX: Changed type from Omit<Vehicle, 'id'> to Vehicle to allow adding an ID.
             const newVehicle: Vehicle = { ...vehicleData, id: Date.now() + Math.random(), status: 'published', isFeatured: false, views: 0, inquiriesCount: 0, certificationStatus: 'none' };
             const added = await vehicleService.addVehicle(newVehicle);
             addedVehicles.push(added);
@@ -751,7 +751,6 @@ const App: React.FC = () => {
   
   const handleHomeSearch = useCallback((query: string) => { setInitialSearchQuery(query); setCurrentView(View.USED_CARS); }, []);
 
-  // FIX: Added handler for onSelectCategory prop for Home component.
   const handleSelectCategoryFromHome = useCallback((category: VehicleCategory) => {
     setSelectedCategory(category);
     navigate(View.USED_CARS);
@@ -836,8 +835,7 @@ const App: React.FC = () => {
       case View.DEALER_PROFILES: return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller')} onViewProfile={handleViewSellerProfile} />;
       case View.WISHLIST: return <VehicleList vehicles={vehiclesInWishlist} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="My Wishlist" isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
-      default:
-        return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategoryFromHome} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
+      default: return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategoryFromHome} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
     }
   };
   

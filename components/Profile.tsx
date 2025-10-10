@@ -5,7 +5,6 @@ import type { User } from '../types';
 interface ProfileProps {
   currentUser: User;
   onUpdateProfile: (details: { name: string; mobile: string; avatarUrl?: string }) => void;
-  // FIX: Changed onUpdatePassword to return a Promise<boolean> as it's an async function.
   onUpdatePassword: (passwords: { current: string; new: string }) => Promise<boolean>;
 }
 
@@ -85,7 +84,6 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
     setIsEditing(false);
   };
 
-  // FIX: Made function async and awaited the result of onUpdatePassword.
   const handlePasswordSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');

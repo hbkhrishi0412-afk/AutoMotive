@@ -1,13 +1,4 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "includeFiles": [
-        "lib/**",
-        "models/**",
-        "constants.ts"
-      ]
-    }
-  },
   "rewrites": [
     {
       "source": "/((?!api/|_).*)",
