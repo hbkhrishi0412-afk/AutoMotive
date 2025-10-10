@@ -1,29 +1,27 @@
 import type { Conversation } from '../types';
-
-const CONVERSATION_STORAGE_KEY = 'autoVerseConversations';
+import { DatabaseServiceClient } from './databaseServiceClient';
 
 /**
- * Retrieves all conversations from localStorage.
- * @returns An array of conversations.
+ * Retrieves all conversations from the database.
+ * @returns A promise that resolves to an array of conversations.
  */
-export const getConversations = (): Conversation[] => {
+export const getConversations = async (): Promise<Conversation[]> => {
   try {
-    const conversationsJson = localStorage.getItem(CONVERSATION_STORAGE_KEY);
-    return conversationsJson ? JSON.parse(conversationsJson) : [];
+    return await DatabaseServiceClient.getConversations();
   } catch (error) {
-    console.error("Failed to parse conversations from localStorage", error);
+    console.error("Failed to fetch conversations from database", error);
     return [];
   }
 };
 
 /**
- * Saves the entire array of conversations to localStorage.
+ * Saves the entire array of conversations to the database.
  * @param conversations The array of conversations to save.
  */
-export const saveConversations = (conversations: Conversation[]) => {
+export const saveConversations = async (conversations: Conversation[]): Promise<void> => {
   try {
-    localStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(conversations));
+    await DatabaseServiceClient.saveConversations(conversations);
   } catch (error) {
-    console.error("Failed to save conversations to localStorage", error);
+    console.error("Failed to save conversations to database", error);
   }
 };

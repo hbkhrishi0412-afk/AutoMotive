@@ -1,27 +1,25 @@
 import type { PlatformSettings } from '../types';
-
-const SETTINGS_STORAGE_KEY = 'autoVersePlatformSettings';
+import { DatabaseServiceClient } from './databaseServiceClient';
 
 const defaultSettings: PlatformSettings = {
     listingFee: 25,
     siteAnnouncement: 'Welcome to AutoVerse AI! All EVs are 10% off this week.',
 };
 
-export const getSettings = (): PlatformSettings => {
+export const getSettings = async (): Promise<PlatformSettings> => {
   try {
-    const settingsJson = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    return settingsJson ? { ...defaultSettings, ...JSON.parse(settingsJson) } : defaultSettings;
+    const dbSettings = await DatabaseServiceClient.getSettings();
+    return { ...defaultSettings, ...dbSettings };
   } catch (error) {
-    console.error("Failed to parse settings from localStorage", error);
+    console.error("Failed to fetch settings from database", error);
     return defaultSettings;
   }
 };
 
-export const saveSettings = (settings: PlatformSettings) => {
+export const saveSettings = async (settings: PlatformSettings): Promise<void> => {
   try {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  } catch (error)
-    {
-    console.error("Failed to save settings to localStorage", error);
+    await DatabaseServiceClient.saveSettings(settings);
+  } catch (error) {
+    console.error("Failed to save settings to database", error);
   }
 };

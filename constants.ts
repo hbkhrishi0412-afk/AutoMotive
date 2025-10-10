@@ -1,6 +1,6 @@
 import type { Vehicle, User, PlanDetails, FAQItem, SupportTicket } from './types';
 import { VehicleCategory, type SubscriptionPlan } from './types';
-import { VEHICLE_DATA, getPlaceholderImage } from './components/vehicleData';
+// import { VEHICLE_DATA, getPlaceholderImage } from './components/vehicleData';
 
 // Helper to generate past dates
 const daysAgo = (days: number): string => {
@@ -126,9 +126,16 @@ const generateMockVehicles = (count: number): Vehicle[] => {
 
     for (let i = 1; i <= count; i++) {
         const category = VehicleCategory.FOUR_WHEELER;
-        if (!VEHICLE_DATA[category] || VEHICLE_DATA[category].length === 0) continue;
-
-        const makeData = randomItem(VEHICLE_DATA[category]);
+        // Fallback vehicle data
+        const fallbackMakes = [
+            { name: "Maruti Suzuki", models: [{ name: "Swift", variants: ["LXi", "VXi", "ZXi"] }] },
+            { name: "Hyundai", models: [{ name: "Creta", variants: ["E", "EX", "S", "SX"] }] },
+            { name: "Tata", models: [{ name: "Nexon", variants: ["XE", "XM", "XZ", "XZ+"] }] },
+            { name: "Honda", models: [{ name: "City", variants: ["V", "VX", "ZX"] }] },
+            { name: "Toyota", models: [{ name: "Innova", variants: ["G", "GX", "ZX"] }] }
+        ];
+        
+        const makeData = randomItem(fallbackMakes);
         const make = makeData.name;
         if (!makeData.models || makeData.models.length === 0) continue;
 
@@ -153,7 +160,7 @@ const generateMockVehicles = (count: number): Vehicle[] => {
             year,
             price,
             mileage,
-            images: [getPlaceholderImage(make, model), getPlaceholderImage(make, `${model}${i}`)],
+            images: [`https://picsum.photos/seed/${make}${model}/800/600`, `https://picsum.photos/seed/${make}${model}${i}/800/600`],
             videoUrl: Math.random() > 0.7 ? 'https://cdn.coverr.co/videos/coverr-a-porsche-911-on-a-bridge-638/1080p.mp4' : undefined,
             features: [...new Set(Array.from({ length: randomNumber(3, 7) }, () => randomItem(FEATURES)))],
             description: `A well-maintained ${year} ${make} ${model} ${variant || ''}. Comes with features like ${randomItem(FEATURES)} and ${randomItem(FEATURES)}. Available in ${city}.`,
