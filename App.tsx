@@ -8,7 +8,9 @@ import { View, VehicleCategory as CategoryEnum } from './types';
 import { getRatings, addRating, getSellerRatings, addSellerRating } from './services/ratingService';
 import { getConversations, saveConversations } from './services/chatService';
 import * as vehicleService from './services/vehicleService';
+import { getVehiclesLocal } from './services/vehicleService';
 import * as userService from './services/userService';
+import { getUsersLocal } from './services/userService';
 import LoginPortal from './components/LoginPortal';
 import CustomerLogin from './CustomerLogin';
 import AdminLogin from './AdminLogin';
@@ -118,8 +120,20 @@ const App: React.FC = () => {
             setVehicles(vehiclesData);
             setUsers(usersData);
         } catch (error) {
-            console.error("Failed to load initial data from API", error);
-            addToast("Error loading application data from the server.", "error");
+            console.error("Failed to load initial data from API, falling back to local data.", error);
+            addToast("Could not connect to the server. Displaying local data.", "info");
+            // Fallback to local data
+            try {
+                const [vehiclesData, usersData] = await Promise.all([
+                    getVehiclesLocal(),
+                    getUsersLocal(),
+                ]);
+                setVehicles(vehiclesData);
+                setUsers(usersData);
+            } catch (localError) {
+                console.error("Failed to load local mock data.", localError);
+                addToast("Fatal: Could not load any application data.", "error");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -737,6 +751,13 @@ const App: React.FC = () => {
   }, [currentView, currentUser]);
   
   const handleHomeSearch = useCallback((query: string) => { setInitialSearchQuery(query); setCurrentView(View.USED_CARS); }, []);
+
+  // FIX: Added handler for onSelectCategory prop for Home component.
+  const handleSelectCategoryFromHome = useCallback((category: VehicleCategory) => {
+    setSelectedCategory(category);
+    navigate(View.USED_CARS);
+  }, [navigate]);
+
   const handleMarkNotificationsAsRead = useCallback((ids: number[]) => { setNotifications(prev => prev.map(n => ids.includes(n.id) ? { ...n, isRead: true } : n)); }, []);
   const handleNotificationClick = useCallback((notification: Notification) => {
     handleMarkNotificationsAsRead([notification.id]);
@@ -816,7 +837,7 @@ const App: React.FC = () => {
       case View.DEALER_PROFILES: return <DealerProfiles sellers={usersWithRatingsAndBadges.filter(u => u.role === 'seller')} onViewProfile={handleViewSellerProfile} />;
       case View.WISHLIST: return <VehicleList vehicles={vehiclesInWishlist} isLoading={isLoading} onSelectVehicle={handleSelectVehicle} comparisonList={comparisonList} onToggleCompare={handleToggleCompare} onClearCompare={handleClearCompare} wishlist={wishlist} onToggleWishlist={handleToggleWishlist} categoryTitle="My Wishlist" isWishlistMode={true} onViewSellerProfile={handleViewSellerProfile} />;
       case View.HOME:
-      default: return <Home onSearch={handleHomeSearch} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
+      default: return <Home onSearch={handleHomeSearch} onSelectCategory={handleSelectCategoryFromHome} featuredVehicles={featuredVehicles} onSelectVehicle={handleSelectVehicle} onToggleCompare={handleToggleCompare} comparisonList={comparisonList} onToggleWishlist={handleToggleWishlist} wishlist={wishlist} onViewSellerProfile={handleViewSellerProfile} recommendations={recommendations} allVehicles={allPublishedVehicles} onNavigate={navigate} />;
     }
   };
   

@@ -1,7 +1,6 @@
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { MOCK_USERS } from '../constants.ts';
-import { MOCK_VEHICLES } from '../constants.ts';
+import { MOCK_USERS, MOCK_VEHICLES } from '../constants';
 
 export default async function handler(
   request: VercelRequest,

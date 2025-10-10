@@ -1,3 +1,4 @@
+
 import { MOCK_VEHICLES } from '../constants';
 import type { Vehicle, User } from '../types';
 
@@ -25,7 +26,7 @@ const handleResponse = async (response: Response) => {
 
 // --- Local Development (localStorage) Functions ---
 
-const getVehiclesLocal = async (): Promise<Vehicle[]> => {
+export const getVehiclesLocal = async (): Promise<Vehicle[]> => {
     let vehiclesJson = localStorage.getItem('reRideVehicles');
     if (!vehiclesJson) {
         localStorage.setItem('reRideVehicles', JSON.stringify(MOCK_VEHICLES));

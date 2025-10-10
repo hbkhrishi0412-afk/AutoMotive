@@ -1,3 +1,4 @@
+
 import { MOCK_USERS } from '../constants';
 import type { User } from '../types';
 
@@ -25,7 +26,7 @@ const handleResponse = async (response: Response) => {
 
 // --- Local Development (localStorage) Functions ---
 
-const getUsersLocal = async (): Promise<User[]> => {
+export const getUsersLocal = async (): Promise<User[]> => {
     let usersJson = localStorage.getItem('reRideUsers');
     if (!usersJson) {
         localStorage.setItem('reRideUsers', JSON.stringify(MOCK_USERS));

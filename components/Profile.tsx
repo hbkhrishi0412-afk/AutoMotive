@@ -4,7 +4,8 @@ import type { User } from '../types';
 interface ProfileProps {
   currentUser: User;
   onUpdateProfile: (details: { name: string; mobile: string }) => void;
-  onUpdatePassword: (passwords: { current: string; new: string }) => boolean;
+  // FIX: Changed onUpdatePassword to return a Promise<boolean> as it's an async function.
+  onUpdatePassword: (passwords: { current: string; new: string }) => Promise<boolean>;
 }
 
 const ProfileInput: React.FC<{ label: string; name: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; type?: string; disabled?: boolean; }> = 
@@ -69,7 +70,8 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
     setIsEditing(false);
   };
 
-  const handlePasswordSave = (e: React.FormEvent) => {
+  // FIX: Made function async and awaited the result of onUpdatePassword.
+  const handlePasswordSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
 
@@ -82,7 +84,7 @@ const Profile: React.FC<ProfileProps> = ({ currentUser, onUpdateProfile, onUpdat
         return;
     }
 
-    const success = onUpdatePassword({ current: passwordData.current, new: passwordData.new });
+    const success = await onUpdatePassword({ current: passwordData.current, new: passwordData.new });
     if (success) {
       setPasswordData({ current: '', new: '', confirm: '' });
     } else {

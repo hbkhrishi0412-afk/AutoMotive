@@ -1,6 +1,6 @@
-import type { Vehicle, User, PlanDetails, FAQItem, SupportTicket } from './types.ts';
-import { VehicleCategory, type SubscriptionPlan } from './types.ts';
-import { VEHICLE_DATA, getPlaceholderImage } from './components/vehicleData.ts';
+import type { Vehicle, User, PlanDetails, FAQItem, SupportTicket } from './types';
+import { VehicleCategory, type SubscriptionPlan } from './types';
+import { VEHICLE_DATA, getPlaceholderImage } from './components/vehicleData';
 
 // Helper to generate past dates
 const daysAgo = (days: number): string => {

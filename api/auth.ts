@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import type { User } from '../types.ts';
+import type { User } from '../types';
 
 export default async function handler(
   req: VercelRequest,

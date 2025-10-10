@@ -1,6 +1,6 @@
 import { sql } from '@vercel/postgres';
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import type { User, Vehicle } from '../types.ts';
+import type { User, Vehicle } from '../types';
 
 // Helper function to get user role for authorization
 async function getUserRole(email: string): Promise<User['role'] | null> {
